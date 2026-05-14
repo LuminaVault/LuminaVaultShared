@@ -1,0 +1,163 @@
+openapi: '3.1.0'
+info:
+  title: LuminaVaultAPI
+  version: 0.2.0
+  description: |
+    Over-the-wire contract for the LuminaVault HTTP API.
+
+    Pilot scope: /spaces only. Other domains remain hand-written in
+    APIDTOs.swift until per-domain migrations occur.
+servers:
+  - url: https://api.example.com
+    description: LuminaVault deployment
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    SpaceDTO:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+    SpaceListResponse:
+      type: object
+      required:
+        - spaces
+      properties:
+        spaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpaceDTO'
+    CreateSpaceRequest:
+      type: object
+      required:
+        - name
+        - slug
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+    UpdateSpaceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+security:
+  - bearerAuth: []
+paths:
+  /v1/spaces:
+    get:
+      operationId: listSpaces
+      summary: List all spaces owned by the authenticated tenant.
+      responses:
+        '200':
+          description: Spaces list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceListResponse'
+    post:
+      operationId: createSpace
+      summary: Create a new space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSpaceRequest'
+      responses:
+        '200':
+          description: Created space
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceDTO'
+  /v1/spaces/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getSpace
+      summary: Fetch a single space by id.
+      responses:
+        '200':
+          description: Space
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceDTO'
+    put:
+      operationId: updateSpace
+      summary: Update a space's metadata.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSpaceRequest'
+      responses:
+        '200':
+          description: Updated space
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceDTO'
+    delete:
+      operationId: deleteSpace
+      summary: Delete a space.
+      responses:
+        '204':
+          description: No content

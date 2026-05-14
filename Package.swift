@@ -5,18 +5,26 @@ import PackageDescription
 
 let package = Package(
     name: "LuminaVaultShared",
+    platforms: [.macOS(.v15), .iOS(.v18), .tvOS(.v18)],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "LuminaVaultShared",
             targets: ["LuminaVaultShared"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-openapi-generator", from: "1.6.0"),
+        .package(url: "https://github.com/apple/swift-openapi-runtime", from: "1.7.0"),
+    ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "LuminaVaultShared"
+            name: "LuminaVaultShared",
+            dependencies: [
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+            ],
+            plugins: [
+                .plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator"),
+            ]
         ),
         .testTarget(
             name: "LuminaVaultSharedTests",

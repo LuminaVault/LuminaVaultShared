@@ -413,50 +413,9 @@ public struct QueryResponse: Codable, Sendable {
 }
 
 // ─── Spaces ──────────────────────────────────────────────────────────────
-
-public struct SpaceDTO: Codable, Sendable {
-    public let id: UUID
-    public let name: String
-    public let slug: String
-    public let description: String?
-    public let color: String?
-    public let icon: String?
-    public let createdAt: Date?
-    public let updatedAt: Date?
-    public init(id: UUID, name: String, slug: String, description: String? = nil, color: String? = nil, icon: String? = nil, createdAt: Date? = nil, updatedAt: Date? = nil) {
-        self.id = id; self.name = name; self.slug = slug; self.description = description
-        self.color = color; self.icon = icon; self.createdAt = createdAt
-        self.updatedAt = updatedAt
-    }
-}
-
-public struct SpaceListResponse: Codable, Sendable {
-    public let spaces: [SpaceDTO]
-    public init(spaces: [SpaceDTO]) { self.spaces = spaces }
-}
-
-public struct CreateSpaceRequest: Codable, Sendable {
-    public let name: String
-    public let slug: String
-    public let description: String?
-    public let color: String?
-    public let icon: String?
-    public init(name: String, slug: String, description: String? = nil, color: String? = nil, icon: String? = nil) {
-        self.name = name; self.slug = slug; self.description = description
-        self.color = color; self.icon = icon
-    }
-}
-
-public struct UpdateSpaceRequest: Codable, Sendable {
-    public let name: String?
-    public let description: String?
-    public let color: String?
-    public let icon: String?
-    public init(name: String? = nil, description: String? = nil, color: String? = nil, icon: String? = nil) {
-        self.name = name; self.description = description; self.color = color
-        self.icon = icon
-    }
-}
+// Moved to OpenAPI spec: see openapi.yaml. Generated types live in
+// `Components.Schemas.SpaceDTO`, `.SpaceListResponse`, `.CreateSpaceRequest`,
+// `.UpdateSpaceRequest`.
 
 // ─── Vault ───────────────────────────────────────────────────────────────
 
