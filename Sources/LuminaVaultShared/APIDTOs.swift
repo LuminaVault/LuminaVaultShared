@@ -749,3 +749,16 @@ public struct HermesConfigTestResponse: Codable, Sendable {
     public let verifiedAt: Date
     public init(verifiedAt: Date) { self.verifiedAt = verifiedAt }
 }
+
+// ─── TTS ─────────────────────────────────────────────────────────────────
+
+/// HER-204 — POST /v1/tts request body. Response is binary `audio/mpeg`,
+/// no DTO needed. `voice` defaults to `"lumina"` server-side when nil.
+public struct TTSRequest: Codable, Sendable {
+    public let text: String
+    public let voice: String?
+    public init(text: String, voice: String? = nil) {
+        self.text = text
+        self.voice = voice
+    }
+}
