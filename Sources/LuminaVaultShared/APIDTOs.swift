@@ -676,3 +676,85 @@ public struct HermesConfigTestResponse: Codable, Sendable {
     public let verifiedAt: Date
     public init(verifiedAt: Date) { self.verifiedAt = verifiedAt }
 }
+
+// ─── Me Today (widget + daily-review aggregator) ─────────────────────────
+
+public struct MeTodayLastMemoryDTO: Codable, Sendable {
+    public let id: UUID
+    public let title: String
+    public let savedAt: Date
+    enum CodingKeys: String, CodingKey {
+        case id, title
+        case savedAt = "saved_at"
+    }
+    public init(id: UUID, title: String, savedAt: Date) {
+        self.id = id; self.title = title; self.savedAt = savedAt
+    }
+}
+
+public struct MeTodayUnlockedAchievementDTO: Codable, Sendable {
+    public let id: String
+    public let title: String
+    public let unlockedAt: Date
+    enum CodingKeys: String, CodingKey {
+        case id, title
+        case unlockedAt = "unlocked_at"
+    }
+    public init(id: String, title: String, unlockedAt: Date) {
+        self.id = id; self.title = title; self.unlockedAt = unlockedAt
+    }
+}
+
+public struct MeTodayHealthSummaryDTO: Codable, Sendable {
+    public let stepsToday: Int?
+    /// ISO-8601 duration (e.g. "PT7H12M") so iOS can hand it to
+    /// `ISO8601DurationFormatter` without server-side calendar math.
+    public let sleepLastNight: String?
+    enum CodingKeys: String, CodingKey {
+        case stepsToday = "steps_today"
+        case sleepLastNight = "sleep_last_night"
+    }
+    public init(stepsToday: Int?, sleepLastNight: String?) {
+        self.stepsToday = stepsToday; self.sleepLastNight = sleepLastNight
+    }
+}
+
+public struct MeTodayResponse: Codable, Sendable {
+    public let todayNudge: String?
+    public let lastMemory: MeTodayLastMemoryDTO?
+    public let openSpacesCount: Int
+    public let unlockedAchievementsToday: [MeTodayUnlockedAchievementDTO]
+    public let healthSummary: MeTodayHealthSummaryDTO?
+    public let tier: String
+    public let trialDaysRemaining: Int?
+    public let generatedAt: Date
+    enum CodingKeys: String, CodingKey {
+        case todayNudge = "today_nudge"
+        case lastMemory = "last_memory"
+        case openSpacesCount = "open_spaces_count"
+        case unlockedAchievementsToday = "unlocked_achievements_today"
+        case healthSummary = "health_summary"
+        case tier
+        case trialDaysRemaining = "trial_days_remaining"
+        case generatedAt = "generated_at"
+    }
+    public init(
+        todayNudge: String?,
+        lastMemory: MeTodayLastMemoryDTO?,
+        openSpacesCount: Int,
+        unlockedAchievementsToday: [MeTodayUnlockedAchievementDTO],
+        healthSummary: MeTodayHealthSummaryDTO?,
+        tier: String,
+        trialDaysRemaining: Int?,
+        generatedAt: Date,
+    ) {
+        self.todayNudge = todayNudge
+        self.lastMemory = lastMemory
+        self.openSpacesCount = openSpacesCount
+        self.unlockedAchievementsToday = unlockedAchievementsToday
+        self.healthSummary = healthSummary
+        self.tier = tier
+        self.trialDaysRemaining = trialDaysRemaining
+        self.generatedAt = generatedAt
+    }
+}
