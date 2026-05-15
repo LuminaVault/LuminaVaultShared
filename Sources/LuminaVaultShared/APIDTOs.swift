@@ -295,6 +295,36 @@ public struct HermesUpstreamResponse: Codable, Sendable {
     }
 }
 
+// ─── Transcribe ──────────────────────────────────────────────────────────
+
+public struct TranscribeSegment: Codable, Sendable {
+    public let start: Double
+    public let end: Double
+    public let text: String
+    public init(start: Double, end: Double, text: String) {
+        self.start = start; self.end = end; self.text = text
+    }
+}
+
+public struct TranscribeResponse: Codable, Sendable {
+    public let id: String
+    public let text: String
+    public let language: String
+    public let confidence: Double
+    public let durationSeconds: Double
+    public let segments: [TranscribeSegment]?
+    enum CodingKeys: String, CodingKey {
+        case id, text, language, confidence
+        case durationSeconds = "duration_seconds"
+        case segments
+    }
+    public init(id: String, text: String, language: String, confidence: Double, durationSeconds: Double, segments: [TranscribeSegment]? = nil) {
+        self.id = id; self.text = text; self.language = language
+        self.confidence = confidence; self.durationSeconds = durationSeconds
+        self.segments = segments
+    }
+}
+
 // ─── Memory ──────────────────────────────────────────────────────────────
 
 public struct MemoryUpsertResponse: Codable, Sendable {
