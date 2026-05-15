@@ -652,6 +652,49 @@ public struct HealthIngestResponse: Codable, Sendable {
     }
 }
 
+// ─── Health Read (HER-202) ──────────────────────────────────────────────
+
+public struct HealthEventDTO: Codable, Sendable {
+    public let id: UUID
+    public let type: String
+    public let recordedAt: Date
+    public let valueNumeric: Double?
+    public let valueText: String?
+    public let unit: String?
+    public let source: String?
+    public let metadata: [String: String]?
+    public init(
+        id: UUID,
+        type: String,
+        recordedAt: Date,
+        valueNumeric: Double? = nil,
+        valueText: String? = nil,
+        unit: String? = nil,
+        source: String? = nil,
+        metadata: [String: String]? = nil,
+    ) {
+        self.id = id
+        self.type = type
+        self.recordedAt = recordedAt
+        self.valueNumeric = valueNumeric
+        self.valueText = valueText
+        self.unit = unit
+        self.source = source
+        self.metadata = metadata
+    }
+}
+
+public struct HealthListResponse: Codable, Sendable {
+    public let events: [HealthEventDTO]
+    public let limit: Int
+    public let offset: Int
+    public init(events: [HealthEventDTO], limit: Int, offset: Int) {
+        self.events = events
+        self.limit = limit
+        self.offset = offset
+    }
+}
+
 // ─── Hermes Config ───────────────────────────────────────────────────────
 
 public struct HermesConfigGetResponse: Codable, Sendable {
