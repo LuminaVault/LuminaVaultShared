@@ -368,8 +368,48 @@ public struct MemoryDTO: Codable, Sendable {
     public let content: String
     public let tags: [String]
     public let createdAt: Date?
-    public init(id: UUID, content: String, tags: [String], createdAt: Date? = nil) {
+    /// HER-207 — optional geo anchor. All four are nil for memories captured
+    /// without location (default), set together when the client supplies a
+    /// MapKit reverse-geocoded coordinate. `accuracyM` is the radius of
+    /// the GPS fix in metres; `placeName` is the human label.
+    public let lat: Double?
+    public let lng: Double?
+    public let accuracyM: Double?
+    public let placeName: String?
+    public init(
+        id: UUID,
+        content: String,
+        tags: [String],
+        createdAt: Date? = nil,
+        lat: Double? = nil,
+        lng: Double? = nil,
+        accuracyM: Double? = nil,
+        placeName: String? = nil,
+    ) {
         self.id = id; self.content = content; self.tags = tags; self.createdAt = createdAt
+        self.lat = lat; self.lng = lng; self.accuracyM = accuracyM; self.placeName = placeName
+    }
+}
+
+/// HER-207 — POST `/v1/memory/upsert` body. `content` is required; the four
+/// geo fields are independently optional but the iOS client SHOULD send
+/// either all four or none. Server persists exactly what is supplied; a
+/// memory created without geo can never be backfilled.
+public struct MemoryUpsertRequest: Codable, Sendable {
+    public let content: String
+    public let lat: Double?
+    public let lng: Double?
+    public let accuracyM: Double?
+    public let placeName: String?
+    public init(
+        content: String,
+        lat: Double? = nil,
+        lng: Double? = nil,
+        accuracyM: Double? = nil,
+        placeName: String? = nil,
+    ) {
+        self.content = content
+        self.lat = lat; self.lng = lng; self.accuracyM = accuracyM; self.placeName = placeName
     }
 }
 
