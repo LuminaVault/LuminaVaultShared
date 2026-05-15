@@ -676,3 +676,22 @@ public struct HermesConfigTestResponse: Codable, Sendable {
     public let verifiedAt: Date
     public init(verifiedAt: Date) { self.verifiedAt = verifiedAt }
 }
+
+// ─── Vision Embed ────────────────────────────────────────────────────────
+
+public struct VisionEmbedResponse: Codable, Sendable {
+    public let embedding: [Float]
+    public let dim: Int
+    public let model: String
+    public let sourceWidth: Int
+    public let sourceHeight: Int
+    enum CodingKeys: String, CodingKey {
+        case embedding, dim, model
+        case sourceWidth = "source_width"
+        case sourceHeight = "source_height"
+    }
+    public init(embedding: [Float], dim: Int, model: String, sourceWidth: Int, sourceHeight: Int) {
+        self.embedding = embedding; self.dim = dim; self.model = model
+        self.sourceWidth = sourceWidth; self.sourceHeight = sourceHeight
+    }
+}
