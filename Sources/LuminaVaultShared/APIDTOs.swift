@@ -42,10 +42,14 @@ public struct AuthResponse: Codable {
     public let expiresIn: Int
     public let mfaRequired: Bool?
     public let mfaChallengeId: UUID?
-    public init(userId: UUID, email: String, accessToken: String, refreshToken: String, expiresIn: Int, mfaRequired: Bool?, mfaChallengeId: UUID?) {
+    /// True once the tenant has run `POST /v1/vault/create`. Clients gate the
+    /// "Create My Vault" screen on this value being false.
+    public let vaultInitialized: Bool
+    public init(userId: UUID, email: String, accessToken: String, refreshToken: String, expiresIn: Int, mfaRequired: Bool?, mfaChallengeId: UUID?, vaultInitialized: Bool = false) {
         self.userId = userId; self.email = email; self.accessToken = accessToken
         self.refreshToken = refreshToken; self.expiresIn = expiresIn
         self.mfaRequired = mfaRequired; self.mfaChallengeId = mfaChallengeId
+        self.vaultInitialized = vaultInitialized
     }
 }
 
@@ -476,12 +480,20 @@ public struct SpaceDTO: Codable, Sendable {
     public let description: String?
     public let color: String?
     public let icon: String?
+    /// Free-form bucket label (e.g. "ai", "stocks", "health") rendered as a
+    /// segmented control on the client. Null for un-categorised spaces.
+    public let category: String?
+    /// Denormalized memo count, updated on ingest. Default 0.
+    public let noteCount: Int
+    /// Timestamp of last KB compile that included this space; null if never.
+    public let lastCompiledAt: Date?
     public let createdAt: Date?
     public let updatedAt: Date?
-    public init(id: UUID, name: String, slug: String, description: String? = nil, color: String? = nil, icon: String? = nil, createdAt: Date? = nil, updatedAt: Date? = nil) {
+    public init(id: UUID, name: String, slug: String, description: String? = nil, color: String? = nil, icon: String? = nil, category: String? = nil, noteCount: Int = 0, lastCompiledAt: Date? = nil, createdAt: Date? = nil, updatedAt: Date? = nil) {
         self.id = id; self.name = name; self.slug = slug; self.description = description
-        self.color = color; self.icon = icon; self.createdAt = createdAt
-        self.updatedAt = updatedAt
+        self.color = color; self.icon = icon; self.category = category
+        self.noteCount = noteCount; self.lastCompiledAt = lastCompiledAt
+        self.createdAt = createdAt; self.updatedAt = updatedAt
     }
 }
 
@@ -496,9 +508,10 @@ public struct CreateSpaceRequest: Codable, Sendable {
     public let description: String?
     public let color: String?
     public let icon: String?
-    public init(name: String, slug: String, description: String? = nil, color: String? = nil, icon: String? = nil) {
+    public let category: String?
+    public init(name: String, slug: String, description: String? = nil, color: String? = nil, icon: String? = nil, category: String? = nil) {
         self.name = name; self.slug = slug; self.description = description
-        self.color = color; self.icon = icon
+        self.color = color; self.icon = icon; self.category = category
     }
 }
 
@@ -507,13 +520,34 @@ public struct UpdateSpaceRequest: Codable, Sendable {
     public let description: String?
     public let color: String?
     public let icon: String?
-    public init(name: String? = nil, description: String? = nil, color: String? = nil, icon: String? = nil) {
+    public let category: String?
+    public init(name: String? = nil, description: String? = nil, color: String? = nil, icon: String? = nil, category: String? = nil) {
         self.name = name; self.description = description; self.color = color
-        self.icon = icon
+        self.icon = icon; self.category = category
     }
 }
 
 // ─── Vault ───────────────────────────────────────────────────────────────
+
+/// `POST /v1/vault/create` carries no fields; defined as an empty marker
+/// struct so client API layers retain a typed Encodable for the endpoint.
+public struct VaultCreateRequest: Codable, Sendable {
+    public init() {}
+}
+
+/// Returned by both `POST /v1/vault/create` (idempotent) and
+/// `GET /v1/vault/status`. `defaultSpaceSlugs` lists the seeded Space slugs
+/// created during the first successful vault bootstrap.
+public struct VaultStatusResponse: Codable, Sendable {
+    public let initialized: Bool
+    public let createdAt: Date?
+    public let defaultSpaceSlugs: [String]
+    public init(initialized: Bool, createdAt: Date? = nil, defaultSpaceSlugs: [String] = []) {
+        self.initialized = initialized
+        self.createdAt = createdAt
+        self.defaultSpaceSlugs = defaultSpaceSlugs
+    }
+}
 
 public struct VaultUploadResponse: Codable, Sendable {
     public let path: String
