@@ -118,6 +118,11 @@ public struct UpdatePrivacyRequest: Codable {
 
 // ─── Phone Auth ──────────────────────────────────────────────────────────
 
+public struct PhoneStartRequest: Codable, Sendable {
+    public let phone: String
+    public init(phone: String) { self.phone = phone }
+}
+
 public struct PhoneStartResponse: Codable {
     public let challengeId: UUID
     public let expiresAt: Date
@@ -190,6 +195,10 @@ public enum AnyJSONValue: Codable, Equatable, Sendable {
 }
 
 public typealias AnyCodableDict = [String: AnyJSONValue]
+
+public struct EmptyResponse: Codable, Sendable {
+    public init() {}
+}
 
 public struct ChatMessage: Codable, Sendable {
     public let role: String
