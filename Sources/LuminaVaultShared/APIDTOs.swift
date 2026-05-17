@@ -631,36 +631,27 @@ public struct OnboardingStateDTO: Codable, Sendable {
 
 // ─── KB Compile ──────────────────────────────────────────────────────────
 
-public struct KBCompileFile: Codable, Sendable {
-    public let path: String
-    public let content: String
-    public init(path: String, content: String) {
-        self.path = path; self.content = content
-    }
-}
-
-public struct KBCompileWrittenFile: Codable, Sendable {
-    public let path: String
-    public let size: Int
-    public init(path: String, size: Int) {
-        self.path = path; self.size = size
-    }
-}
-
-public struct KBCompileMemoryRef: Codable, Sendable {
-    public let id: UUID
-    public let content: String
-    public init(id: UUID, content: String) {
-        self.id = id; self.content = content
+/// Triggers a kb-compile run over the caller's vault. Three modes:
+/// - `vaultFileIds == nil` (default) → server compiles all rows where `processedAt` is null.
+/// - `vaultFileIds == [ids]` → server compiles exactly those rows (tenant-scoped).
+/// - `forceFullRecompile == true` → server compiles every row for the tenant, ignoring `processedAt`.
+public struct KBCompileRequest: Codable, Sendable {
+    public let vaultFileIds: [UUID]?
+    public let forceFullRecompile: Bool
+    public init(vaultFileIds: [UUID]? = nil, forceFullRecompile: Bool = false) {
+        self.vaultFileIds = vaultFileIds
+        self.forceFullRecompile = forceFullRecompile
     }
 }
 
 public struct KBCompileResponse: Codable, Sendable {
-    public let writtenFiles: [KBCompileWrittenFile]
-    public let memories: [KBCompileMemoryRef]
-    public let summary: String
-    public init(writtenFiles: [KBCompileWrittenFile], memories: [KBCompileMemoryRef], summary: String) {
-        self.writtenFiles = writtenFiles; self.memories = memories; self.summary = summary
+    public let memoriesIngested: Int
+    public let memoriesUpdated: Int?
+    public let durationMs: Int?
+    public init(memoriesIngested: Int, memoriesUpdated: Int? = nil, durationMs: Int? = nil) {
+        self.memoriesIngested = memoriesIngested
+        self.memoriesUpdated = memoriesUpdated
+        self.durationMs = durationMs
     }
 }
 
