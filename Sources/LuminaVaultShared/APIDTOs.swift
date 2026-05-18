@@ -756,3 +756,94 @@ public struct HermesConfigTestResponse: Codable, Sendable {
     public let verifiedAt: Date
     public init(verifiedAt: Date) { self.verifiedAt = verifiedAt }
 }
+
+// ─── Dashboard (HER-244 — OS Shell Home) ────────────────────────────────
+
+public enum TaskState: String, Codable, Sendable, CaseIterable {
+    case running
+    case queued
+    case completed
+    case failed
+}
+
+public struct TaskDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let kind: String
+    public let label: String
+    public let state: TaskState
+    public let progress: Double?
+    public let startedAt: Date?
+    public let elapsedSeconds: Int?
+    public let error: String?
+    public init(
+        id: UUID,
+        kind: String,
+        label: String,
+        state: TaskState,
+        progress: Double? = nil,
+        startedAt: Date? = nil,
+        elapsedSeconds: Int? = nil,
+        error: String? = nil
+    ) {
+        self.id = id; self.kind = kind; self.label = label; self.state = state
+        self.progress = progress; self.startedAt = startedAt
+        self.elapsedSeconds = elapsedSeconds; self.error = error
+    }
+}
+
+public struct TaskListResponse: Codable, Sendable {
+    public let tasks: [TaskDTO]
+    public let nextCursor: String?
+    public init(tasks: [TaskDTO], nextCursor: String? = nil) {
+        self.tasks = tasks; self.nextCursor = nextCursor
+    }
+}
+
+public enum InsightSection: String, Codable, Sendable, CaseIterable {
+    case thisWeek = "this_week"
+    case patterns
+    case contradictions
+    case connections
+}
+
+public struct InsightDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let headline: String
+    public let summary: String
+    public let section: InsightSection
+    public let createdAt: Date
+    public let sourceMemoryIDs: [UUID]
+    public let dismissed: Bool
+    public init(
+        id: UUID,
+        headline: String,
+        summary: String,
+        section: InsightSection,
+        createdAt: Date,
+        sourceMemoryIDs: [UUID] = [],
+        dismissed: Bool = false
+    ) {
+        self.id = id; self.headline = headline; self.summary = summary
+        self.section = section; self.createdAt = createdAt
+        self.sourceMemoryIDs = sourceMemoryIDs; self.dismissed = dismissed
+    }
+}
+
+public struct InsightListResponse: Codable, Sendable {
+    public let insights: [InsightDTO]
+    public let nextCursor: String?
+    public init(insights: [InsightDTO], nextCursor: String? = nil) {
+        self.insights = insights; self.nextCursor = nextCursor
+    }
+}
+
+public struct DashboardStatsResponse: Codable, Sendable {
+    public let memoriesToday: Int
+    public let memoriesTotal: Int
+    public let lastCompileAt: Date?
+    public init(memoriesToday: Int, memoriesTotal: Int, lastCompileAt: Date? = nil) {
+        self.memoriesToday = memoriesToday
+        self.memoriesTotal = memoriesTotal
+        self.lastCompileAt = lastCompileAt
+    }
+}
