@@ -810,3 +810,42 @@ public struct HermesConfigTestResponse: Codable, Sendable {
     public let verifiedAt: Date
     public init(verifiedAt: Date) { self.verifiedAt = verifiedAt }
 }
+
+// ─── HER-240a — xAI Grok OAuth Integration ───────────────────────────────
+
+/// GET /v1/integrations/xai — current state of the tenant's xAI Grok OAuth
+/// connection. `tier` mirrors `MeResponse` once that DTO is extended.
+public struct XaiStatusResponse: Codable, Sendable {
+    public let connected: Bool
+    public let tier: String
+    public let xaiConnectedAt: Date?
+    public init(connected: Bool, tier: String, xaiConnectedAt: Date?) {
+        self.connected = connected
+        self.tier = tier
+        self.xaiConnectedAt = xaiConnectedAt
+    }
+}
+
+/// POST /v1/integrations/xai/start — the server returns an `authorizeURL`
+/// the iOS client opens in a `WKWebView`. The opaque `sessionID` is echoed
+/// back in `complete`. Server-side TTL is 10 minutes.
+public struct XaiStartResponse: Codable, Sendable {
+    public let sessionID: String
+    public let authorizeURL: String
+    public init(sessionID: String, authorizeURL: String) {
+        self.sessionID = sessionID
+        self.authorizeURL = authorizeURL
+    }
+}
+
+/// POST /v1/integrations/xai/complete — iOS posts the full callback URL it
+/// captured from `WKWebView.decidePolicyFor` (host `127.0.0.1`, port `56121`,
+/// path `/callback`, query `?code=…&state=…`).
+public struct XaiCompleteRequest: Codable, Sendable {
+    public let sessionID: String
+    public let callbackURL: String
+    public init(sessionID: String, callbackURL: String) {
+        self.sessionID = sessionID
+        self.callbackURL = callbackURL
+    }
+}
