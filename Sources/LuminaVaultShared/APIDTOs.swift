@@ -487,6 +487,18 @@ public struct MemoryGraphResponse: Codable, Sendable {
 
 // ─── Memo ────────────────────────────────────────────────────────────────
 
+/// Request body for `POST /v1/memos`. The server runs the memo-generator
+/// agent over the caller's vault, optionally persisting the result as a
+/// markdown file under `memos/` when `save == true`.
+public struct MemoRequest: Codable, Sendable {
+    public let topic: String
+    public let hint: String?
+    public let save: Bool?
+    public init(topic: String, hint: String? = nil, save: Bool? = nil) {
+        self.topic = topic; self.hint = hint; self.save = save
+    }
+}
+
 public struct MemoResponse: Codable, Sendable {
     public let memo: String
     public let path: String?
@@ -498,7 +510,37 @@ public struct MemoResponse: Codable, Sendable {
     }
 }
 
+/// Item shape for "Lumina's Notebook" memo list view.
+public struct MemoSummaryDTO: Codable, Sendable {
+    public let id: UUID
+    public let title: String
+    public let path: String
+    public let createdAt: Date
+    public let summary: String?
+    public init(id: UUID, title: String, path: String, createdAt: Date, summary: String? = nil) {
+        self.id = id; self.title = title; self.path = path
+        self.createdAt = createdAt; self.summary = summary
+    }
+}
+
+/// Response body for `GET /v1/memos`. Wraps the array so pagination fields
+/// can be added later without breaking the wire shape.
+public struct MemoListResponse: Codable, Sendable {
+    public let memos: [MemoSummaryDTO]
+    public init(memos: [MemoSummaryDTO]) { self.memos = memos }
+}
+
 // ─── Query ───────────────────────────────────────────────────────────────
+
+/// Request body for `POST /v1/query` — natural-language semantic query
+/// over the caller's vault memories.
+public struct QueryRequest: Codable, Sendable {
+    public let query: String
+    public let limit: Int?
+    public init(query: String, limit: Int? = nil) {
+        self.query = query; self.limit = limit
+    }
+}
 
 public struct QueryHitDTO: Codable, Sendable {
     public let id: UUID
@@ -778,6 +820,18 @@ public struct HealthIngestResponse: Codable, Sendable {
     public init(inserted: Int, skipped: Int, events: [HealthIngestedRef]) {
         self.inserted = inserted; self.skipped = skipped; self.events = events
     }
+}
+
+// ─── Suggestions ─────────────────────────────────────────────────────────
+
+/// Response body for `GET /v1/me/suggestions` — context-aware natural-language
+/// query suggestions surfaced above the "Ask Lumina" input bar.
+///
+/// Scaffold returns a static list; future iterations will derive suggestions
+/// from recent compiles, active Spaces, and SOUL.md tone.
+public struct SuggestionsResponse: Codable, Sendable {
+    public let suggestions: [String]
+    public init(suggestions: [String]) { self.suggestions = suggestions }
 }
 
 // ─── Hermes Config ───────────────────────────────────────────────────────
