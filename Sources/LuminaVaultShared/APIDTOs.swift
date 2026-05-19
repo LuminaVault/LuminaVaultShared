@@ -437,6 +437,54 @@ public struct MemoryLineageResponse: Codable, Sendable {
     }
 }
 
+// ─── Memory Graph (HER-235) ──────────────────────────────────────────────
+//
+// Read-only derived graph view of a tenant's memories. Nodes are memories;
+// edges are derived on read from shared tags + pgvector cosine similarity.
+// No edges are persisted server-side in v1.
+
+public struct MemoryGraphNodeDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let title: String
+    public let tags: [String]
+    public let createdAt: Date
+    public let score: Double
+    public init(id: UUID, title: String, tags: [String], createdAt: Date, score: Double) {
+        self.id = id; self.title = title; self.tags = tags
+        self.createdAt = createdAt; self.score = score
+    }
+}
+
+public enum MemoryEdgeKindDTO: String, Codable, Sendable {
+    case tag
+    case semantic
+}
+
+public struct MemoryGraphEdgeDTO: Codable, Sendable {
+    public let from: UUID
+    public let to: UUID
+    public let kind: MemoryEdgeKindDTO
+    /// Populated when `kind == .tag`: the shared tag that produced the edge.
+    public let tag: String?
+    /// Populated when `kind == .semantic`: cosine similarity in `[0, 1]`.
+    public let similarity: Double?
+    /// Normalised edge strength in `[0, 1]` used for visual alpha/thickness.
+    public let weight: Double
+    public init(from: UUID, to: UUID, kind: MemoryEdgeKindDTO, tag: String?, similarity: Double?, weight: Double) {
+        self.from = from; self.to = to; self.kind = kind
+        self.tag = tag; self.similarity = similarity; self.weight = weight
+    }
+}
+
+public struct MemoryGraphResponse: Codable, Sendable {
+    public let nodes: [MemoryGraphNodeDTO]
+    public let edges: [MemoryGraphEdgeDTO]
+    public let generatedAt: Date
+    public init(nodes: [MemoryGraphNodeDTO], edges: [MemoryGraphEdgeDTO], generatedAt: Date) {
+        self.nodes = nodes; self.edges = edges; self.generatedAt = generatedAt
+    }
+}
+
 // ─── Memo ────────────────────────────────────────────────────────────────
 
 public struct MemoResponse: Codable, Sendable {
