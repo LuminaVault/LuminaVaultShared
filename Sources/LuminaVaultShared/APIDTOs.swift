@@ -542,7 +542,7 @@ public struct QueryRequest: Codable, Sendable {
     }
 }
 
-public struct QueryHitDTO: Codable, Sendable {
+public struct QueryHitDTO: Codable, Sendable, Equatable {
     public let id: UUID
     public let content: String
     public let distance: Float
@@ -556,8 +556,162 @@ public struct QueryHitDTO: Codable, Sendable {
 public struct QueryResponse: Codable, Sendable {
     public let summary: String
     public let hits: [QueryHitDTO]
-    public init(summary: String, hits: [QueryHitDTO]) {
-        self.summary = summary; self.hits = hits
+    /// Server-generated follow-up prompts derived from the response context.
+    /// Optional for backward compatibility with pre-HER-37 streaming clients.
+    public let followUps: [String]?
+    public init(summary: String, hits: [QueryHitDTO], followUps: [String]? = nil) {
+        self.summary = summary; self.hits = hits; self.followUps = followUps
+    }
+}
+
+/// Discriminated-union event emitted on `POST /v1/query/stream` and
+/// `POST /v1/conversations/:id/messages/stream` Server-Sent-Event streams.
+///
+/// Wire shape: each SSE `data:` line carries a JSON object of form
+/// `{ "type": "<case>", "payload": <case-specific> }`. Cases without a
+/// payload (`done`) omit the `payload` key.
+public enum QueryStreamEvent: Codable, Sendable, Equatable {
+    /// Retrieved memory hit. Emitted up-front, once per top-N source.
+    case source(QueryHitDTO)
+    /// Incremental token delta from the LLM. Concatenate in order.
+    case token(String)
+    /// Final summary string (sent after all tokens). Optional — clients may
+    /// reconstruct from concatenated tokens instead.
+    case summary(String)
+    /// Server-generated follow-up chips. Emitted after `done` or just before.
+    case followUps([String])
+    /// Stream terminator.
+    case done
+    /// Stream-level error. Client should surface and abort.
+    case error(String)
+
+    private enum CodingKeys: String, CodingKey { case type, payload }
+    private enum EventType: String, Codable {
+        case source, token, summary
+        case followUps = "follow_ups"
+        case done, error
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try c.decode(EventType.self, forKey: .type)
+        switch type {
+        case .source: self = .source(try c.decode(QueryHitDTO.self, forKey: .payload))
+        case .token: self = .token(try c.decode(String.self, forKey: .payload))
+        case .summary: self = .summary(try c.decode(String.self, forKey: .payload))
+        case .followUps: self = .followUps(try c.decode([String].self, forKey: .payload))
+        case .done: self = .done
+        case .error: self = .error(try c.decode(String.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .source(let h):
+            try c.encode(EventType.source, forKey: .type)
+            try c.encode(h, forKey: .payload)
+        case .token(let s):
+            try c.encode(EventType.token, forKey: .type)
+            try c.encode(s, forKey: .payload)
+        case .summary(let s):
+            try c.encode(EventType.summary, forKey: .type)
+            try c.encode(s, forKey: .payload)
+        case .followUps(let arr):
+            try c.encode(EventType.followUps, forKey: .type)
+            try c.encode(arr, forKey: .payload)
+        case .done:
+            try c.encode(EventType.done, forKey: .type)
+        case .error(let s):
+            try c.encode(EventType.error, forKey: .type)
+            try c.encode(s, forKey: .payload)
+        }
+    }
+}
+
+// ─── Conversations ───────────────────────────────────────────────────────
+
+/// Role of an individual turn within a persisted Conversation.
+public enum ConversationMessageRole: String, Codable, Sendable, CaseIterable {
+    case user
+    case assistant
+    case system
+}
+
+/// A persisted multi-turn chat thread. Backs the "thinking workspace"
+/// continuity surface on the Think tab.
+public struct ConversationDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let title: String
+    /// Optional Space this conversation is scoped to.
+    public let spaceId: UUID?
+    public let createdAt: Date
+    public let updatedAt: Date
+    public init(id: UUID, title: String, spaceId: UUID? = nil, createdAt: Date, updatedAt: Date) {
+        self.id = id; self.title = title; self.spaceId = spaceId
+        self.createdAt = createdAt; self.updatedAt = updatedAt
+    }
+}
+
+/// A single persisted turn within a Conversation. Distinct from the
+/// transient `ChatMessage` used on the Hermes upstream wire — this type
+/// is the durable, source-grounded record.
+public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let conversationId: UUID
+    public let role: ConversationMessageRole
+    public let content: String
+    /// Memory IDs the assistant cited when producing this turn. Empty for
+    /// user/system turns.
+    public let sourceMemoryIDs: [UUID]
+    public let createdAt: Date
+    public init(
+        id: UUID,
+        conversationId: UUID,
+        role: ConversationMessageRole,
+        content: String,
+        sourceMemoryIDs: [UUID] = [],
+        createdAt: Date
+    ) {
+        self.id = id; self.conversationId = conversationId; self.role = role
+        self.content = content; self.sourceMemoryIDs = sourceMemoryIDs
+        self.createdAt = createdAt
+    }
+}
+
+/// Request body for `POST /v1/conversations`.
+public struct ConversationCreateRequest: Codable, Sendable {
+    public let title: String?
+    public let spaceId: UUID?
+    public init(title: String? = nil, spaceId: UUID? = nil) {
+        self.title = title; self.spaceId = spaceId
+    }
+}
+
+/// Response body for `GET /v1/conversations`.
+public struct ConversationListResponse: Codable, Sendable {
+    public let conversations: [ConversationDTO]
+    public let nextCursor: String?
+    public init(conversations: [ConversationDTO], nextCursor: String? = nil) {
+        self.conversations = conversations; self.nextCursor = nextCursor
+    }
+}
+
+/// Response body for `GET /v1/conversations/:id`.
+public struct ConversationDetailResponse: Codable, Sendable {
+    public let conversation: ConversationDTO
+    public let messages: [ConversationMessageDTO]
+    public init(conversation: ConversationDTO, messages: [ConversationMessageDTO]) {
+        self.conversation = conversation; self.messages = messages
+    }
+}
+
+/// Request body for `POST /v1/conversations/:id/messages/stream`. The
+/// response is an SSE stream of `QueryStreamEvent`.
+public struct MessageStreamRequest: Codable, Sendable {
+    public let content: String
+    public init(content: String) {
+        self.content = content
     }
 }
 
@@ -903,6 +1057,7 @@ public struct TaskListResponse: Codable, Sendable {
 
 public enum InsightSection: String, Codable, Sendable, CaseIterable {
     case thisWeek = "this_week"
+    case thisMonth = "this_month"
     case patterns
     case contradictions
     case connections
@@ -916,6 +1071,11 @@ public struct InsightDTO: Codable, Sendable, Identifiable {
     public let createdAt: Date
     public let sourceMemoryIDs: [UUID]
     public let dismissed: Bool
+    /// Inclusive start of the analytical period this insight covers. Set for
+    /// `thisWeek`/`thisMonth` synthesis rows; nil for pattern-style insights.
+    public let periodStart: Date?
+    /// Inclusive end of the analytical period. See `periodStart`.
+    public let periodEnd: Date?
     public init(
         id: UUID,
         headline: String,
@@ -923,11 +1083,14 @@ public struct InsightDTO: Codable, Sendable, Identifiable {
         section: InsightSection,
         createdAt: Date,
         sourceMemoryIDs: [UUID] = [],
-        dismissed: Bool = false
+        dismissed: Bool = false,
+        periodStart: Date? = nil,
+        periodEnd: Date? = nil
     ) {
         self.id = id; self.headline = headline; self.summary = summary
         self.section = section; self.createdAt = createdAt
         self.sourceMemoryIDs = sourceMemoryIDs; self.dismissed = dismissed
+        self.periodStart = periodStart; self.periodEnd = periodEnd
     }
 }
 
