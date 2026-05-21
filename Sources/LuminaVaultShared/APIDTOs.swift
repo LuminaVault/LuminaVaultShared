@@ -949,3 +949,234 @@ public struct DashboardStatsResponse: Codable, Sendable {
         self.lastCompileAt = lastCompileAt
     }
 }
+
+// ─── Skills (HER-247 / HER-178) ───────────────────────────────────────────
+
+public enum SkillSource: String, Codable, Sendable, CaseIterable {
+    case builtin
+    case vault
+}
+
+public enum SkillRunStatus: String, Codable, Sendable, CaseIterable {
+    case pending
+    case running
+    case success
+    case error
+}
+
+public enum SkillCapability: String, Codable, Sendable, CaseIterable {
+    case low
+    case medium
+    case high
+}
+
+public struct SkillDTO: Codable, Sendable, Identifiable {
+    public let id: String
+    public let source: SkillSource
+    public let name: String
+    public let title: String
+    public let descriptionText: String
+    public let capability: SkillCapability
+    public let schedule: String?
+    public let scheduleOverride: String?
+    public let enabled: Bool
+    public let lastRunAt: Date?
+    public let lastStatus: SkillRunStatus?
+    public let lastError: String?
+    public let dailyRunCount: Int
+    public let dailyRunCap: Int
+    public let apnsCategory: APNSCategory?
+    public let bodyExcerpt: String
+
+    public init(
+        id: String,
+        source: SkillSource,
+        name: String,
+        title: String,
+        descriptionText: String,
+        capability: SkillCapability,
+        schedule: String? = nil,
+        scheduleOverride: String? = nil,
+        enabled: Bool,
+        lastRunAt: Date? = nil,
+        lastStatus: SkillRunStatus? = nil,
+        lastError: String? = nil,
+        dailyRunCount: Int = 0,
+        dailyRunCap: Int = 0,
+        apnsCategory: APNSCategory? = nil,
+        bodyExcerpt: String
+    ) {
+        self.id = id
+        self.source = source
+        self.name = name
+        self.title = title
+        self.descriptionText = descriptionText
+        self.capability = capability
+        self.schedule = schedule
+        self.scheduleOverride = scheduleOverride
+        self.enabled = enabled
+        self.lastRunAt = lastRunAt
+        self.lastStatus = lastStatus
+        self.lastError = lastError
+        self.dailyRunCount = dailyRunCount
+        self.dailyRunCap = dailyRunCap
+        self.apnsCategory = apnsCategory
+        self.bodyExcerpt = bodyExcerpt
+    }
+}
+
+public struct SkillListResponse: Codable, Sendable {
+    public let skills: [SkillDTO]
+    public init(skills: [SkillDTO]) { self.skills = skills }
+}
+
+public struct SkillRunDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let startedAt: Date
+    public let endedAt: Date?
+    public let status: SkillRunStatus
+    public let error: String?
+    public let modelUsed: String?
+    public let mtokIn: Int?
+    public let mtokOut: Int?
+
+    public init(
+        id: UUID,
+        startedAt: Date,
+        endedAt: Date? = nil,
+        status: SkillRunStatus,
+        error: String? = nil,
+        modelUsed: String? = nil,
+        mtokIn: Int? = nil,
+        mtokOut: Int? = nil
+    ) {
+        self.id = id
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.status = status
+        self.error = error
+        self.modelUsed = modelUsed
+        self.mtokIn = mtokIn
+        self.mtokOut = mtokOut
+    }
+}
+
+public struct SkillSparklinePoint: Codable, Sendable {
+    public let day: Date
+    public let count: Int
+    public init(day: Date, count: Int) {
+        self.day = day; self.count = count
+    }
+}
+
+public struct SkillRunsResponse: Codable, Sendable {
+    public let runs: [SkillRunDTO]
+    public let sparkline: [SkillSparklinePoint]
+    public let nextCursor: String?
+    public init(runs: [SkillRunDTO], sparkline: [SkillSparklinePoint], nextCursor: String? = nil) {
+        self.runs = runs; self.sparkline = sparkline; self.nextCursor = nextCursor
+    }
+}
+
+public struct SkillPatchRequest: Codable, Sendable {
+    public let enabled: Bool?
+    public let scheduleOverride: String?
+    public let apnsCategory: APNSCategory?
+    public init(enabled: Bool? = nil, scheduleOverride: String? = nil, apnsCategory: APNSCategory? = nil) {
+        self.enabled = enabled
+        self.scheduleOverride = scheduleOverride
+        self.apnsCategory = apnsCategory
+    }
+}
+
+// ─── Skill Outputs / Today feed (HER-177) ─────────────────────────────────
+
+public enum SkillOutputKind: String, Codable, Sendable, CaseIterable {
+    case dailyBrief = "daily_brief"
+    case weeklyMemo = "weekly_memo"
+    case correlationInsight = "correlation_insight"
+    case captureEnriched = "capture_enriched"
+    case patternFinding = "pattern_finding"
+    case contradictionFinding = "contradiction_finding"
+    case generic
+}
+
+public struct SkillOutputDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let skillName: String
+    public let source: SkillSource
+    public let kind: SkillOutputKind
+    public let headline: String
+    public let body: String
+    public let createdAt: Date
+    public let memoryID: UUID?
+    public let memoID: UUID?
+    public let vaultFilePath: String?
+
+    public init(
+        id: UUID,
+        skillName: String,
+        source: SkillSource,
+        kind: SkillOutputKind,
+        headline: String,
+        body: String,
+        createdAt: Date,
+        memoryID: UUID? = nil,
+        memoID: UUID? = nil,
+        vaultFilePath: String? = nil
+    ) {
+        self.id = id
+        self.skillName = skillName
+        self.source = source
+        self.kind = kind
+        self.headline = headline
+        self.body = body
+        self.createdAt = createdAt
+        self.memoryID = memoryID
+        self.memoID = memoID
+        self.vaultFilePath = vaultFilePath
+    }
+}
+
+public struct SkillOutputListResponse: Codable, Sendable {
+    public let outputs: [SkillOutputDTO]
+    public let streakDays: Int
+    public let activeRun: Bool
+    public let nextCursor: String?
+    public init(outputs: [SkillOutputDTO], streakDays: Int, activeRun: Bool, nextCursor: String? = nil) {
+        self.outputs = outputs
+        self.streakDays = streakDays
+        self.activeRun = activeRun
+        self.nextCursor = nextCursor
+    }
+}
+
+// ─── APNS category prefs (HER-179) ────────────────────────────────────────
+
+public enum APNSCategory: String, Codable, Sendable, CaseIterable {
+    case chat
+    case nudge
+    case digest
+}
+
+public struct APNSCategoryPrefsResponse: Codable, Sendable {
+    public let chatEnabled: Bool
+    public let nudgeEnabled: Bool
+    public let digestEnabled: Bool
+    public init(chatEnabled: Bool, nudgeEnabled: Bool, digestEnabled: Bool) {
+        self.chatEnabled = chatEnabled
+        self.nudgeEnabled = nudgeEnabled
+        self.digestEnabled = digestEnabled
+    }
+}
+
+public struct APNSCategoryPrefsPutRequest: Codable, Sendable {
+    public let chatEnabled: Bool?
+    public let nudgeEnabled: Bool?
+    public let digestEnabled: Bool?
+    public init(chatEnabled: Bool? = nil, nudgeEnabled: Bool? = nil, digestEnabled: Bool? = nil) {
+        self.chatEnabled = chatEnabled
+        self.nudgeEnabled = nudgeEnabled
+        self.digestEnabled = digestEnabled
+    }
+}
