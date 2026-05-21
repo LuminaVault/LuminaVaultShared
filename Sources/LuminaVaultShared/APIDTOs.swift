@@ -1400,3 +1400,167 @@ public struct SoulMdPutRequest: Codable, Sendable {
     public let body: String
     public init(body: String) { self.body = body }
 }
+
+// ─── Provider Credentials (HER-252) ──────────────────────────────────────
+
+/// Identifies an external LLM provider the user can attach credentials to.
+/// Mirrors the server-side `ProviderKind` cases that participate in
+/// per-user credential management. Hermes gateway providers (in-VPS) are
+/// not user-credential targets — they're deployment infrastructure.
+public enum ProviderID: String, Codable, Sendable, CaseIterable {
+    case xai
+    case anthropic
+    case openai
+    case ollama
+    case openRouter
+}
+
+/// Shape of the credential we store for a given provider. `apiKey` and
+/// `hostURL` are mutually exclusive: providers like Ollama only need a
+/// reachable host URL with no secret. `oauth` is reserved for providers
+/// (xAI Path B) that complete their flow elsewhere and only need a marker
+/// row in the credential table.
+public enum ProviderCredentialKind: String, Codable, Sendable {
+    case apiKey
+    case oauth
+    case hostURL
+}
+
+/// Server's representation of a per-user provider credential.
+/// Plaintext is never echoed back — callers see `hasCredential` only.
+/// `verifiedAt` / `lastFailureAt` reflect the last `/test` outcome.
+public struct ProviderCredentialDTO: Codable, Sendable {
+    public let provider: ProviderID
+    public let kind: ProviderCredentialKind
+    public let hasCredential: Bool
+    public let baseUrl: String?
+    public let label: String?
+    public let verifiedAt: Date?
+    public let lastFailureAt: Date?
+    public let lastFailureCode: String?
+    public init(
+        provider: ProviderID,
+        kind: ProviderCredentialKind,
+        hasCredential: Bool,
+        baseUrl: String? = nil,
+        label: String? = nil,
+        verifiedAt: Date? = nil,
+        lastFailureAt: Date? = nil,
+        lastFailureCode: String? = nil
+    ) {
+        self.provider = provider
+        self.kind = kind
+        self.hasCredential = hasCredential
+        self.baseUrl = baseUrl
+        self.label = label
+        self.verifiedAt = verifiedAt
+        self.lastFailureAt = lastFailureAt
+        self.lastFailureCode = lastFailureCode
+    }
+}
+
+public struct ProviderCredentialsListResponse: Codable, Sendable {
+    public let providers: [ProviderCredentialDTO]
+    public init(providers: [ProviderCredentialDTO]) {
+        self.providers = providers
+    }
+}
+
+public struct ProviderCredentialPutRequest: Codable, Sendable {
+    public let kind: ProviderCredentialKind
+    public let apiKey: String?
+    public let baseUrl: String?
+    public let label: String?
+    public init(
+        kind: ProviderCredentialKind,
+        apiKey: String? = nil,
+        baseUrl: String? = nil,
+        label: String? = nil
+    ) {
+        self.kind = kind
+        self.apiKey = apiKey
+        self.baseUrl = baseUrl
+        self.label = label
+    }
+}
+
+public struct ProviderTestResponse: Codable, Sendable {
+    public let verifiedAt: Date
+    public let model: String?
+    public init(verifiedAt: Date, model: String? = nil) {
+        self.verifiedAt = verifiedAt
+        self.model = model
+    }
+}
+
+// ─── LLM Preferences (HER-252) ───────────────────────────────────────────
+
+/// A single `(provider, model)` step in a user's fallback chain.
+public struct ModelRouteDTO: Codable, Sendable, Hashable {
+    public let provider: ProviderID
+    public let model: String
+    public init(provider: ProviderID, model: String) {
+        self.provider = provider
+        self.model = model
+    }
+}
+
+public struct LLMPreferencesGetResponse: Codable, Sendable {
+    public let primaryProvider: ProviderID
+    public let primaryModel: String
+    public let fallbackChain: [ModelRouteDTO]
+    public init(
+        primaryProvider: ProviderID,
+        primaryModel: String,
+        fallbackChain: [ModelRouteDTO]
+    ) {
+        self.primaryProvider = primaryProvider
+        self.primaryModel = primaryModel
+        self.fallbackChain = fallbackChain
+    }
+}
+
+public struct LLMPreferencesPutRequest: Codable, Sendable {
+    public let primaryProvider: ProviderID
+    public let primaryModel: String
+    public let fallbackChain: [ModelRouteDTO]
+    public init(
+        primaryProvider: ProviderID,
+        primaryModel: String,
+        fallbackChain: [ModelRouteDTO]
+    ) {
+        self.primaryProvider = primaryProvider
+        self.primaryModel = primaryModel
+        self.fallbackChain = fallbackChain
+    }
+}
+
+// ─── SSE Fallback Notice (HER-252) ───────────────────────────────────────
+
+/// Emitted on a streaming chat / query response when `RoutedLLMTransport`
+/// fails over from one candidate to another. `reasonCode` is a stable
+/// machine-readable tag; `userMessage` is a localized human string the
+/// client can surface verbatim.
+public struct ProviderFallbackNoticeDTO: Codable, Sendable {
+    public let originalProvider: ProviderID
+    public let originalModel: String
+    public let fallbackProvider: ProviderID
+    public let fallbackModel: String
+    public let reasonCode: String
+    public let userMessage: String
+    public init(
+        originalProvider: ProviderID,
+        originalModel: String,
+        fallbackProvider: ProviderID,
+        fallbackModel: String,
+        reasonCode: String,
+        userMessage: String
+    ) {
+        self.originalProvider = originalProvider
+        self.originalModel = originalModel
+        self.fallbackProvider = fallbackProvider
+        self.fallbackModel = fallbackModel
+        self.reasonCode = reasonCode
+        self.userMessage = userMessage
+    }
+}
