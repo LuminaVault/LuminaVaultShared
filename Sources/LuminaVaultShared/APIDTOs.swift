@@ -1343,3 +1343,60 @@ public struct APNSCategoryPrefsPutRequest: Codable, Sendable {
         self.digestEnabled = digestEnabled
     }
 }
+
+// ─── Sessions (HER-245) ───────────────────────────────────────────────────
+
+public struct SessionDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let title: String
+    public let preview: String
+    public let messageCount: Int
+    public let lastMessageAt: Date
+    public let workspaceID: UUID?
+    public let pinned: Bool
+    public let archived: Bool
+    public init(
+        id: UUID,
+        title: String,
+        preview: String,
+        messageCount: Int,
+        lastMessageAt: Date,
+        workspaceID: UUID? = nil,
+        pinned: Bool = false,
+        archived: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.preview = preview
+        self.messageCount = messageCount
+        self.lastMessageAt = lastMessageAt
+        self.workspaceID = workspaceID
+        self.pinned = pinned
+        self.archived = archived
+    }
+}
+
+public struct SessionListResponse: Codable, Sendable {
+    public let sessions: [SessionDTO]
+    public let nextCursor: String?
+    public init(sessions: [SessionDTO], nextCursor: String? = nil) {
+        self.sessions = sessions
+        self.nextCursor = nextCursor
+    }
+}
+
+// ─── SOUL.md client read (HER-250) ────────────────────────────────────────
+
+public struct SoulMdResponse: Codable, Sendable {
+    public let body: String
+    public let updatedAt: Date?
+    public init(body: String, updatedAt: Date? = nil) {
+        self.body = body
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct SoulMdPutRequest: Codable, Sendable {
+    public let body: String
+    public init(body: String) { self.body = body }
+}
