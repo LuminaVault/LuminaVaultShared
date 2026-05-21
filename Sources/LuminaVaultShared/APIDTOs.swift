@@ -584,12 +584,19 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
     case done
     /// Stream-level error. Client should surface and abort.
     case error(String)
+    /// HER-252 — emitted when `RoutedLLMTransport` failed over from one
+    /// provider to another (e.g. xAI credit exhaustion → Qwen2.5 via
+    /// OpenRouter). The payload carries the original + fallback route
+    /// plus a localized `userMessage` the client can surface verbatim.
+    /// Sent before subsequent `.token` events so the client banner
+    /// renders in time.
+    case fallback(ProviderFallbackNoticeDTO)
 
     private enum CodingKeys: String, CodingKey { case type, payload }
     private enum EventType: String, Codable {
         case source, token, summary
         case followUps = "follow_ups"
-        case done, error
+        case done, error, fallback
     }
 
     public init(from decoder: any Decoder) throws {
@@ -602,6 +609,7 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case .followUps: self = .followUps(try c.decode([String].self, forKey: .payload))
         case .done: self = .done
         case .error: self = .error(try c.decode(String.self, forKey: .payload))
+        case .fallback: self = .fallback(try c.decode(ProviderFallbackNoticeDTO.self, forKey: .payload))
         }
     }
 
@@ -625,6 +633,9 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case .error(let s):
             try c.encode(EventType.error, forKey: .type)
             try c.encode(s, forKey: .payload)
+        case .fallback(let notice):
+            try c.encode(EventType.fallback, forKey: .type)
+            try c.encode(notice, forKey: .payload)
         }
     }
 }
@@ -1541,7 +1552,7 @@ public struct LLMPreferencesPutRequest: Codable, Sendable {
 /// fails over from one candidate to another. `reasonCode` is a stable
 /// machine-readable tag; `userMessage` is a localized human string the
 /// client can surface verbatim.
-public struct ProviderFallbackNoticeDTO: Codable, Sendable {
+public struct ProviderFallbackNoticeDTO: Codable, Sendable, Equatable {
     public let originalProvider: ProviderID
     public let originalModel: String
     public let fallbackProvider: ProviderID
