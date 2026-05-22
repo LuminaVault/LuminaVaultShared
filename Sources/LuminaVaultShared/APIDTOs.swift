@@ -1068,7 +1068,7 @@ public struct HermesGatewayField: Codable, Sendable, Hashable {
     }
 }
 
-public struct HermesGatewayCatalogEntry: Codable, Sendable, Identifiable {
+public struct HermesGatewayCatalogEntry: Codable, Sendable, Identifiable, Equatable {
     public let id: HermesGatewayID
     public let displayName: String
     public let iconSlug: String
