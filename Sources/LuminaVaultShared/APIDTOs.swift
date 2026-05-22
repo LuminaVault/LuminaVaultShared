@@ -850,6 +850,19 @@ public struct VaultMoveRequest: Codable, Sendable {
 
 // ─── Device ──────────────────────────────────────────────────────────────
 
+public enum DevicePlatform: String, Codable, Sendable, CaseIterable {
+    case ios
+    case android
+}
+
+public struct DeviceRegistrationRequest: Codable, Sendable {
+    public let token: String
+    public let platform: DevicePlatform
+    public init(token: String, platform: DevicePlatform) {
+        self.token = token; self.platform = platform
+    }
+}
+
 public struct DeviceRegistrationResponse: Codable, Sendable {
     public let id: UUID
     public let token: String
