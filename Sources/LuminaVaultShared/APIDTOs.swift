@@ -1575,3 +1575,47 @@ public struct ProviderFallbackNoticeDTO: Codable, Sendable, Equatable {
         self.userMessage = userMessage
     }
 }
+
+// ─── Billing (HER-185) ───────────────────────────────────────────────────
+
+/// Subscription tier a user is currently entitled to, as resolved by the
+/// server. Server-truth wins over local RevenueCat `CustomerInfo` whenever
+/// both are available; the iOS `BillingService` reconciles them so the UI
+/// reads a single source.
+public enum UserTier: String, Codable, Sendable, CaseIterable {
+    case trial
+    case pro
+    case ultimate
+    case lapsed
+    case archived
+}
+
+/// Response body for `GET /v1/auth/me/billing` — the server's authoritative
+/// view of a user's tier + trial state, used by the iOS client to render
+/// gating UI and reconcile against RevenueCat's local snapshot.
+///
+/// `tierOverride` is set when an admin has applied a manual override via
+/// `PUT /v1/admin/users/{userID}/tier-override`; surface alongside `tier`
+/// for QA / support workflows. `enforcementEnabled` reflects whether the
+/// server is currently returning 402 on tier-gated endpoints (a global
+/// kill-switch for safe rollout).
+public struct MeBillingResponse: Codable, Sendable, Equatable {
+    public let tier: UserTier
+    public let tierOverride: String?
+    public let inTrial: Bool
+    public let daysRemaining: Int?
+    public let enforcementEnabled: Bool
+    public init(
+        tier: UserTier,
+        tierOverride: String? = nil,
+        inTrial: Bool,
+        daysRemaining: Int? = nil,
+        enforcementEnabled: Bool
+    ) {
+        self.tier = tier
+        self.tierOverride = tierOverride
+        self.inTrial = inTrial
+        self.daysRemaining = daysRemaining
+        self.enforcementEnabled = enforcementEnabled
+    }
+}
