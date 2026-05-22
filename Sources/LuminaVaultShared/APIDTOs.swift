@@ -1024,6 +1024,113 @@ public struct HermesConfigTestResponse: Codable, Sendable {
     public init(verifiedAt: Date) { self.verifiedAt = verifiedAt }
 }
 
+// ─── Hermes Gateways (HER-241) ──────────────────────────────────────────
+
+public enum HermesGatewayID: String, Codable, Sendable, CaseIterable {
+    case telegram
+    case discord
+    case slack
+    case whatsapp
+}
+
+public enum HermesGatewayStatus: String, Codable, Sendable, CaseIterable {
+    case notConfigured = "not_configured"
+    case configured
+    case verified
+    case error
+}
+
+public enum HermesGatewayFieldKind: String, Codable, Sendable, CaseIterable {
+    case text
+    case secret
+    case url
+}
+
+public struct HermesGatewayField: Codable, Sendable, Hashable {
+    public let key: String
+    public let label: String
+    public let placeholder: String?
+    public let kind: HermesGatewayFieldKind
+    public let isRequired: Bool
+
+    public init(
+        key: String,
+        label: String,
+        placeholder: String? = nil,
+        kind: HermesGatewayFieldKind,
+        isRequired: Bool = true
+    ) {
+        self.key = key
+        self.label = label
+        self.placeholder = placeholder
+        self.kind = kind
+        self.isRequired = isRequired
+    }
+}
+
+public struct HermesGatewayCatalogEntry: Codable, Sendable, Identifiable {
+    public let id: HermesGatewayID
+    public let displayName: String
+    public let iconSlug: String
+    public let description: String
+    public let requiredFields: [HermesGatewayField]
+    public let status: HermesGatewayStatus
+    public let hasConfig: Bool
+    public let verifiedAt: Date?
+    public let lastFailureCode: String?
+
+    public init(
+        id: HermesGatewayID,
+        displayName: String,
+        iconSlug: String,
+        description: String,
+        requiredFields: [HermesGatewayField],
+        status: HermesGatewayStatus,
+        hasConfig: Bool,
+        verifiedAt: Date? = nil,
+        lastFailureCode: String? = nil
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.iconSlug = iconSlug
+        self.description = description
+        self.requiredFields = requiredFields
+        self.status = status
+        self.hasConfig = hasConfig
+        self.verifiedAt = verifiedAt
+        self.lastFailureCode = lastFailureCode
+    }
+}
+
+public struct HermesGatewaysListResponse: Codable, Sendable {
+    public let items: [HermesGatewayCatalogEntry]
+    public init(items: [HermesGatewayCatalogEntry]) { self.items = items }
+}
+
+public struct HermesGatewayPutRequest: Codable, Sendable {
+    public let config: [String: String]
+    public init(config: [String: String]) { self.config = config }
+}
+
+public struct HermesGatewayTestResponse: Codable, Sendable {
+    public let ok: Bool
+    public let verifiedAt: Date?
+    public let errorCode: String?
+    public let errorMessage: String?
+
+    public init(
+        ok: Bool,
+        verifiedAt: Date? = nil,
+        errorCode: String? = nil,
+        errorMessage: String? = nil
+    ) {
+        self.ok = ok
+        self.verifiedAt = verifiedAt
+        self.errorCode = errorCode
+        self.errorMessage = errorMessage
+    }
+}
+
 // ─── Dashboard (HER-244 — OS Shell Home) ────────────────────────────────
 
 public enum TaskState: String, Codable, Sendable, CaseIterable {
