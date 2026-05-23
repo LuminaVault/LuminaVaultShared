@@ -255,10 +255,41 @@ public struct ChatRequest: Codable, Sendable {
     public let stream: Bool
     public let tools: [ChatTool]?
     public let tool_choice: AnyJSONValue?
-    enum CodingKeys: String, CodingKey { case messages, model, temperature, stream, tools, tool_choice }
-    public init(messages: [ChatMessage], model: String? = nil, temperature: Double? = nil, stream: Bool = false, tools: [ChatTool]? = nil, tool_choice: AnyJSONValue? = nil) {
-        self.messages = messages; self.model = model; self.temperature = temperature
-        self.stream = stream; self.tools = tools; self.tool_choice = tool_choice
+    /// HER-183 — opt-in conversation continuity ID forwarded as
+    /// `X-Hermes-Session-Id` to the upstream Hermes gateway.
+    public let sessionID: String?
+    enum CodingKeys: String, CodingKey {
+        case messages, model, temperature, stream, tools, tool_choice
+        case sessionID = "session_id"
+    }
+
+    public init(
+        messages: [ChatMessage],
+        model: String? = nil,
+        temperature: Double? = nil,
+        stream: Bool = false,
+        tools: [ChatTool]? = nil,
+        tool_choice: AnyJSONValue? = nil,
+        sessionID: String? = nil
+    ) {
+        self.messages = messages
+        self.model = model
+        self.temperature = temperature
+        self.stream = stream
+        self.tools = tools
+        self.tool_choice = tool_choice
+        self.sessionID = sessionID
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.messages = try c.decode([ChatMessage].self, forKey: .messages)
+        self.model = try c.decodeIfPresent(String.self, forKey: .model)
+        self.temperature = try c.decodeIfPresent(Double.self, forKey: .temperature)
+        self.stream = try c.decodeIfPresent(Bool.self, forKey: .stream) ?? false
+        self.tools = try c.decodeIfPresent([ChatTool].self, forKey: .tools)
+        self.tool_choice = try c.decodeIfPresent(AnyJSONValue.self, forKey: .tool_choice)
+        self.sessionID = try c.decodeIfPresent(String.self, forKey: .sessionID)
     }
 }
 
@@ -537,8 +568,26 @@ public struct MemoListResponse: Codable, Sendable {
 public struct QueryRequest: Codable, Sendable {
     public let query: String
     public let limit: Int?
-    public init(query: String, limit: Int? = nil) {
-        self.query = query; self.limit = limit
+    /// HER-183 — optional Hermes Session-Id for conversation continuity
+    /// on the streamed query path.
+    public let sessionID: String?
+
+    enum CodingKeys: String, CodingKey {
+        case query, limit
+        case sessionID = "session_id"
+    }
+
+    public init(query: String, limit: Int? = nil, sessionID: String? = nil) {
+        self.query = query
+        self.limit = limit
+        self.sessionID = sessionID
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.query = try c.decode(String.self, forKey: .query)
+        self.limit = try c.decodeIfPresent(Int.self, forKey: .limit)
+        self.sessionID = try c.decodeIfPresent(String.self, forKey: .sessionID)
     }
 }
 
@@ -1408,6 +1457,63 @@ public struct SkillPatchRequest: Codable, Sendable {
         self.enabled = enabled
         self.scheduleOverride = scheduleOverride
         self.apnsCategory = apnsCategory
+    }
+}
+
+public struct SkillRunRequest: Codable, Sendable {
+    public let input: String?
+    public let arguments: [String: String]?
+    public let save: Bool?
+
+    public init(input: String? = nil, arguments: [String: String]? = nil, save: Bool? = nil) {
+        self.input = input
+        self.arguments = arguments
+        self.save = save
+    }
+}
+
+public struct SkillRunResponse: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let skillName: String
+    public let status: SkillRunStatus
+    public let markdown: String
+    public let savedPath: String?
+    public let modelUsed: String?
+    public let mtokIn: Int?
+    public let mtokOut: Int?
+    public let startedAt: Date
+    public let endedAt: Date?
+
+    public init(
+        id: UUID,
+        skillName: String,
+        status: SkillRunStatus,
+        markdown: String,
+        savedPath: String? = nil,
+        modelUsed: String? = nil,
+        mtokIn: Int? = nil,
+        mtokOut: Int? = nil,
+        startedAt: Date,
+        endedAt: Date? = nil
+    ) {
+        self.id = id
+        self.skillName = skillName
+        self.status = status
+        self.markdown = markdown
+        self.savedPath = savedPath
+        self.modelUsed = modelUsed
+        self.mtokIn = mtokIn
+        self.mtokOut = mtokOut
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+    }
+}
+
+public struct SkillSlashCommandRequest: Codable, Sendable {
+    public let command: String
+
+    public init(command: String) {
+        self.command = command
     }
 }
 
