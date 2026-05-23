@@ -897,6 +897,34 @@ public struct OnboardingStateDTO: Codable, Sendable {
     }
 }
 
+/// PATCH `/v1/onboarding` body. All flags optional; only `true` accepted —
+/// `false` is rejected by the server because each flag is a one-way latch.
+/// Omitted fields are left untouched. Server stamps an `*At` timestamp on
+/// the first transition to `true` and ignores subsequent re-PATCHes.
+public struct OnboardingPatchRequest: Codable, Sendable {
+    public let signupCompleted: Bool?
+    public let emailVerifiedCompleted: Bool?
+    public let soulConfiguredCompleted: Bool?
+    public let firstCaptureCompleted: Bool?
+    public let firstKBCompileCompleted: Bool?
+    public let firstQueryCompleted: Bool?
+    public init(
+        signupCompleted: Bool? = nil,
+        emailVerifiedCompleted: Bool? = nil,
+        soulConfiguredCompleted: Bool? = nil,
+        firstCaptureCompleted: Bool? = nil,
+        firstKBCompileCompleted: Bool? = nil,
+        firstQueryCompleted: Bool? = nil
+    ) {
+        self.signupCompleted = signupCompleted
+        self.emailVerifiedCompleted = emailVerifiedCompleted
+        self.soulConfiguredCompleted = soulConfiguredCompleted
+        self.firstCaptureCompleted = firstCaptureCompleted
+        self.firstKBCompileCompleted = firstKBCompileCompleted
+        self.firstQueryCompleted = firstQueryCompleted
+    }
+}
+
 // ─── KB Compile ──────────────────────────────────────────────────────────
 
 /// Triggers a kb-compile run over the caller's vault. Three modes:
