@@ -371,7 +371,7 @@ public struct MemoryUpsertRequest: Codable, Sendable {
     }
 }
 
-public struct MemoryDTO: Codable, Sendable {
+public struct MemoryDTO: Codable, Sendable, Equatable {
     public let id: UUID
     public let content: String
     public let tags: [String]
@@ -940,14 +940,127 @@ public struct KBCompileRequest: Codable, Sendable {
     }
 }
 
-public struct KBCompileResponse: Codable, Sendable {
+public struct KBCompileResponse: Codable, Sendable, Equatable {
     public let memoriesIngested: Int
     public let memoriesUpdated: Int?
     public let durationMs: Int?
-    public init(memoriesIngested: Int, memoriesUpdated: Int? = nil, durationMs: Int? = nil) {
+    public let runId: UUID
+    public init(memoriesIngested: Int, memoriesUpdated: Int?, durationMs: Int?, runId: UUID) {
         self.memoriesIngested = memoriesIngested
         self.memoriesUpdated = memoriesUpdated
         self.durationMs = durationMs
+        self.runId = runId
+    }
+}
+
+// MARK: - kb-compile progress (HER-288)
+
+public struct KBCompileStartedDTO: Codable, Sendable, Equatable {
+    public let runId: UUID
+    public let totalFiles: Int
+    public init(runId: UUID, totalFiles: Int) {
+        self.runId = runId
+        self.totalFiles = totalFiles
+    }
+}
+
+public struct KBCompilePreparingDTO: Codable, Sendable, Equatable {
+    public let runId: UUID
+    public init(runId: UUID) { self.runId = runId }
+}
+
+public struct KBCompileThinkingDTO: Codable, Sendable, Equatable {
+    public let runId: UUID
+    public let iteration: Int
+    public init(runId: UUID, iteration: Int) {
+        self.runId = runId
+        self.iteration = iteration
+    }
+}
+
+public struct KBCompileMemorySavedDTO: Codable, Sendable, Equatable {
+    public let runId: UUID
+    public let memory: MemoryDTO
+    public init(runId: UUID, memory: MemoryDTO) {
+        self.runId = runId
+        self.memory = memory
+    }
+}
+
+public struct KBCompileCompletedDTO: Codable, Sendable, Equatable {
+    public let runId: UUID
+    public let response: KBCompileResponse
+    public init(runId: UUID, response: KBCompileResponse) {
+        self.runId = runId
+        self.response = response
+    }
+}
+
+public struct KBCompileErrorDTO: Codable, Sendable, Equatable {
+    public let runId: UUID
+    public let message: String
+    public init(runId: UUID, message: String) {
+        self.runId = runId
+        self.message = message
+    }
+}
+
+public enum KBCompileProgressEvent: Codable, Sendable, Equatable {
+    case started(KBCompileStartedDTO)
+    case preparing(KBCompilePreparingDTO)
+    case thinking(KBCompileThinkingDTO)
+    case memorySaved(KBCompileMemorySavedDTO)
+    case completed(KBCompileCompletedDTO)
+    case error(KBCompileErrorDTO)
+
+    private enum CodingKeys: String, CodingKey { case type, payload }
+    private enum EventType: String, Codable {
+        case started, preparing, thinking
+        case memorySaved
+        case completed, error
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try c.decode(EventType.self, forKey: .type)
+        switch type {
+        case .started:
+            self = .started(try c.decode(KBCompileStartedDTO.self, forKey: .payload))
+        case .preparing:
+            self = .preparing(try c.decode(KBCompilePreparingDTO.self, forKey: .payload))
+        case .thinking:
+            self = .thinking(try c.decode(KBCompileThinkingDTO.self, forKey: .payload))
+        case .memorySaved:
+            self = .memorySaved(try c.decode(KBCompileMemorySavedDTO.self, forKey: .payload))
+        case .completed:
+            self = .completed(try c.decode(KBCompileCompletedDTO.self, forKey: .payload))
+        case .error:
+            self = .error(try c.decode(KBCompileErrorDTO.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .started(let p):
+            try c.encode(EventType.started, forKey: .type)
+            try c.encode(p, forKey: .payload)
+        case .preparing(let p):
+            try c.encode(EventType.preparing, forKey: .type)
+            try c.encode(p, forKey: .payload)
+        case .thinking(let p):
+            try c.encode(EventType.thinking, forKey: .type)
+            try c.encode(p, forKey: .payload)
+        case .memorySaved(let p):
+            try c.encode(EventType.memorySaved, forKey: .type)
+            try c.encode(p, forKey: .payload)
+        case .completed(let p):
+            try c.encode(EventType.completed, forKey: .type)
+            try c.encode(p, forKey: .payload)
+        case .error(let p):
+            try c.encode(EventType.error, forKey: .type)
+            try c.encode(p, forKey: .payload)
+        }
     }
 }
 
