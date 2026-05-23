@@ -61,5 +61,26 @@ struct KBCompileProgressEventTests {
         let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(json["type"] as? String == "started")
         #expect(json["payload"] is [String: Any])
+
+        // Pin the exact `memorySaved` wire discriminator string to guard against
+        // accidental raw-value drift (e.g. someone renaming the case to "memory_saved").
+        let memory = MemoryDTO(
+            id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
+            content: "pin check",
+            tags: [],
+            createdAt: nil
+        )
+        let memorySavedEvent: KBCompileProgressEvent = .memorySaved(.init(runId: runId, memory: memory))
+        let memorySavedData = try JSONEncoder().encode(memorySavedEvent)
+        let memorySavedJSON = try #require(try JSONSerialization.jsonObject(with: memorySavedData) as? [String: Any])
+        #expect(memorySavedJSON["type"] as? String == "memorySaved")
+        #expect(memorySavedJSON["payload"] is [String: Any])
+    }
+
+    @Test func unknownTypeFailsToDecode() {
+        let json = #"{"type":"bogus","payload":{}}"#.data(using: .utf8)!
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(KBCompileProgressEvent.self, from: json)
+        }
     }
 }
