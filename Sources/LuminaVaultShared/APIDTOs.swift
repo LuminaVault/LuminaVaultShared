@@ -1767,3 +1767,162 @@ public struct MeBillingResponse: Codable, Sendable, Equatable {
         self.enforcementEnabled = enforcementEnabled
     }
 }
+
+// ─── WebAuthn / Passkey DTOs (HER-216) ────────────────────────────────────
+//
+// Wire-format types for the four passkey routes:
+//   POST /v1/auth/webauthn/register/begin
+//   POST /v1/auth/webauthn/register/finish
+//   POST /v1/auth/webauthn/authenticate/begin
+//   POST /v1/auth/webauthn/authenticate/finish
+//
+// Binary fields use base64url (no padding) per WebAuthn spec. The
+// server uses `swift-webauthn` types internally; these DTOs match the
+// JSON shape so the client can construct/decode them without the
+// `swift-webauthn` dependency.
+//
+// `options` blobs on the begin responses are passed through opaquely
+// via `AnyJSONValue` — the client hands the raw structure to
+// `ASAuthorizationPlatformPublicKeyCredentialProvider` and doesn't need
+// to track every spec field.
+
+public struct WebAuthnBeginRegistrationRequest: Codable, Sendable {
+    public let username: String
+    public let displayName: String?
+    public init(username: String, displayName: String? = nil) {
+        self.username = username
+        self.displayName = displayName
+    }
+}
+
+public struct WebAuthnBeginRegistrationResponse: Codable, Sendable {
+    public let options: AnyJSONValue
+    public init(options: AnyJSONValue) { self.options = options }
+}
+
+public struct WebAuthnAttestationResponseDTO: Codable, Sendable {
+    public let attestationObject: String // base64url
+    public let clientDataJSON: String    // base64url
+    public init(attestationObject: String, clientDataJSON: String) {
+        self.attestationObject = attestationObject
+        self.clientDataJSON = clientDataJSON
+    }
+}
+
+public struct WebAuthnRegistrationCredentialDTO: Codable, Sendable {
+    public let id: String        // base64url credential ID
+    public let rawId: String     // base64url credential ID (raw bytes)
+    public let type: String      // "public-key"
+    public let response: WebAuthnAttestationResponseDTO
+
+    public init(
+        id: String,
+        rawId: String,
+        type: String = "public-key",
+        response: WebAuthnAttestationResponseDTO
+    ) {
+        self.id = id
+        self.rawId = rawId
+        self.type = type
+        self.response = response
+    }
+}
+
+public struct WebAuthnFinishRegistrationRequest: Codable, Sendable {
+    public let username: String
+    public let credentialCreationData: WebAuthnRegistrationCredentialDTO
+    public init(username: String, credentialCreationData: WebAuthnRegistrationCredentialDTO) {
+        self.username = username
+        self.credentialCreationData = credentialCreationData
+    }
+}
+
+public struct WebAuthnFinishRegistrationResponse: Codable, Sendable {
+    public let credentialID: String
+    public init(credentialID: String) { self.credentialID = credentialID }
+}
+
+public struct WebAuthnBeginAuthenticationRequest: Codable, Sendable {
+    public let username: String
+    public init(username: String) { self.username = username }
+}
+
+public struct WebAuthnBeginAuthenticationResponse: Codable, Sendable {
+    public let options: AnyJSONValue
+    public init(options: AnyJSONValue) { self.options = options }
+}
+
+public struct WebAuthnAssertionResponseDTO: Codable, Sendable {
+    public let authenticatorData: String // base64url
+    public let clientDataJSON: String    // base64url
+    public let signature: String         // base64url
+    public let userHandle: String?       // base64url, optional
+
+    public init(
+        authenticatorData: String,
+        clientDataJSON: String,
+        signature: String,
+        userHandle: String? = nil
+    ) {
+        self.authenticatorData = authenticatorData
+        self.clientDataJSON = clientDataJSON
+        self.signature = signature
+        self.userHandle = userHandle
+    }
+}
+
+public struct WebAuthnAuthenticationCredentialDTO: Codable, Sendable {
+    public let id: String
+    public let rawId: String
+    public let type: String
+    public let response: WebAuthnAssertionResponseDTO
+
+    public init(
+        id: String,
+        rawId: String,
+        type: String = "public-key",
+        response: WebAuthnAssertionResponseDTO
+    ) {
+        self.id = id
+        self.rawId = rawId
+        self.type = type
+        self.response = response
+    }
+}
+
+public struct WebAuthnFinishAuthenticationRequest: Codable, Sendable {
+    public let username: String
+    public let credential: WebAuthnAuthenticationCredentialDTO
+    public init(username: String, credential: WebAuthnAuthenticationCredentialDTO) {
+        self.username = username
+        self.credential = credential
+    }
+}
+
+// Settings — list and revoke enrolled passkeys for the authenticated user.
+
+public struct WebAuthnCredentialSummaryDTO: Codable, Sendable, Identifiable {
+    public let id: String        // base64url credential ID
+    public let createdAt: Date
+    public let lastUsedAt: Date?
+    public let nickname: String?
+
+    public init(
+        id: String,
+        createdAt: Date,
+        lastUsedAt: Date? = nil,
+        nickname: String? = nil
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.lastUsedAt = lastUsedAt
+        self.nickname = nickname
+    }
+}
+
+public struct WebAuthnCredentialListResponse: Codable, Sendable {
+    public let credentials: [WebAuthnCredentialSummaryDTO]
+    public init(credentials: [WebAuthnCredentialSummaryDTO]) {
+        self.credentials = credentials
+    }
+}
