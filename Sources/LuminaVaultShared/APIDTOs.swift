@@ -1009,6 +1009,17 @@ public struct KBCompileResponse: Codable, Sendable {
     }
 }
 
+/// HER-293 — cheap pending-count probe behind the "Sync & Learn" button.
+/// Returns the number of vault rows for the caller with `processedAt == nil`
+/// so the iOS client can drive the button's disabled state and microcopy
+/// without firing a full kb-compile.
+public struct KBCompilePendingResponse: Codable, Sendable {
+    public let pendingFiles: Int
+    public init(pendingFiles: Int) {
+        self.pendingFiles = pendingFiles
+    }
+}
+
 // ─── Achievements ────────────────────────────────────────────────────────
 
 public struct AchievementsListResponse: Codable, Sendable {
