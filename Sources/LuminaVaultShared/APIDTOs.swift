@@ -440,6 +440,13 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
     public let lng: Double?
     public let accuracyM: Double?
     public let placeName: String?
+    /// HER-290 — moderation state.
+    /// * `"auto"` — created outside kb-compile (manual upsert, backfill). Visible everywhere.
+    /// * `"pending"` — produced by a kb-compile run, awaiting user approve/reject.
+    /// * `"approved"` — user kept it.
+    /// * `"rejected"` — user dismissed it; suppressed from list defaults and added to the
+    ///   kb-compile reject list so future runs skip the same source+content_hash pair.
+    public let reviewState: String
     public init(
         id: UUID,
         content: String,
@@ -448,7 +455,8 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
         lat: Double? = nil,
         lng: Double? = nil,
         accuracyM: Double? = nil,
-        placeName: String? = nil
+        placeName: String? = nil,
+        reviewState: String = "auto"
     ) {
         self.id = id
         self.content = content
@@ -458,7 +466,18 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
         self.lng = lng
         self.accuracyM = accuracyM
         self.placeName = placeName
+        self.reviewState = reviewState
     }
+}
+
+/// HER-290 — string constants for the four `MemoryDTO.reviewState` values.
+/// Use these instead of raw string literals at call sites.
+public enum MemoryReviewState {
+    public static let auto = "auto"
+    public static let pending = "pending"
+    public static let approved = "approved"
+    public static let rejected = "rejected"
+    public static let all: [String] = [auto, pending, approved, rejected]
 }
 
 public struct MemoryListResponse: Codable, Sendable {
@@ -473,8 +492,13 @@ public struct MemoryListResponse: Codable, Sendable {
 public struct MemoryPatchRequest: Codable, Sendable {
     public let content: String?
     public let tags: [String]?
-    public init(content: String? = nil, tags: [String]? = nil) {
-        self.content = content; self.tags = tags
+    /// HER-290 — only `pending → approved` and `pending → rejected` are accepted.
+    /// Other transitions return 422 from the server.
+    public let reviewState: String?
+    public init(content: String? = nil, tags: [String]? = nil, reviewState: String? = nil) {
+        self.content = content
+        self.tags = tags
+        self.reviewState = reviewState
     }
 }
 
@@ -1052,11 +1076,23 @@ public struct KBCompileResponse: Codable, Sendable, Equatable {
     public let memoriesUpdated: Int?
     public let durationMs: Int?
     public let runId: UUID
-    public init(memoriesIngested: Int, memoriesUpdated: Int?, durationMs: Int?, runId: UUID) {
+    /// HER-290 — IDs of memories produced by this run that are now awaiting
+    /// approve/reject. Empty when nothing landed in `pending`. Mirrors what
+    /// the WS `.memorySaved` events carry, so clients that don't subscribe
+    /// to /v1/ws can still render the review list.
+    public let pendingMemoryIds: [UUID]
+    public init(
+        memoriesIngested: Int,
+        memoriesUpdated: Int?,
+        durationMs: Int?,
+        runId: UUID,
+        pendingMemoryIds: [UUID] = []
+    ) {
         self.memoriesIngested = memoriesIngested
         self.memoriesUpdated = memoriesUpdated
         self.durationMs = durationMs
         self.runId = runId
+        self.pendingMemoryIds = pendingMemoryIds
     }
 }
 
