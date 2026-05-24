@@ -71,6 +71,15 @@ public struct OAuthExchangeRequest: Codable, Sendable {
     public init(idToken: String) { self.idToken = idToken }
 }
 
+/// HER-144: X (Twitter) OAuth 2.0 PKCE returns an access_token, not an
+/// id_token, so its `/v1/auth/oauth/x/exchange` route decodes this body
+/// shape instead of `OAuthExchangeRequest`. Mirrors the
+/// `OAuthAccessTokenRequest` schema in `openapi.yaml`.
+public struct OAuthAccessTokenRequest: Codable, Sendable {
+    public let accessToken: String
+    public init(accessToken: String) { self.accessToken = accessToken }
+}
+
 public struct ForgotPasswordRequest: Codable, Sendable {
     public let email: String
     public init(email: String) { self.email = email }
