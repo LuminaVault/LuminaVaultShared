@@ -114,18 +114,37 @@ public struct MeResponse: Codable {
     public let isVerified: Bool
     public let privacyNoCNOrigin: Bool
     public let contextRouting: Bool
-    public init(userId: UUID, email: String, username: String, isVerified: Bool, privacyNoCNOrigin: Bool, contextRouting: Bool) {
+    /// HER-274 — gates the auto-save-link post-processor on the chat
+    /// stream. Default `true`. Toggle via `PUT /v1/me/privacy`.
+    public let autoSaveLinks: Bool
+    public init(
+        userId: UUID,
+        email: String,
+        username: String,
+        isVerified: Bool,
+        privacyNoCNOrigin: Bool,
+        contextRouting: Bool,
+        autoSaveLinks: Bool = true
+    ) {
         self.userId = userId; self.email = email; self.username = username
         self.isVerified = isVerified; self.privacyNoCNOrigin = privacyNoCNOrigin
         self.contextRouting = contextRouting
+        self.autoSaveLinks = autoSaveLinks
     }
 }
 
 public struct UpdatePrivacyRequest: Codable {
     public let privacyNoCNOrigin: Bool?
     public let contextRouting: Bool?
-    public init(privacyNoCNOrigin: Bool?, contextRouting: Bool?) {
-        self.privacyNoCNOrigin = privacyNoCNOrigin; self.contextRouting = contextRouting
+    /// HER-274 — opt out of the chat auto-save-link behavior. When set
+    /// to `false`, URLs mentioned in user prompts or assistant replies
+    /// are no longer captured to the vault, and no `link_saved` SSE
+    /// event is emitted on the stream.
+    public let autoSaveLinks: Bool?
+    public init(privacyNoCNOrigin: Bool?, contextRouting: Bool?, autoSaveLinks: Bool? = nil) {
+        self.privacyNoCNOrigin = privacyNoCNOrigin
+        self.contextRouting = contextRouting
+        self.autoSaveLinks = autoSaveLinks
     }
 }
 
@@ -649,12 +668,18 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
     /// Sent before subsequent `.token` events so the client banner
     /// renders in time.
     case fallback(ProviderFallbackNoticeDTO)
+    /// HER-274 — emitted once per URL the server auto-captured to the
+    /// user's vault while processing this chat turn. Sent AFTER tokens
+    /// have streamed, BEFORE the `.done` terminator. Multiple events
+    /// per turn possible when the user pastes several links.
+    case linkSaved(LinkSavedDTO)
 
     private enum CodingKeys: String, CodingKey { case type, payload }
     private enum EventType: String, Codable {
         case source, token, summary
         case followUps = "follow_ups"
         case done, error, fallback
+        case linkSaved = "link_saved"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -668,6 +693,7 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case .done: self = .done
         case .error: self = .error(try c.decode(String.self, forKey: .payload))
         case .fallback: self = .fallback(try c.decode(ProviderFallbackNoticeDTO.self, forKey: .payload))
+        case .linkSaved: self = .linkSaved(try c.decode(LinkSavedDTO.self, forKey: .payload))
         }
     }
 
@@ -694,7 +720,30 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case .fallback(let notice):
             try c.encode(EventType.fallback, forKey: .type)
             try c.encode(notice, forKey: .payload)
+        case .linkSaved(let payload):
+            try c.encode(EventType.linkSaved, forKey: .type)
+            try c.encode(payload, forKey: .payload)
         }
+    }
+}
+
+/// HER-274 — payload of the `link_saved` SSE event. Identifies a URL
+/// the server auto-captured to the vault while processing a chat turn,
+/// so the iOS client can render a toast and deep-link to the file.
+public struct LinkSavedDTO: Codable, Sendable, Equatable {
+    public let url: String
+    /// Tenant-relative vault path (e.g. `captures/2026-05-24-103045-news-ycombinator-com.md`).
+    public let vaultPath: String
+    public let capturedAt: Date
+    /// `true` when the URL appeared in the user's prompt; `false` when
+    /// it appeared only in the assistant's reply. Lets the client copy
+    /// vary ("you saved …" vs "Hermes saved …").
+    public let fromUserMessage: Bool
+    public init(url: String, vaultPath: String, capturedAt: Date, fromUserMessage: Bool) {
+        self.url = url
+        self.vaultPath = vaultPath
+        self.capturedAt = capturedAt
+        self.fromUserMessage = fromUserMessage
     }
 }
 
