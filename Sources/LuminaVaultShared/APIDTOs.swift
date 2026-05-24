@@ -1354,6 +1354,95 @@ public struct HermesGatewayTestResponse: Codable, Sendable {
     }
 }
 
+// ─── Hermes Profiles (HER-273 — multi-agent per user) ───────────────────
+
+public struct HermesProfileDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let slug: String
+    public let label: String
+    public let systemPrompt: String
+    public let isDefault: Bool
+    public let skillsEnabled: [String]
+    public let createdAt: Date
+    public let updatedAt: Date
+
+    public init(
+        id: UUID,
+        slug: String,
+        label: String,
+        systemPrompt: String,
+        isDefault: Bool,
+        skillsEnabled: [String],
+        createdAt: Date,
+        updatedAt: Date
+    ) {
+        self.id = id
+        self.slug = slug
+        self.label = label
+        self.systemPrompt = systemPrompt
+        self.isDefault = isDefault
+        self.skillsEnabled = skillsEnabled
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct HermesProfilesListResponse: Codable, Sendable {
+    public let items: [HermesProfileDTO]
+    public let activeSlug: String?
+    public init(items: [HermesProfileDTO], activeSlug: String?) {
+        self.items = items
+        self.activeSlug = activeSlug
+    }
+}
+
+public struct HermesProfileCreateRequest: Codable, Sendable {
+    public let slug: String
+    public let label: String
+    public let systemPrompt: String?
+    public let templateSlug: String?
+    public let skillsEnabled: [String]?
+
+    public init(
+        slug: String,
+        label: String,
+        systemPrompt: String? = nil,
+        templateSlug: String? = nil,
+        skillsEnabled: [String]? = nil
+    ) {
+        self.slug = slug
+        self.label = label
+        self.systemPrompt = systemPrompt
+        self.templateSlug = templateSlug
+        self.skillsEnabled = skillsEnabled
+    }
+}
+
+public struct HermesProfilePatchRequest: Codable, Sendable {
+    public let label: String?
+    public let systemPrompt: String?
+    public let skillsEnabled: [String]?
+
+    public init(
+        label: String? = nil,
+        systemPrompt: String? = nil,
+        skillsEnabled: [String]? = nil
+    ) {
+        self.label = label
+        self.systemPrompt = systemPrompt
+        self.skillsEnabled = skillsEnabled
+    }
+}
+
+public struct HermesProfileActivateResponse: Codable, Sendable {
+    public let slug: String
+    public let activatedAt: Date
+    public init(slug: String, activatedAt: Date) {
+        self.slug = slug
+        self.activatedAt = activatedAt
+    }
+}
+
 // ─── Dashboard (HER-244 — OS Shell Home) ────────────────────────────────
 
 public enum TaskState: String, Codable, Sendable, CaseIterable {
