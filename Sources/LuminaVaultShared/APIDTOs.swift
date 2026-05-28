@@ -1295,6 +1295,77 @@ public struct HealthIngestResponse: Codable, Sendable {
     }
 }
 
+// ─── Health Read (HER-118) ───────────────────────────────────────────────
+
+/// One ingested health sample as returned by `GET /v1/health` (read-side).
+/// Mirrors `HealthEventInput` (write-side) with the server-assigned `id`.
+public struct HealthEventDTO: Codable, Sendable, Equatable {
+    public let id: UUID
+    /// Lowercased event type identifier (e.g. `"steps"`, `"hr_bpm"`,
+    /// `"hrv_ms"`, `"sleep_session"`, `"mindful_minutes"`).
+    public let type: String
+    /// Timestamp when the sample was recorded on the source device (ISO-8601).
+    public let recordedAt: Date
+    public let valueNumeric: Double?
+    public let valueText: String?
+    public let unit: String?
+    public let source: String?
+    public init(
+        id: UUID,
+        type: String,
+        recordedAt: Date,
+        valueNumeric: Double? = nil,
+        valueText: String? = nil,
+        unit: String? = nil,
+        source: String? = nil,
+    ) {
+        self.id = id; self.type = type; self.recordedAt = recordedAt
+        self.valueNumeric = valueNumeric; self.valueText = valueText
+        self.unit = unit; self.source = source
+    }
+}
+
+/// Paginated response for `GET /v1/health?type=&from=&to=&limit=&offset=`.
+public struct HealthListResponse: Codable, Sendable {
+    public let events: [HealthEventDTO]
+    public let limit: Int
+    public let offset: Int
+    public init(events: [HealthEventDTO], limit: Int, offset: Int) {
+        self.events = events; self.limit = limit; self.offset = offset
+    }
+}
+
+/// Single-day aggregation bucket for a given event type. Sum for
+/// accumulating metrics (steps, active_energy, mindful_minutes); average
+/// for instantaneous metrics (hr_bpm, hrv_ms, weight_kg, blood_oxygen);
+/// sum of duration for `sleep_session`.
+///
+/// `value` is `0` and `sampleCount` is `0` for days with no samples —
+/// the server fills gaps so the response always has a fixed-length
+/// chronological window suitable for sparkline rendering without
+/// client-side bucketing.
+public struct HealthDayAggregateDTO: Codable, Sendable, Equatable {
+    /// Start of the day in UTC (`date_trunc('day', recorded_at AT TIME ZONE 'UTC')`).
+    public let date: Date
+    public let type: String
+    public let value: Double
+    public let sampleCount: Int
+    public init(date: Date, type: String, value: Double, sampleCount: Int) {
+        self.date = date; self.type = type; self.value = value; self.sampleCount = sampleCount
+    }
+}
+
+/// Response for `GET /v1/health/daily?type=&days=`. The `days` array is
+/// chronologically ascending and always exactly `days` entries long
+/// (gaps filled with zero-sample placeholders).
+public struct HealthDailyResponse: Codable, Sendable {
+    public let type: String
+    public let days: [HealthDayAggregateDTO]
+    public init(type: String, days: [HealthDayAggregateDTO]) {
+        self.type = type; self.days = days
+    }
+}
+
 // ─── Suggestions ─────────────────────────────────────────────────────────
 
 /// Response body for `GET /v1/me/suggestions` — context-aware natural-language
