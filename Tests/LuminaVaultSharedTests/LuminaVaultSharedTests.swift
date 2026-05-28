@@ -129,4 +129,108 @@ struct AdditiveFieldsTests {
         #expect(InsightSection.thisMonth.rawValue == "this_month")
         #expect(InsightSection.allCases.contains(.thisMonth))
     }
+
+    // HER-300 — LLM brain mode + onboarding flag back-compat
+    @Test func llmPreferencesGetResponseDefaultsModeToManagedWhenMissing() throws {
+        let legacyJSON = """
+        {"primaryProvider":"openai","primaryModel":"gpt-4o","fallbackChain":[]}
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(LLMPreferencesGetResponse.self, from: legacyJSON)
+        #expect(decoded.mode == .managed)
+        #expect(decoded.primaryProvider == .openai)
+        #expect(decoded.primaryModel == "gpt-4o")
+    }
+
+    @Test func llmPreferencesPutRequestDefaultsModeToManagedWhenMissing() throws {
+        let legacyJSON = """
+        {"primaryProvider":"anthropic","primaryModel":"claude-opus-4-7","fallbackChain":[]}
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(LLMPreferencesPutRequest.self, from: legacyJSON)
+        #expect(decoded.mode == .managed)
+    }
+
+    @Test func onboardingStateDTODefaultsBrainConfiguredFalseWhenMissing() throws {
+        let legacyJSON = """
+        {"signupCompleted":true,"signupCompletedAt":null,"emailVerifiedCompleted":false,"emailVerifiedCompletedAt":null,"soulConfiguredCompleted":false,"soulConfiguredCompletedAt":null,"firstCaptureCompleted":false,"firstCaptureCompletedAt":null,"firstKBCompileCompleted":false,"firstKBCompileCompletedAt":null,"firstQueryCompleted":false,"firstQueryCompletedAt":null}
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(OnboardingStateDTO.self, from: legacyJSON)
+        #expect(decoded.brainConfiguredCompleted == false)
+        #expect(decoded.brainConfiguredCompletedAt == nil)
+    }
+}
+
+// MARK: - HER-300 LLM brain mode + preferences round-trip
+
+@Suite("LLMBrainMode + LLMPreferences round-trip")
+struct LLMBrainModeRoundTripTests {
+    @Test func brainModeWireValues() {
+        #expect(LLMBrainMode.managed.rawValue == "managed")
+        #expect(LLMBrainMode.byok.rawValue == "byok")
+        #expect(LLMBrainMode.allCases.count == 2)
+    }
+
+    @Test func getResponseRoundTrip() throws {
+        let original = LLMPreferencesGetResponse(
+            mode: .byok,
+            primaryProvider: .anthropic,
+            primaryModel: "claude-opus-4-7",
+            fallbackChain: [ModelRouteDTO(provider: .openai, model: "gpt-4o")]
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(LLMPreferencesGetResponse.self, from: data)
+        #expect(decoded.mode == .byok)
+        #expect(decoded.primaryProvider == .anthropic)
+        #expect(decoded.primaryModel == "claude-opus-4-7")
+        #expect(decoded.fallbackChain.count == 1)
+        #expect(decoded.fallbackChain[0].provider == .openai)
+    }
+
+    @Test func putRequestRoundTripManaged() throws {
+        let original = LLMPreferencesPutRequest(
+            mode: .managed,
+            primaryProvider: .openRouter,
+            primaryModel: "qwen/qwen-2.5-72b-instruct",
+            fallbackChain: []
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(LLMPreferencesPutRequest.self, from: data)
+        #expect(decoded.mode == .managed)
+        #expect(decoded.primaryModel == "qwen/qwen-2.5-72b-instruct")
+    }
+
+    @Test func getResponseEncodesModeKey() throws {
+        let dto = LLMPreferencesGetResponse(
+            mode: .managed,
+            primaryProvider: .openRouter,
+            primaryModel: "qwen/qwen-2.5-72b-instruct",
+            fallbackChain: []
+        )
+        let data = try JSONEncoder().encode(dto)
+        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(dict?["mode"] as? String == "managed")
+    }
+
+    @Test func onboardingStateBrainConfiguredRoundTrip() throws {
+        let stamped = Date(timeIntervalSince1970: 1_700_000_000)
+        let original = OnboardingStateDTO(
+            signupCompleted: true, signupCompletedAt: stamped,
+            emailVerifiedCompleted: true, emailVerifiedCompletedAt: stamped,
+            soulConfiguredCompleted: true, soulConfiguredCompletedAt: stamped,
+            firstCaptureCompleted: false, firstCaptureCompletedAt: nil,
+            firstKBCompileCompleted: false, firstKBCompileCompletedAt: nil,
+            firstQueryCompleted: false, firstQueryCompletedAt: nil,
+            brainConfiguredCompleted: true, brainConfiguredCompletedAt: stamped
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(OnboardingStateDTO.self, from: data)
+        #expect(decoded.brainConfiguredCompleted == true)
+        #expect(decoded.brainConfiguredCompletedAt == stamped)
+    }
+
+    @Test func onboardingPatchRequestCarriesBrainFlag() throws {
+        let patch = OnboardingPatchRequest(brainConfiguredCompleted: true)
+        let data = try JSONEncoder().encode(patch)
+        let dict = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(dict?["brainConfiguredCompleted"] as? Bool == true)
+    }
 }

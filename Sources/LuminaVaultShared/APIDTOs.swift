@@ -1018,13 +1018,61 @@ public struct OnboardingStateDTO: Codable, Sendable {
     public let firstKBCompileCompletedAt: Date?
     public let firstQueryCompleted: Bool
     public let firstQueryCompletedAt: Date?
-    public init(signupCompleted: Bool, signupCompletedAt: Date?, emailVerifiedCompleted: Bool, emailVerifiedCompletedAt: Date?, soulConfiguredCompleted: Bool, soulConfiguredCompletedAt: Date?, firstCaptureCompleted: Bool, firstCaptureCompletedAt: Date?, firstKBCompileCompleted: Bool, firstKBCompileCompletedAt: Date?, firstQueryCompleted: Bool, firstQueryCompletedAt: Date?) {
+    /// HER-300 — true once user picks a default LLM brain (managed or BYOK).
+    public let brainConfiguredCompleted: Bool
+    public let brainConfiguredCompletedAt: Date?
+    public init(
+        signupCompleted: Bool,
+        signupCompletedAt: Date?,
+        emailVerifiedCompleted: Bool,
+        emailVerifiedCompletedAt: Date?,
+        soulConfiguredCompleted: Bool,
+        soulConfiguredCompletedAt: Date?,
+        firstCaptureCompleted: Bool,
+        firstCaptureCompletedAt: Date?,
+        firstKBCompileCompleted: Bool,
+        firstKBCompileCompletedAt: Date?,
+        firstQueryCompleted: Bool,
+        firstQueryCompletedAt: Date?,
+        brainConfiguredCompleted: Bool = false,
+        brainConfiguredCompletedAt: Date? = nil
+    ) {
         self.signupCompleted = signupCompleted; self.signupCompletedAt = signupCompletedAt
         self.emailVerifiedCompleted = emailVerifiedCompleted; self.emailVerifiedCompletedAt = emailVerifiedCompletedAt
         self.soulConfiguredCompleted = soulConfiguredCompleted; self.soulConfiguredCompletedAt = soulConfiguredCompletedAt
         self.firstCaptureCompleted = firstCaptureCompleted; self.firstCaptureCompletedAt = firstCaptureCompletedAt
         self.firstKBCompileCompleted = firstKBCompileCompleted; self.firstKBCompileCompletedAt = firstKBCompileCompletedAt
         self.firstQueryCompleted = firstQueryCompleted; self.firstQueryCompletedAt = firstQueryCompletedAt
+        self.brainConfiguredCompleted = brainConfiguredCompleted
+        self.brainConfiguredCompletedAt = brainConfiguredCompletedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case signupCompleted, signupCompletedAt
+        case emailVerifiedCompleted, emailVerifiedCompletedAt
+        case soulConfiguredCompleted, soulConfiguredCompletedAt
+        case firstCaptureCompleted, firstCaptureCompletedAt
+        case firstKBCompileCompleted, firstKBCompileCompletedAt
+        case firstQueryCompleted, firstQueryCompletedAt
+        case brainConfiguredCompleted, brainConfiguredCompletedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.signupCompleted = try c.decode(Bool.self, forKey: .signupCompleted)
+        self.signupCompletedAt = try c.decodeIfPresent(Date.self, forKey: .signupCompletedAt)
+        self.emailVerifiedCompleted = try c.decode(Bool.self, forKey: .emailVerifiedCompleted)
+        self.emailVerifiedCompletedAt = try c.decodeIfPresent(Date.self, forKey: .emailVerifiedCompletedAt)
+        self.soulConfiguredCompleted = try c.decode(Bool.self, forKey: .soulConfiguredCompleted)
+        self.soulConfiguredCompletedAt = try c.decodeIfPresent(Date.self, forKey: .soulConfiguredCompletedAt)
+        self.firstCaptureCompleted = try c.decode(Bool.self, forKey: .firstCaptureCompleted)
+        self.firstCaptureCompletedAt = try c.decodeIfPresent(Date.self, forKey: .firstCaptureCompletedAt)
+        self.firstKBCompileCompleted = try c.decode(Bool.self, forKey: .firstKBCompileCompleted)
+        self.firstKBCompileCompletedAt = try c.decodeIfPresent(Date.self, forKey: .firstKBCompileCompletedAt)
+        self.firstQueryCompleted = try c.decode(Bool.self, forKey: .firstQueryCompleted)
+        self.firstQueryCompletedAt = try c.decodeIfPresent(Date.self, forKey: .firstQueryCompletedAt)
+        self.brainConfiguredCompleted = try c.decodeIfPresent(Bool.self, forKey: .brainConfiguredCompleted) ?? false
+        self.brainConfiguredCompletedAt = try c.decodeIfPresent(Date.self, forKey: .brainConfiguredCompletedAt)
     }
 }
 
@@ -1039,13 +1087,15 @@ public struct OnboardingPatchRequest: Codable, Sendable {
     public let firstCaptureCompleted: Bool?
     public let firstKBCompileCompleted: Bool?
     public let firstQueryCompleted: Bool?
+    public let brainConfiguredCompleted: Bool?
     public init(
         signupCompleted: Bool? = nil,
         emailVerifiedCompleted: Bool? = nil,
         soulConfiguredCompleted: Bool? = nil,
         firstCaptureCompleted: Bool? = nil,
         firstKBCompileCompleted: Bool? = nil,
-        firstQueryCompleted: Bool? = nil
+        firstQueryCompleted: Bool? = nil,
+        brainConfiguredCompleted: Bool? = nil
     ) {
         self.signupCompleted = signupCompleted
         self.emailVerifiedCompleted = emailVerifiedCompleted
@@ -1053,6 +1103,7 @@ public struct OnboardingPatchRequest: Codable, Sendable {
         self.firstCaptureCompleted = firstCaptureCompleted
         self.firstKBCompileCompleted = firstKBCompileCompleted
         self.firstQueryCompleted = firstQueryCompleted
+        self.brainConfiguredCompleted = brainConfiguredCompleted
     }
 }
 
@@ -2138,6 +2189,16 @@ public struct ProviderTestResponse: Codable, Sendable {
 
 // ─── LLM Preferences (HER-252) ───────────────────────────────────────────
 
+/// HER-300 — Distinguishes server-managed default keys (`managed`) from
+/// user-supplied API keys (`byok`). `managed` short-circuits the BYOK
+/// credential lookup and routes through the shared Hermes gateway with a
+/// LuminaVault-funded model; `byok` honours `UserProviderCredential` and
+/// the full fallback chain.
+public enum LLMBrainMode: String, Codable, Sendable, CaseIterable {
+    case managed
+    case byok
+}
+
 /// A single `(provider, model)` step in a user's fallback chain.
 public struct ModelRouteDTO: Codable, Sendable, Hashable {
     public let provider: ProviderID
@@ -2149,32 +2210,62 @@ public struct ModelRouteDTO: Codable, Sendable, Hashable {
 }
 
 public struct LLMPreferencesGetResponse: Codable, Sendable {
+    public let mode: LLMBrainMode
     public let primaryProvider: ProviderID
     public let primaryModel: String
     public let fallbackChain: [ModelRouteDTO]
     public init(
+        mode: LLMBrainMode = .managed,
         primaryProvider: ProviderID,
         primaryModel: String,
         fallbackChain: [ModelRouteDTO]
     ) {
+        self.mode = mode
         self.primaryProvider = primaryProvider
         self.primaryModel = primaryModel
         self.fallbackChain = fallbackChain
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case mode, primaryProvider, primaryModel, fallbackChain
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.mode = try c.decodeIfPresent(LLMBrainMode.self, forKey: .mode) ?? .managed
+        self.primaryProvider = try c.decode(ProviderID.self, forKey: .primaryProvider)
+        self.primaryModel = try c.decode(String.self, forKey: .primaryModel)
+        self.fallbackChain = try c.decode([ModelRouteDTO].self, forKey: .fallbackChain)
+    }
 }
 
 public struct LLMPreferencesPutRequest: Codable, Sendable {
+    public let mode: LLMBrainMode
     public let primaryProvider: ProviderID
     public let primaryModel: String
     public let fallbackChain: [ModelRouteDTO]
     public init(
+        mode: LLMBrainMode = .managed,
         primaryProvider: ProviderID,
         primaryModel: String,
         fallbackChain: [ModelRouteDTO]
     ) {
+        self.mode = mode
         self.primaryProvider = primaryProvider
         self.primaryModel = primaryModel
         self.fallbackChain = fallbackChain
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case mode, primaryProvider, primaryModel, fallbackChain
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.mode = try c.decodeIfPresent(LLMBrainMode.self, forKey: .mode) ?? .managed
+        self.primaryProvider = try c.decode(ProviderID.self, forKey: .primaryProvider)
+        self.primaryModel = try c.decode(String.self, forKey: .primaryModel)
+        self.fallbackChain = try c.decode([ModelRouteDTO].self, forKey: .fallbackChain)
     }
 }
 
