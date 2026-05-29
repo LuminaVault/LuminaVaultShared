@@ -1750,6 +1750,37 @@ public struct DashboardStatsResponse: Codable, Sendable {
     }
 }
 
+/// `GET /v1/dashboard/profile` — the "player profile" HUD counts shown on
+/// the Home dashboard. Aggregated server-side per tenant.
+/// `badgesEarned` is the count of unlocked sub-achievements
+/// (`achievement_progress` rows with a non-null `unlocked_at`).
+/// `powerLevel` is derived from `powerXP`: `floor(sqrt(powerXP)) + 1`.
+/// `powerXP` is returned too so the client can render a progress ring
+/// toward the next level.
+public struct DashboardProfileResponse: Codable, Sendable {
+    public let skillsCount: Int
+    public let jobsCount: Int
+    public let sessionsCount: Int
+    public let badgesEarned: Int
+    public let powerLevel: Int
+    public let powerXP: Int
+    public init(
+        skillsCount: Int,
+        jobsCount: Int,
+        sessionsCount: Int,
+        badgesEarned: Int,
+        powerLevel: Int,
+        powerXP: Int
+    ) {
+        self.skillsCount = skillsCount
+        self.jobsCount = jobsCount
+        self.sessionsCount = sessionsCount
+        self.badgesEarned = badgesEarned
+        self.powerLevel = powerLevel
+        self.powerXP = powerXP
+    }
+}
+
 // ─── Skills (HER-247 / HER-178) ───────────────────────────────────────────
 
 public enum SkillSource: String, Codable, Sendable, CaseIterable {
