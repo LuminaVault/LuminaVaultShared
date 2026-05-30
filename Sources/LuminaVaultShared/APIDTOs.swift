@@ -2729,3 +2729,98 @@ public struct HermesVersionInfo: Codable, Sendable, Equatable {
         self.lastUpdatedAt = lastUpdatedAt
     }
 }
+
+// MARK: - "Feed Your Brain" bulk import (HER-105)
+//
+// These cross the wire between client and server for the import flow. Encoded
+// and decoded as plain camelCase JSON (the server reads them with the default
+// request decoder — do NOT encode with `.convertToSnakeCase` client-side).
+
+public struct ImportCreateRequest: Codable, Sendable {
+    public let sourceType: String
+    public let urls: [String]
+    public init(sourceType: String, urls: [String]) {
+        self.sourceType = sourceType
+        self.urls = urls
+    }
+}
+
+public struct ImportFilesRequest: Codable, Sendable {
+    public let sourceType: String
+    /// ids returned by `POST /v1/vault/files` (already-uploaded photos /
+    /// documents / EventKit-rendered notes).
+    public let vaultFileIds: [UUID]
+    public init(sourceType: String, vaultFileIds: [UUID]) {
+        self.sourceType = sourceType
+        self.vaultFileIds = vaultFileIds
+    }
+}
+
+public struct ImportCreateResponse: Codable, Sendable {
+    public let sessionId: UUID
+    public let status: String
+    public let total: Int
+    public let staged: Int
+    public let skipped: Int
+    public init(sessionId: UUID, status: String, total: Int, staged: Int, skipped: Int) {
+        self.sessionId = sessionId
+        self.status = status
+        self.total = total
+        self.staged = staged
+        self.skipped = skipped
+    }
+}
+
+public struct ImportItemDTO: Codable, Sendable {
+    public let id: UUID
+    public let url: String?
+    public let title: String?
+    /// existing Space slug, `new:<Name>`, or `imported`.
+    public let proposedSpace: String?
+    public let status: String
+    public init(id: UUID, url: String?, title: String?, proposedSpace: String?, status: String) {
+        self.id = id
+        self.url = url
+        self.title = title
+        self.proposedSpace = proposedSpace
+        self.status = status
+    }
+}
+
+public struct ImportStatusResponse: Codable, Sendable {
+    public let id: UUID
+    public let sourceType: String
+    public let status: String
+    public let total: Int
+    public let staged: Int
+    public let items: [ImportItemDTO]
+    public init(id: UUID, sourceType: String, status: String, total: Int, staged: Int, items: [ImportItemDTO]) {
+        self.id = id
+        self.sourceType = sourceType
+        self.status = status
+        self.total = total
+        self.staged = staged
+        self.items = items
+    }
+}
+
+public struct ImportApproveRequest: Codable, Sendable {
+    /// itemId → `slug | new:Name | imported`. Absent items keep their proposal.
+    public let overrides: [String: String]?
+    public init(overrides: [String: String]? = nil) {
+        self.overrides = overrides
+    }
+}
+
+public struct ImportApproveResponse: Codable, Sendable {
+    public let sessionId: UUID
+    public let status: String
+    public let filed: Int
+    public let memoriesIngested: Int
+    public init(sessionId: UUID, status: String, filed: Int, memoriesIngested: Int) {
+        self.sessionId = sessionId
+        self.status = status
+        self.filed = filed
+        self.memoriesIngested = memoriesIngested
+    }
+}
