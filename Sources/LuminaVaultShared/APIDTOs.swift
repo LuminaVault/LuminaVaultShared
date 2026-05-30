@@ -2532,3 +2532,200 @@ public struct WebAuthnCredentialListResponse: Codable, Sendable {
         self.credentials = credentials
     }
 }
+
+// MARK: - Hermes self-update (HER-330)
+//
+// Wire types for the owner-triggered "Update Hermes" flow. The iOS app calls
+// `POST /v1/system/hermes/update` (owner JWT + admin-token gated), the backend
+// runs a detached, blue-green update job over the Docker CLI, and the client
+// observes progress over an SSE stream of `HermesUpdateEvent` (and/or by polling
+// the job status). See `LuminaVaultServer/Sources/App/System/`.
+
+/// Identifies one step in the Hermes update pipeline. Ordering is the
+/// execution order; `rollback` runs only on failure at/after `swapCentral`.
+public enum HermesUpdateStepID: String, Codable, Sendable, CaseIterable {
+    case preflight
+    case pullImage
+    case verifyImage
+    case snapshotCurrent
+    case swapCentral
+    case healthCheckCentral
+    case reprovisionTenants
+    case verifyTenants
+    case promote
+    case rollback
+}
+
+public enum HermesUpdateStepState: String, Codable, Sendable {
+    case pending
+    case running
+    case succeeded
+    case failed
+    case skipped
+}
+
+/// A single step's live state. `detail` carries a short human-readable status
+/// line (e.g. "pulled ghcr.io/…@sha256:abc") surfaced under the step row.
+public struct HermesUpdateStep: Codable, Sendable, Equatable, Identifiable {
+    public let id: HermesUpdateStepID
+    public let state: HermesUpdateStepState
+    public let detail: String?
+    public let startedAt: Date?
+    public let finishedAt: Date?
+    public init(
+        id: HermesUpdateStepID,
+        state: HermesUpdateStepState,
+        detail: String? = nil,
+        startedAt: Date? = nil,
+        finishedAt: Date? = nil
+    ) {
+        self.id = id
+        self.state = state
+        self.detail = detail
+        self.startedAt = startedAt
+        self.finishedAt = finishedAt
+    }
+}
+
+public enum HermesUpdateJobState: String, Codable, Sendable {
+    case running
+    case succeeded
+    case failed
+    /// Update failed but the previous version was successfully restored.
+    case rolledBack
+}
+
+/// Full snapshot of an update job. Returned by the poll/status and reconnect
+/// endpoints, and as the terminal `.done` SSE event payload.
+public struct HermesUpdateJobStatus: Codable, Sendable, Equatable, Identifiable {
+    public let jobID: UUID
+    public let state: HermesUpdateJobState
+    public let steps: [HermesUpdateStep]
+    /// Image ref/version running before the update (the rollback target).
+    public let fromVersion: String?
+    /// Image ref/version this job is moving to.
+    public let toVersion: String?
+    public let errorMessage: String?
+    public let startedAt: Date
+    public let updatedAt: Date
+    public var id: UUID { jobID }
+    public init(
+        jobID: UUID,
+        state: HermesUpdateJobState,
+        steps: [HermesUpdateStep],
+        fromVersion: String? = nil,
+        toVersion: String? = nil,
+        errorMessage: String? = nil,
+        startedAt: Date,
+        updatedAt: Date
+    ) {
+        self.jobID = jobID
+        self.state = state
+        self.steps = steps
+        self.fromVersion = fromVersion
+        self.toVersion = toVersion
+        self.errorMessage = errorMessage
+        self.startedAt = startedAt
+        self.updatedAt = updatedAt
+    }
+}
+
+/// SSE frame for the update stream. Discriminated by a top-level `type` field,
+/// matching `QueryStreamEvent` / `KBCompileProgressEvent`. Decoded on the client
+/// with `JSONDecoder.hvDefault` (`.iso8601` dates).
+public enum HermesUpdateEvent: Codable, Sendable, Equatable {
+    /// A step changed state. Emitted on every transition.
+    case step(HermesUpdateStep)
+    /// Job-level state change.
+    case status(HermesUpdateJobState)
+    /// Terminal event carrying the final snapshot.
+    case done(HermesUpdateJobStatus)
+    /// Stream-level error (distinct from a step failure inside `.done`).
+    case error(String)
+
+    private enum CodingKeys: String, CodingKey { case type, payload }
+    private enum EventType: String, Codable {
+        case step, status, done, error
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try c.decode(EventType.self, forKey: .type)
+        switch type {
+        case .step: self = .step(try c.decode(HermesUpdateStep.self, forKey: .payload))
+        case .status: self = .status(try c.decode(HermesUpdateJobState.self, forKey: .payload))
+        case .done: self = .done(try c.decode(HermesUpdateJobStatus.self, forKey: .payload))
+        case .error: self = .error(try c.decode(String.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .step(let s):
+            try c.encode(EventType.step, forKey: .type)
+            try c.encode(s, forKey: .payload)
+        case .status(let st):
+            try c.encode(EventType.status, forKey: .type)
+            try c.encode(st, forKey: .payload)
+        case .done(let snapshot):
+            try c.encode(EventType.done, forKey: .type)
+            try c.encode(snapshot, forKey: .payload)
+        case .error(let message):
+            try c.encode(EventType.error, forKey: .type)
+            try c.encode(message, forKey: .payload)
+        }
+    }
+}
+
+/// Request body for `POST /v1/system/hermes/update`. `targetTag` defaults to
+/// the server's configured release channel (e.g. `latest`) when omitted.
+public struct StartHermesUpdateRequest: Codable, Sendable {
+    public let targetTag: String?
+    public init(targetTag: String? = nil) {
+        self.targetTag = targetTag
+    }
+}
+
+/// Response body for `POST /v1/system/hermes/update`.
+public struct StartHermesUpdateResponse: Codable, Sendable {
+    public let jobID: UUID
+    public let state: HermesUpdateJobState
+    public init(jobID: UUID, state: HermesUpdateJobState) {
+        self.jobID = jobID
+        self.state = state
+    }
+}
+
+/// Response body for `GET /v1/system/hermes/version`. Describes the running
+/// central Hermes image and, best-effort, the newest tag available in the
+/// registry so the client can show "update available".
+public struct HermesVersionInfo: Codable, Sendable, Equatable {
+    /// Full image reference currently running (e.g. `ghcr.io/.../luminavault-hermes:stable`).
+    public let currentRef: String
+    /// Resolved digest of the running image (e.g. `sha256:…`), if known.
+    public let currentDigest: String?
+    /// Short display label for the running version (tag or short digest).
+    public let currentLabel: String
+    /// Newest tag/label available to pull, when the server could resolve it.
+    public let availableLabel: String?
+    /// `true` when `availableLabel` differs from what's running.
+    public let updateAvailable: Bool
+    /// When the central image was last updated by this system, if recorded.
+    public let lastUpdatedAt: Date?
+    public init(
+        currentRef: String,
+        currentDigest: String? = nil,
+        currentLabel: String,
+        availableLabel: String? = nil,
+        updateAvailable: Bool = false,
+        lastUpdatedAt: Date? = nil
+    ) {
+        self.currentRef = currentRef
+        self.currentDigest = currentDigest
+        self.currentLabel = currentLabel
+        self.availableLabel = availableLabel
+        self.updateAvailable = updateAvailable
+        self.lastUpdatedAt = lastUpdatedAt
+    }
+}
