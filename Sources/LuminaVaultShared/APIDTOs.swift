@@ -2843,3 +2843,180 @@ public struct ImportApproveResponse: Codable, Sendable {
         self.memoriesIngested = memoriesIngested
     }
 }
+
+// ─── Plugin Domain (HER-43, Slice 1: Plugin Foundation) ──────────────────
+//
+// Declarative plugins: a manifest in the first-party catalog wires into an
+// existing server registry (connectors only in this slice). No third-party
+// code runs. Per-tenant install config (e.g. an API token) is sealed at rest
+// via SecretBox and never echoed in plaintext — responses carry `hasConfig`
+// only, matching the Hermes-gateway contract.
+
+public enum PluginCategory: String, Codable, Sendable, CaseIterable {
+    case connector
+    case skill
+    case memory
+    case export
+    case ui
+    case theme
+}
+
+/// Which server capability a plugin binds to. Only `connector` is wired in
+/// this slice; the others are reserved so the schema is stable across slices.
+public enum PluginCapabilityKind: String, Codable, Sendable, CaseIterable {
+    case connector
+    case skill
+    case memory
+}
+
+public enum PluginConfigFieldKind: String, Codable, Sendable, CaseIterable {
+    case text
+    case secret
+    case url
+}
+
+public struct PluginConfigField: Codable, Sendable, Hashable {
+    public let key: String
+    public let label: String
+    public let placeholder: String?
+    public let kind: PluginConfigFieldKind
+    public let isRequired: Bool
+
+    public init(
+        key: String,
+        label: String,
+        placeholder: String? = nil,
+        kind: PluginConfigFieldKind,
+        isRequired: Bool = true
+    ) {
+        self.key = key
+        self.label = label
+        self.placeholder = placeholder
+        self.kind = kind
+        self.isRequired = isRequired
+    }
+}
+
+public enum PluginInstallStatus: String, Codable, Sendable, CaseIterable {
+    case enabled
+    case disabled
+}
+
+/// One first-party catalog entry. `slug` is the stable id used by installs.
+public struct PluginCatalogEntryDTO: Codable, Sendable, Identifiable, Equatable {
+    public var id: String { slug }
+    public let slug: String
+    public let name: String
+    public let summary: String
+    public let description: String
+    public let category: PluginCategory
+    public let capabilityKind: PluginCapabilityKind
+    public let iconSlug: String
+    public let version: String
+    public let publisher: String
+    public let verified: Bool
+    public let configFields: [PluginConfigField]
+
+    public init(
+        slug: String,
+        name: String,
+        summary: String,
+        description: String,
+        category: PluginCategory,
+        capabilityKind: PluginCapabilityKind,
+        iconSlug: String,
+        version: String,
+        publisher: String,
+        verified: Bool,
+        configFields: [PluginConfigField]
+    ) {
+        self.slug = slug
+        self.name = name
+        self.summary = summary
+        self.description = description
+        self.category = category
+        self.capabilityKind = capabilityKind
+        self.iconSlug = iconSlug
+        self.version = version
+        self.publisher = publisher
+        self.verified = verified
+        self.configFields = configFields
+    }
+}
+
+public struct PluginCatalogListResponse: Codable, Sendable {
+    public let items: [PluginCatalogEntryDTO]
+    public init(items: [PluginCatalogEntryDTO]) { self.items = items }
+}
+
+/// A tenant's install of a catalog plugin. Config is never echoed — only
+/// `hasConfig` reports whether a sealed config exists.
+public struct PluginInstallDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let pluginSlug: String
+    public let status: PluginInstallStatus
+    public let hasConfig: Bool
+    public let createdAt: Date?
+    public let lastSyncAt: Date?
+
+    public init(
+        id: UUID,
+        pluginSlug: String,
+        status: PluginInstallStatus,
+        hasConfig: Bool,
+        createdAt: Date? = nil,
+        lastSyncAt: Date? = nil
+    ) {
+        self.id = id
+        self.pluginSlug = pluginSlug
+        self.status = status
+        self.hasConfig = hasConfig
+        self.createdAt = createdAt
+        self.lastSyncAt = lastSyncAt
+    }
+}
+
+public struct PluginInstallsListResponse: Codable, Sendable {
+    public let items: [PluginInstallDTO]
+    public init(items: [PluginInstallDTO]) { self.items = items }
+}
+
+public struct InstallPluginRequest: Codable, Sendable {
+    public let pluginSlug: String
+    public let config: [String: String]
+    public init(pluginSlug: String, config: [String: String]) {
+        self.pluginSlug = pluginSlug
+        self.config = config
+    }
+}
+
+/// Patch an install: replace config and/or flip enabled/disabled. Both fields
+/// optional so the client can send either independently.
+public struct UpdatePluginInstallRequest: Codable, Sendable {
+    public let config: [String: String]?
+    public let status: PluginInstallStatus?
+    public init(config: [String: String]? = nil, status: PluginInstallStatus? = nil) {
+        self.config = config
+        self.status = status
+    }
+}
+
+/// Result of running a connector install's sync. Items are staged into the
+/// reserved `imported` inbox via the existing import pipeline; the returned
+/// `sessionId` is a standard import session the client polls / approves.
+public struct PluginSyncResponse: Codable, Sendable {
+    public let installId: UUID
+    public let sessionId: UUID
+    public let status: String
+    public let total: Int
+    public let staged: Int
+    public let skipped: Int
+    public init(installId: UUID, sessionId: UUID, status: String, total: Int, staged: Int, skipped: Int) {
+        self.installId = installId
+        self.sessionId = sessionId
+        self.status = status
+        self.total = total
+        self.staged = staged
+        self.skipped = skipped
+    }
+}
