@@ -946,6 +946,22 @@ public struct VaultUploadResponse: Codable, Sendable {
     }
 }
 
+/// Note/smart-todo sidecar carried on a vault file. All optional so a plain
+/// file (no note semantics) serialises to an empty object. `isTodo` promotes
+/// a note to a checkable task; `done` + `dueAt` drive completion and the
+/// client-scheduled reminder.
+public struct VaultNoteMetadataDTO: Codable, Sendable, Equatable {
+    public let title: String?
+    public let tags: [String]?
+    public let isTodo: Bool?
+    public let done: Bool?
+    public let dueAt: Date?
+    public init(title: String? = nil, tags: [String]? = nil, isTodo: Bool? = nil, done: Bool? = nil, dueAt: Date? = nil) {
+        self.title = title; self.tags = tags; self.isTodo = isTodo
+        self.done = done; self.dueAt = dueAt
+    }
+}
+
 public struct VaultFileDTO: Codable, Sendable {
     public let id: UUID
     public let path: String
@@ -955,10 +971,13 @@ public struct VaultFileDTO: Codable, Sendable {
     public let spaceId: UUID?
     public let createdAt: Date?
     public let updatedAt: Date?
-    public init(id: UUID, path: String, contentType: String, sizeBytes: Int64, sha256: String, spaceId: UUID? = nil, createdAt: Date? = nil, updatedAt: Date? = nil) {
+    /// HER-Notes — note/todo metadata. Null/absent for non-note files.
+    public let metadata: VaultNoteMetadataDTO?
+    public init(id: UUID, path: String, contentType: String, sizeBytes: Int64, sha256: String, spaceId: UUID? = nil, createdAt: Date? = nil, updatedAt: Date? = nil, metadata: VaultNoteMetadataDTO? = nil) {
         self.id = id; self.path = path; self.contentType = contentType
         self.sizeBytes = sizeBytes; self.sha256 = sha256; self.spaceId = spaceId
         self.createdAt = createdAt; self.updatedAt = updatedAt
+        self.metadata = metadata
     }
 }
 
