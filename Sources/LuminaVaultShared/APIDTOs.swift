@@ -3020,3 +3020,223 @@ public struct PluginSyncResponse: Codable, Sendable {
         self.skipped = skipped
     }
 }
+
+// ─── Reminders (HER-Reminders) ─────────────────────────────────────────────
+// A user-scheduled timed message. When `fireAt` arrives, the server fires an
+// APNS push (category `reminder`) and stamps `firedAt`. One-shot unless
+// `recurrenceCron` is set, in which case `fireAt` is advanced to the next
+// matching minute after each fire.
+
+public struct ReminderDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let title: String
+    public let body: String
+    public let fireAt: Date
+    /// Optional cron expression for recurring reminders (nil = one-shot).
+    public let recurrenceCron: String?
+    /// Set once the reminder has fired at least once; nil while pending.
+    public let firedAt: Date?
+    public let createdAt: Date
+    public init(
+        id: UUID,
+        title: String,
+        body: String,
+        fireAt: Date,
+        recurrenceCron: String? = nil,
+        firedAt: Date? = nil,
+        createdAt: Date
+    ) {
+        self.id = id; self.title = title; self.body = body
+        self.fireAt = fireAt; self.recurrenceCron = recurrenceCron
+        self.firedAt = firedAt; self.createdAt = createdAt
+    }
+}
+
+public struct ReminderListResponse: Codable, Sendable {
+    public let reminders: [ReminderDTO]
+    public let nextCursor: String?
+    public init(reminders: [ReminderDTO], nextCursor: String? = nil) {
+        self.reminders = reminders; self.nextCursor = nextCursor
+    }
+}
+
+public struct ReminderCreateRequest: Codable, Sendable {
+    public let title: String
+    public let body: String
+    public let fireAt: Date
+    public let recurrenceCron: String?
+    public init(title: String, body: String, fireAt: Date, recurrenceCron: String? = nil) {
+        self.title = title; self.body = body
+        self.fireAt = fireAt; self.recurrenceCron = recurrenceCron
+    }
+}
+
+public struct ReminderPatchRequest: Codable, Sendable {
+    public let title: String?
+    public let body: String?
+    public let fireAt: Date?
+    public let recurrenceCron: String?
+    public init(title: String? = nil, body: String? = nil, fireAt: Date? = nil, recurrenceCron: String? = nil) {
+        self.title = title; self.body = body
+        self.fireAt = fireAt; self.recurrenceCron = recurrenceCron
+    }
+}
+
+// ─── Projects (HER-Projects) ───────────────────────────────────────────────
+// A named container that groups Todos. Tenant-scoped.
+
+public struct ProjectDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let name: String
+    public let description: String?
+    public let archived: Bool
+    /// Number of todos linked to this project (nil when not computed).
+    public let todoCount: Int?
+    public let createdAt: Date
+    public init(
+        id: UUID,
+        name: String,
+        description: String? = nil,
+        archived: Bool = false,
+        todoCount: Int? = nil,
+        createdAt: Date
+    ) {
+        self.id = id; self.name = name; self.description = description
+        self.archived = archived; self.todoCount = todoCount; self.createdAt = createdAt
+    }
+}
+
+public struct ProjectListResponse: Codable, Sendable {
+    public let projects: [ProjectDTO]
+    public let nextCursor: String?
+    public init(projects: [ProjectDTO], nextCursor: String? = nil) {
+        self.projects = projects; self.nextCursor = nextCursor
+    }
+}
+
+public struct ProjectCreateRequest: Codable, Sendable {
+    public let name: String
+    public let description: String?
+    public init(name: String, description: String? = nil) {
+        self.name = name; self.description = description
+    }
+}
+
+public struct ProjectPatchRequest: Codable, Sendable {
+    public let name: String?
+    public let description: String?
+    public let archived: Bool?
+    public init(name: String? = nil, description: String? = nil, archived: Bool? = nil) {
+        self.name = name; self.description = description; self.archived = archived
+    }
+}
+
+// ─── Todos (HER-Todos — user to-do tasks) ──────────────────────────────────
+// A user-owned to-do item. Distinct from the background-job-shaped `TaskDTO`
+// above (which tracks server operations). The Home "Tasks" card surfaces
+// these. Optionally linked to a Project.
+
+public struct TodoDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let title: String
+    public let done: Bool
+    public let dueAt: Date?
+    public let projectID: UUID?
+    public let createdAt: Date
+    public init(
+        id: UUID,
+        title: String,
+        done: Bool = false,
+        dueAt: Date? = nil,
+        projectID: UUID? = nil,
+        createdAt: Date
+    ) {
+        self.id = id; self.title = title; self.done = done
+        self.dueAt = dueAt; self.projectID = projectID; self.createdAt = createdAt
+    }
+}
+
+public struct TodoListResponse: Codable, Sendable {
+    public let todos: [TodoDTO]
+    public let nextCursor: String?
+    public init(todos: [TodoDTO], nextCursor: String? = nil) {
+        self.todos = todos; self.nextCursor = nextCursor
+    }
+}
+
+public struct TodoCreateRequest: Codable, Sendable {
+    public let title: String
+    public let dueAt: Date?
+    public let projectID: UUID?
+    public init(title: String, dueAt: Date? = nil, projectID: UUID? = nil) {
+        self.title = title; self.dueAt = dueAt; self.projectID = projectID
+    }
+}
+
+public struct TodoPatchRequest: Codable, Sendable {
+    public let title: String?
+    public let done: Bool?
+    public let dueAt: Date?
+    public let projectID: UUID?
+    public init(title: String? = nil, done: Bool? = nil, dueAt: Date? = nil, projectID: UUID? = nil) {
+        self.title = title; self.done = done; self.dueAt = dueAt; self.projectID = projectID
+    }
+}
+
+// ─── Usage analytics (HER-Insights) ────────────────────────────────────────
+// Aggregated per-tenant usage for the current billing period. Sourced from
+// the usage meter (LLM tokens) + embedding usage counters.
+
+public struct UsageSummaryResponse: Codable, Sendable {
+    public let llmTokensIn: Int
+    public let llmTokensOut: Int
+    public let embeddingTokens: Int
+    public let sessionsCount: Int
+    public let estimatedCostCents: Int
+    public let periodStart: Date
+    public let periodEnd: Date
+    public init(
+        llmTokensIn: Int,
+        llmTokensOut: Int,
+        embeddingTokens: Int,
+        sessionsCount: Int,
+        estimatedCostCents: Int,
+        periodStart: Date,
+        periodEnd: Date
+    ) {
+        self.llmTokensIn = llmTokensIn; self.llmTokensOut = llmTokensOut
+        self.embeddingTokens = embeddingTokens; self.sessionsCount = sessionsCount
+        self.estimatedCostCents = estimatedCostCents
+        self.periodStart = periodStart; self.periodEnd = periodEnd
+    }
+}
+
+// ─── Home aggregate (HER-Home) ─────────────────────────────────────────────
+// One-shot counts powering the Home dashboard cards, plus the active Hermes
+// profile. Avoids N round-trips on the landing screen.
+
+public struct HomeSummaryResponse: Codable, Sendable {
+    public let skillsCount: Int
+    public let jobsCount: Int
+    public let remindersCount: Int
+    public let todosCount: Int
+    public let projectsCount: Int
+    public let insightsCount: Int
+    public let activeProfileName: String?
+    public let activeProfileSlug: String?
+    public init(
+        skillsCount: Int,
+        jobsCount: Int,
+        remindersCount: Int,
+        todosCount: Int,
+        projectsCount: Int,
+        insightsCount: Int,
+        activeProfileName: String? = nil,
+        activeProfileSlug: String? = nil
+    ) {
+        self.skillsCount = skillsCount; self.jobsCount = jobsCount
+        self.remindersCount = remindersCount; self.todosCount = todosCount
+        self.projectsCount = projectsCount; self.insightsCount = insightsCount
+        self.activeProfileName = activeProfileName; self.activeProfileSlug = activeProfileSlug
+    }
+}
