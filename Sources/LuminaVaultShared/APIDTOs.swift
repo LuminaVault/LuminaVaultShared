@@ -1866,6 +1866,75 @@ public enum SkillRunStatus: String, Codable, Sendable, CaseIterable {
     case error
 }
 
+// ─── Lumina Blocks (Jobs P2) — structured, natively-rendered output ──────
+//
+// A domain-agnostic block schema the AI emits and the iOS client renders as
+// native SwiftUI (cards, charts, lists) instead of Markdown. Reused for job
+// results, note bodies, and link summaries. Intentionally a *flat
+// discriminated union* (a `type` string + optional typed fields) rather than
+// a Swift enum-with-associated-values, so: (a) the AI emits trivially
+// (`{"type":"statCard", ...}`), and (b) **older clients tolerate unknown
+// block types** — an unrecognised `type` renders a graceful fallback instead
+// of failing to decode the whole payload. Versioned by the `type` vocabulary.
+
+public struct LuminaChartPoint: Codable, Sendable {
+    public let x: String
+    public let y: Double
+    public init(x: String, y: Double) { self.x = x; self.y = y }
+}
+
+public struct LuminaSeries: Codable, Sendable {
+    public let name: String
+    public let points: [LuminaChartPoint]
+    public init(name: String, points: [LuminaChartPoint]) { self.name = name; self.points = points }
+}
+
+public struct LuminaKeyValue: Codable, Sendable {
+    public let key: String
+    public let value: String
+    public init(key: String, value: String) { self.key = key; self.value = value }
+}
+
+public struct LuminaBlock: Codable, Sendable {
+    /// Discriminator. Known: heading · paragraph · markdown · statCard ·
+    /// lineChart · barChart · list · table · badge · keyValue · quote ·
+    /// image · divider. Unknown values render a fallback client-side.
+    public let type: String
+    public let text: String?          // heading/paragraph/markdown/quote/badge
+    public let level: Int?            // heading depth (1…3)
+    public let label: String?         // statCard caption
+    public let value: String?         // statCard primary value
+    public let delta: String?         // statCard change ("+1.2%")
+    public let trend: String?         // "up" | "down" | "flat"
+    public let items: [String]?       // list rows
+    public let columns: [String]?     // table header
+    public let rows: [[String]]?      // table body
+    public let series: [LuminaSeries]? // lineChart/barChart
+    public let pairs: [LuminaKeyValue]? // keyValue grid
+    public let url: String?           // image
+
+    public init(
+        type: String,
+        text: String? = nil,
+        level: Int? = nil,
+        label: String? = nil,
+        value: String? = nil,
+        delta: String? = nil,
+        trend: String? = nil,
+        items: [String]? = nil,
+        columns: [String]? = nil,
+        rows: [[String]]? = nil,
+        series: [LuminaSeries]? = nil,
+        pairs: [LuminaKeyValue]? = nil,
+        url: String? = nil
+    ) {
+        self.type = type; self.text = text; self.level = level
+        self.label = label; self.value = value; self.delta = delta; self.trend = trend
+        self.items = items; self.columns = columns; self.rows = rows
+        self.series = series; self.pairs = pairs; self.url = url
+    }
+}
+
 public enum SkillCapability: String, Codable, Sendable, CaseIterable {
     case low
     case medium
@@ -1943,9 +2012,12 @@ public struct SkillRunDTO: Codable, Sendable, Identifiable {
     public let mtokOut: Int?
     /// Lumina Jobs P1 — the run's rendered output (Markdown). The iOS Jobs
     /// surface renders this as the job result. `nil` for runs logged before
-    /// output persistence (M66) or runs that produced no body. P2 adds a
-    /// structured `blocks` field alongside this for native rendering.
+    /// output persistence (M66) or runs that produced no body.
     public let markdown: String?
+    /// Lumina Jobs P2 — structured native-render blocks. When present the
+    /// client renders these (cards/charts/lists) instead of `markdown`;
+    /// `markdown` stays as the fallback + email/gateway body.
+    public let blocks: [LuminaBlock]?
 
     public init(
         id: UUID,
@@ -1956,7 +2028,8 @@ public struct SkillRunDTO: Codable, Sendable, Identifiable {
         modelUsed: String? = nil,
         mtokIn: Int? = nil,
         mtokOut: Int? = nil,
-        markdown: String? = nil
+        markdown: String? = nil,
+        blocks: [LuminaBlock]? = nil
     ) {
         self.id = id
         self.startedAt = startedAt
@@ -1967,6 +2040,7 @@ public struct SkillRunDTO: Codable, Sendable, Identifiable {
         self.mtokIn = mtokIn
         self.mtokOut = mtokOut
         self.markdown = markdown
+        self.blocks = blocks
     }
 }
 
