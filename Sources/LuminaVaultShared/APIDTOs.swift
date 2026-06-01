@@ -2983,6 +2983,9 @@ public enum PluginCategory: String, Codable, Sendable, CaseIterable {
     case export
     case ui
     case theme
+    /// HER-54 (Slice 1) — capture plugins that hook into the capture pipeline
+    /// to transform/enrich a captured item before it is persisted.
+    case capture
 }
 
 /// Which server capability a plugin binds to. Only `connector` is wired in
@@ -2991,6 +2994,9 @@ public enum PluginCapabilityKind: String, Codable, Sendable, CaseIterable {
     case connector
     case skill
     case memory
+    /// HER-54 (Slice 1) — binds to a `CaptureHook` run by the server's capture
+    /// pipeline at a declared `CaptureHookPoint` (e.g. post-enrichment).
+    case captureHook
 }
 
 public enum PluginConfigFieldKind: String, Codable, Sendable, CaseIterable {
