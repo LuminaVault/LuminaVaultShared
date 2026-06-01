@@ -1941,6 +1941,11 @@ public struct SkillRunDTO: Codable, Sendable, Identifiable {
     public let modelUsed: String?
     public let mtokIn: Int?
     public let mtokOut: Int?
+    /// Lumina Jobs P1 — the run's rendered output (Markdown). The iOS Jobs
+    /// surface renders this as the job result. `nil` for runs logged before
+    /// output persistence (M66) or runs that produced no body. P2 adds a
+    /// structured `blocks` field alongside this for native rendering.
+    public let markdown: String?
 
     public init(
         id: UUID,
@@ -1950,7 +1955,8 @@ public struct SkillRunDTO: Codable, Sendable, Identifiable {
         error: String? = nil,
         modelUsed: String? = nil,
         mtokIn: Int? = nil,
-        mtokOut: Int? = nil
+        mtokOut: Int? = nil,
+        markdown: String? = nil
     ) {
         self.id = id
         self.startedAt = startedAt
@@ -1960,6 +1966,7 @@ public struct SkillRunDTO: Codable, Sendable, Identifiable {
         self.modelUsed = modelUsed
         self.mtokIn = mtokIn
         self.mtokOut = mtokOut
+        self.markdown = markdown
     }
 }
 
