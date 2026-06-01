@@ -522,9 +522,19 @@ public struct MemoryLineageResponse: Codable, Sendable {
 
 // ─── Memory Graph (HER-235) ──────────────────────────────────────────────
 //
-// Read-only derived graph view of a tenant's memories. Nodes are memories;
-// edges are derived on read from shared tags + pgvector cosine similarity.
+// Read-only derived graph view of a tenant's second brain. Nodes are
+// memories (recall layer) and/or wiki pages (the compiled raw/ → wiki/
+// notes). Edges are derived on read from: explicit [[wiki-links]], shared
+// tags, shared Space, pgvector cosine similarity, and temporal proximity.
 // No edges are persisted server-side in v1.
+
+/// Which backing store a graph node's `id` belongs to. Lets one graph mix
+/// memory nodes and wiki-page (`vault_files`) nodes. Decodes to `.memory`
+/// for pre-enrich payloads that omit the field.
+public enum GraphNodeKindDTO: String, Codable, Sendable {
+    case memory
+    case wikiPage
+}
 
 public struct MemoryGraphNodeDTO: Codable, Sendable, Identifiable {
     public let id: UUID
@@ -532,15 +542,52 @@ public struct MemoryGraphNodeDTO: Codable, Sendable, Identifiable {
     public let tags: [String]
     public let createdAt: Date
     public let score: Double
-    public init(id: UUID, title: String, tags: [String], createdAt: Date, score: Double) {
+    /// Graph-enrich: store the id belongs to. Drives node styling +
+    /// tap-target routing (wiki page → full markdown page, memory → sheet).
+    public let kind: GraphNodeKindDTO
+    /// Optional Space the node is filed under; powers `.space` edges and
+    /// space-tinted clustering. `nil` for unfiled nodes.
+    public let spaceID: UUID?
+
+    public init(
+        id: UUID,
+        title: String,
+        tags: [String],
+        createdAt: Date,
+        score: Double,
+        kind: GraphNodeKindDTO = .memory,
+        spaceID: UUID? = nil
+    ) {
         self.id = id; self.title = title; self.tags = tags
         self.createdAt = createdAt; self.score = score
+        self.kind = kind; self.spaceID = spaceID
+    }
+
+    // Custom decode so a newer client stays robust against an older server
+    // that predates `kind`/`spaceID`: missing keys fall back to a memory
+    // node with no Space rather than failing the whole graph decode.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        score = try c.decode(Double.self, forKey: .score)
+        kind = try c.decodeIfPresent(GraphNodeKindDTO.self, forKey: .kind) ?? .memory
+        spaceID = try c.decodeIfPresent(UUID.self, forKey: .spaceID)
     }
 }
 
 public enum MemoryEdgeKindDTO: String, Codable, Sendable {
+    /// Explicit `[[wiki-link]]` between notes — the strongest, human-authored
+    /// signal. Wins on dedupe in the server merge.
+    case wikilink
     case tag
+    /// Both endpoints filed under the same Space.
+    case space
     case semantic
+    /// Captured close together in time.
+    case temporal
 }
 
 public struct MemoryGraphEdgeDTO: Codable, Sendable {
