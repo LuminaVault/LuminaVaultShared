@@ -2393,6 +2393,78 @@ public struct MeBillingResponse: Codable, Sendable, Equatable {
     }
 }
 
+/// One UTC day of measured usage for Settings → Subscription → Usage.
+/// Metrics-only: these values are informational and do not imply quota
+/// enforcement or overage billing.
+public struct UsageDailyPointDTO: Codable, Sendable, Equatable {
+    public let day: Date
+    public let tokensIn: Int64
+    public let tokensOut: Int64
+    public let ttsCharacters: Int64
+    public let compileRuns: Int64
+    public let compileFiles: Int64
+
+    public init(
+        day: Date,
+        tokensIn: Int64,
+        tokensOut: Int64,
+        ttsCharacters: Int64,
+        compileRuns: Int64,
+        compileFiles: Int64
+    ) {
+        self.day = day
+        self.tokensIn = tokensIn
+        self.tokensOut = tokensOut
+        self.ttsCharacters = ttsCharacters
+        self.compileRuns = compileRuns
+        self.compileFiles = compileFiles
+    }
+}
+
+/// Response body for `GET /v1/auth/me/usage`.
+public struct MeUsageResponse: Codable, Sendable, Equatable {
+    public let tier: UserTier
+    public let periodStart: Date
+    public let periodEnd: Date
+    public let generatedAt: Date
+    public let storageBytes: Int64
+    public let tokensIn: Int64
+    public let tokensOut: Int64
+    public let tokensTotal: Int64
+    public let ttsCharacters: Int64
+    public let compileRuns: Int64
+    public let compileFiles: Int64
+    public let daily: [UsageDailyPointDTO]
+
+    public init(
+        tier: UserTier,
+        periodStart: Date,
+        periodEnd: Date,
+        generatedAt: Date,
+        storageBytes: Int64,
+        tokensIn: Int64,
+        tokensOut: Int64,
+        tokensTotal: Int64,
+        ttsCharacters: Int64,
+        compileRuns: Int64,
+        compileFiles: Int64,
+        daily: [UsageDailyPointDTO]
+    ) {
+        self.tier = tier
+        self.periodStart = periodStart
+        self.periodEnd = periodEnd
+        self.generatedAt = generatedAt
+        self.storageBytes = storageBytes
+        self.tokensIn = tokensIn
+        self.tokensOut = tokensOut
+        self.tokensTotal = tokensTotal
+        self.ttsCharacters = ttsCharacters
+        self.compileRuns = compileRuns
+        self.compileFiles = compileFiles
+        self.daily = daily
+    }
+}
+
 // ─── WebAuthn / Passkey DTOs (HER-216) ────────────────────────────────────
 //
 // Wire-format types for the four passkey routes:
