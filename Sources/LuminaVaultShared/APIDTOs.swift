@@ -529,11 +529,16 @@ public struct MemoryLineageResponse: Codable, Sendable {
 // No edges are persisted server-side in v1.
 
 /// Which backing store a graph node's `id` belongs to. Lets one graph mix
-/// memory nodes and wiki-page (`vault_files`) nodes. Decodes to `.memory`
-/// for pre-enrich payloads that omit the field.
+/// memory nodes, source (`vault_files`) nodes, and synthetic Space hub nodes.
+/// Decodes to `.memory` for pre-enrich payloads that omit the field.
+///
+/// - `space` is a synthetic hub node (id = the Space's UUID, title = the Space
+///   name) that member nodes connect to via `.space` star edges, giving each
+///   Space visual cohesion in the graph. (`wikiPage` is the raw source layer.)
 public enum GraphNodeKindDTO: String, Codable, Sendable {
     case memory
     case wikiPage
+    case space
 }
 
 public struct MemoryGraphNodeDTO: Codable, Sendable, Identifiable {
