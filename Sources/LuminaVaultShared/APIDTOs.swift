@@ -2001,6 +2001,51 @@ public struct SkillListResponse: Codable, Sendable {
     public init(skills: [SkillDTO]) { self.skills = skills }
 }
 
+// ─── Lumina Jobs P3 — chat→job detection + creation ──────────────────────
+
+/// Result of classifying a chat message for recurring-job intent
+/// (POST /v1/jobs/detect). When `isJob` is true the client shows a
+/// "Create Job" proposal card pre-filled from these fields.
+public struct JobProposalDTO: Codable, Sendable {
+    public let isJob: Bool
+    public let title: String?
+    /// Cron expression, e.g. "0 8 * * *".
+    public let cron: String?
+    /// Human-readable schedule, e.g. "Every day at 8:00 AM".
+    public let scheduleHuman: String?
+    /// Domain hint (stocks, sports, ai, tech, health, life…) — drives the
+    /// AI's block choices when the job runs.
+    public let domain: String?
+    /// What the job should monitor/produce each run (becomes the skill body).
+    public let spec: String?
+
+    public init(
+        isJob: Bool,
+        title: String? = nil,
+        cron: String? = nil,
+        scheduleHuman: String? = nil,
+        domain: String? = nil,
+        spec: String? = nil
+    ) {
+        self.isJob = isJob; self.title = title; self.cron = cron
+        self.scheduleHuman = scheduleHuman; self.domain = domain; self.spec = spec
+    }
+}
+
+/// Body for POST /v1/jobs — creates a scheduled job (a vault cron skill).
+public struct JobCreateRequest: Codable, Sendable {
+    public let title: String
+    public let cron: String
+    public let domain: String?
+    public let spec: String
+    public let spaceId: UUID?
+
+    public init(title: String, cron: String, domain: String? = nil, spec: String, spaceId: UUID? = nil) {
+        self.title = title; self.cron = cron; self.domain = domain
+        self.spec = spec; self.spaceId = spaceId
+    }
+}
+
 public struct SkillRunDTO: Codable, Sendable, Identifiable {
     public let id: UUID
     public let startedAt: Date
