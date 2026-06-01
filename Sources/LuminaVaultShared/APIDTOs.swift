@@ -1632,6 +1632,147 @@ public struct HermesGatewayTestResponse: Codable, Sendable {
     }
 }
 
+// ─── Hermes Gateway Apply (actuation) ───────────────────────────────────
+//
+// Wire types for the tenant-scoped "apply gateway config" flow. After the app
+// PUTs a gateway's credentials, it calls `POST /v1/me/hermes-gateways/apply`,
+// the backend rewrites the tenant's `.env` and recreates the Hermes container,
+// and the client observes progress over an SSE stream of
+// `HermesGatewayApplyEvent` (and/or by polling the job status). Mirrors the
+// HER-330 self-update shape but per-tenant. See `LuminaVaultServer/Sources/App/`.
+
+/// One step in the gateway-apply pipeline. Execution order.
+public enum HermesGatewayApplyStepID: String, Codable, Sendable, CaseIterable {
+    /// Render the tenant's gateway tokens into `/opt/data/.env`.
+    case writeEnv
+    /// `docker rm -f` + re-`docker run` so the new env takes effect.
+    case restartContainer
+    /// Probe the freshly-started container's health endpoint.
+    case healthCheck
+}
+
+public enum HermesGatewayApplyStepState: String, Codable, Sendable {
+    case pending
+    case running
+    case succeeded
+    case failed
+    case skipped
+}
+
+/// A single step's live state. `detail` carries a short human-readable status
+/// line surfaced under the step row.
+public struct HermesGatewayApplyStep: Codable, Sendable, Equatable, Identifiable {
+    public let id: HermesGatewayApplyStepID
+    public let state: HermesGatewayApplyStepState
+    public let detail: String?
+    public let startedAt: Date?
+    public let finishedAt: Date?
+    public init(
+        id: HermesGatewayApplyStepID,
+        state: HermesGatewayApplyStepState,
+        detail: String? = nil,
+        startedAt: Date? = nil,
+        finishedAt: Date? = nil
+    ) {
+        self.id = id
+        self.state = state
+        self.detail = detail
+        self.startedAt = startedAt
+        self.finishedAt = finishedAt
+    }
+}
+
+public enum HermesGatewayApplyJobState: String, Codable, Sendable {
+    case running
+    case succeeded
+    case failed
+}
+
+/// Full snapshot of an apply job. Returned by the poll/status and reconnect
+/// endpoints, and as the terminal `.done` SSE event payload.
+public struct HermesGatewayApplyJobStatus: Codable, Sendable, Equatable, Identifiable {
+    public let jobID: UUID
+    public let state: HermesGatewayApplyJobState
+    public let steps: [HermesGatewayApplyStep]
+    public let errorMessage: String?
+    public let startedAt: Date
+    public let updatedAt: Date
+    public var id: UUID { jobID }
+    public init(
+        jobID: UUID,
+        state: HermesGatewayApplyJobState,
+        steps: [HermesGatewayApplyStep],
+        errorMessage: String? = nil,
+        startedAt: Date,
+        updatedAt: Date
+    ) {
+        self.jobID = jobID
+        self.state = state
+        self.steps = steps
+        self.errorMessage = errorMessage
+        self.startedAt = startedAt
+        self.updatedAt = updatedAt
+    }
+}
+
+/// SSE frame for the apply stream. Discriminated by a top-level `type` field,
+/// matching `HermesUpdateEvent`. Decoded on the client with
+/// `JSONDecoder.hvDefault` (`.iso8601` dates).
+public enum HermesGatewayApplyEvent: Codable, Sendable, Equatable {
+    /// A step changed state. Emitted on every transition.
+    case step(HermesGatewayApplyStep)
+    /// Job-level state change.
+    case status(HermesGatewayApplyJobState)
+    /// Terminal event carrying the final snapshot.
+    case done(HermesGatewayApplyJobStatus)
+    /// Stream-level error (distinct from a step failure inside `.done`).
+    case error(String)
+
+    private enum CodingKeys: String, CodingKey { case type, payload }
+    private enum EventType: String, Codable {
+        case step, status, done, error
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try c.decode(EventType.self, forKey: .type)
+        switch type {
+        case .step: self = .step(try c.decode(HermesGatewayApplyStep.self, forKey: .payload))
+        case .status: self = .status(try c.decode(HermesGatewayApplyJobState.self, forKey: .payload))
+        case .done: self = .done(try c.decode(HermesGatewayApplyJobStatus.self, forKey: .payload))
+        case .error: self = .error(try c.decode(String.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .step(let s):
+            try c.encode(EventType.step, forKey: .type)
+            try c.encode(s, forKey: .payload)
+        case .status(let st):
+            try c.encode(EventType.status, forKey: .type)
+            try c.encode(st, forKey: .payload)
+        case .done(let snapshot):
+            try c.encode(EventType.done, forKey: .type)
+            try c.encode(snapshot, forKey: .payload)
+        case .error(let message):
+            try c.encode(EventType.error, forKey: .type)
+            try c.encode(message, forKey: .payload)
+        }
+    }
+}
+
+/// Response body for `POST /v1/me/hermes-gateways/apply`.
+public struct StartHermesGatewayApplyResponse: Codable, Sendable {
+    public let jobID: UUID
+    public let state: HermesGatewayApplyJobState
+    public init(jobID: UUID, state: HermesGatewayApplyJobState) {
+        self.jobID = jobID
+        self.state = state
+    }
+}
+
 // ─── Hermes Profiles (HER-273 — multi-agent per user) ───────────────────
 
 public struct HermesProfileDTO: Codable, Sendable, Identifiable, Equatable {
