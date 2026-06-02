@@ -2001,6 +2001,50 @@ public struct SkillListResponse: Codable, Sendable {
     public init(skills: [SkillDTO]) { self.skills = skills }
 }
 
+// ─── Apple Ecosystem Integration — per-domain data-access consent ─────────
+//
+// The LuminaVault consent layer (separate from, and stricter than, the iOS
+// permission). `allowed` gates BOTH on-device sync AND Hermes tool access for
+// the domain; `allowWrites` lets Hermes make changes (Calendar/Reminders).
+// Enforced server-side, not just in the UI.
+
+public enum AppleDataDomain: String, Codable, Sendable, CaseIterable {
+    case health
+    case calendar
+    case reminders
+    case photos
+    case location
+    case files
+}
+
+public struct AppleConsentDTO: Codable, Sendable, Identifiable {
+    public var id: AppleDataDomain { domain }
+    public let domain: AppleDataDomain
+    public let allowed: Bool
+    public let allowWrites: Bool
+    public let lastSyncAt: Date?
+
+    public init(domain: AppleDataDomain, allowed: Bool, allowWrites: Bool = false, lastSyncAt: Date? = nil) {
+        self.domain = domain; self.allowed = allowed
+        self.allowWrites = allowWrites; self.lastSyncAt = lastSyncAt
+    }
+}
+
+public struct AppleConsentResponse: Codable, Sendable {
+    public let consents: [AppleConsentDTO]
+    public init(consents: [AppleConsentDTO]) { self.consents = consents }
+}
+
+/// Upsert one domain's consent. `allowWrites` omitted = leave unchanged.
+public struct AppleConsentUpdateRequest: Codable, Sendable {
+    public let domain: AppleDataDomain
+    public let allowed: Bool
+    public let allowWrites: Bool?
+    public init(domain: AppleDataDomain, allowed: Bool, allowWrites: Bool? = nil) {
+        self.domain = domain; self.allowed = allowed; self.allowWrites = allowWrites
+    }
+}
+
 // ─── Lumina Jobs P3 — chat→job detection + creation ──────────────────────
 
 /// Result of classifying a chat message for recurring-job intent
