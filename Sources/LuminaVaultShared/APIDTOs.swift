@@ -1612,6 +1612,17 @@ public struct HermesGatewayField: Codable, Sendable, Hashable {
     }
 }
 
+/// How a gateway is configured from the app. `nil`/absent means the default
+/// credential flow (enter token fields → `PUT` → Save & apply). A non-nil value
+/// marks a gateway that needs an interactive pairing surface instead of a
+/// credential form — currently only WhatsApp, which pairs via a streamed QR.
+public enum HermesGatewayPairingKind: String, Codable, Sendable, CaseIterable {
+    /// WhatsApp QR pairing: server runs `hermes whatsapp`, streams the QR to the
+    /// app, the user scans it with their phone's *Linked Devices*. See
+    /// `HermesWhatsAppPairEvent`.
+    case whatsappQR
+}
+
 public struct HermesGatewayCatalogEntry: Codable, Sendable, Identifiable, Equatable {
     public let id: HermesGatewayID
     public let displayName: String
@@ -1622,6 +1633,10 @@ public struct HermesGatewayCatalogEntry: Codable, Sendable, Identifiable, Equata
     public let hasConfig: Bool
     public let verifiedAt: Date?
     public let lastFailureCode: String?
+    /// Non-nil → this gateway uses an interactive pairing flow, not the
+    /// credential form. Optional for back-compat: omitted by older servers and
+    /// for all credential gateways. The client branches its detail screen on it.
+    public let pairingKind: HermesGatewayPairingKind?
 
     public init(
         id: HermesGatewayID,
@@ -1632,7 +1647,8 @@ public struct HermesGatewayCatalogEntry: Codable, Sendable, Identifiable, Equata
         status: HermesGatewayStatus,
         hasConfig: Bool,
         verifiedAt: Date? = nil,
-        lastFailureCode: String? = nil
+        lastFailureCode: String? = nil,
+        pairingKind: HermesGatewayPairingKind? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -1643,6 +1659,7 @@ public struct HermesGatewayCatalogEntry: Codable, Sendable, Identifiable, Equata
         self.hasConfig = hasConfig
         self.verifiedAt = verifiedAt
         self.lastFailureCode = lastFailureCode
+        self.pairingKind = pairingKind
     }
 }
 
@@ -1814,6 +1831,89 @@ public struct StartHermesGatewayApplyResponse: Codable, Sendable {
         self.jobID = jobID
         self.state = state
     }
+}
+
+// ─── Hermes WhatsApp QR Pairing ─────────────────────────────────────────
+//
+// WhatsApp is the one gateway with no enterable credential: Hermes pairs via
+// Baileys, driven by the interactive `hermes whatsapp` CLI which streams a QR
+// to its terminal. The server runs that CLI inside the tenant's container,
+// captures the QR block-art from stdout, and relays it to the app over SSE as
+// a stream of `HermesWhatsAppPairEvent`. The user scans the QR with their
+// phone's *WhatsApp → Linked Devices*; the session then persists on the
+// tenant's data volume. Mirrors the `HermesGatewayApplyEvent` wire shape.
+
+/// Live status of a WhatsApp pairing session.
+public enum HermesWhatsAppPairStatus: String, Codable, Sendable, CaseIterable {
+    /// CLI is launching inside the container; no QR yet.
+    case starting
+    /// A QR has been emitted and is waiting to be scanned.
+    case awaitingScan
+    /// Phone scanned the QR; Hermes is establishing the session.
+    case linking
+    /// Device successfully linked; session persisted.
+    case linked
+    /// The current QR expired before it was scanned (a fresh one usually
+    /// follows). Surfaced so the UI can show a "refreshing…" hint.
+    case expired
+    /// Pairing failed; see the accompanying `.error` event message.
+    case failed
+}
+
+/// SSE frame for the WhatsApp pairing stream. Discriminated by a top-level
+/// `type` field, matching `HermesGatewayApplyEvent`. Decoded on the client with
+/// `JSONDecoder.hvDefault`.
+public enum HermesWhatsAppPairEvent: Codable, Sendable, Equatable {
+    /// One complete terminal QR block (Unicode block-art). Each emission
+    /// fully replaces the previously displayed QR (Hermes refreshes it
+    /// roughly every 20s).
+    case qr(String)
+    /// Pairing status changed.
+    case status(HermesWhatsAppPairStatus)
+    /// Terminal success — the device is linked and the session is saved.
+    case linked
+    /// Terminal failure with a human-readable reason.
+    case error(String)
+
+    private enum CodingKeys: String, CodingKey { case type, payload }
+    private enum EventType: String, Codable {
+        case qr, status, linked, error
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try c.decode(EventType.self, forKey: .type)
+        switch type {
+        case .qr: self = .qr(try c.decode(String.self, forKey: .payload))
+        case .status: self = .status(try c.decode(HermesWhatsAppPairStatus.self, forKey: .payload))
+        case .linked: self = .linked
+        case .error: self = .error(try c.decode(String.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .qr(let art):
+            try c.encode(EventType.qr, forKey: .type)
+            try c.encode(art, forKey: .payload)
+        case .status(let s):
+            try c.encode(EventType.status, forKey: .type)
+            try c.encode(s, forKey: .payload)
+        case .linked:
+            try c.encode(EventType.linked, forKey: .type)
+        case .error(let message):
+            try c.encode(EventType.error, forKey: .type)
+            try c.encode(message, forKey: .payload)
+        }
+    }
+}
+
+/// Response body for `POST /v1/me/hermes-gateways/whatsapp/pair`. The client
+/// then opens the SSE stream at `.../whatsapp/pair/{sessionID}/stream`.
+public struct StartWhatsAppPairResponse: Codable, Sendable {
+    public let sessionID: UUID
+    public init(sessionID: UUID) { self.sessionID = sessionID }
 }
 
 // ─── Hermes Profiles (HER-273 — multi-agent per user) ───────────────────
