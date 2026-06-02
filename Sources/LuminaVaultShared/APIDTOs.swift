@@ -1525,6 +1525,48 @@ public struct HermesConfigTestResponse: Codable, Sendable {
     public init(verifiedAt: Date) { self.verifiedAt = verifiedAt }
 }
 
+// ─── Nous Portal subscription (OAuth device-code) ───────────────────────
+// Lets a user connect their own Nous Portal subscription so their per-tenant
+// Hermes container runs on their credits. Nous auth is OAuth device-code
+// (no API key) and exposes no programmatic credits balance, so `plan` is a
+// best-effort human string and there is no credits field.
+
+/// GET /v1/integrations/nous — current Nous Portal connection state.
+public struct NousStatusResponse: Codable, Sendable {
+    public let connected: Bool
+    public let nousConnectedAt: Date?
+    public let plan: String?
+    public init(connected: Bool, nousConnectedAt: Date? = nil, plan: String? = nil) {
+        self.connected = connected
+        self.nousConnectedAt = nousConnectedAt
+        self.plan = plan
+    }
+}
+
+/// POST /v1/integrations/nous/start — server returns the device verification
+/// URL the client opens in a browser plus the user-code to display. The
+/// in-container CLI polls Nous and self-completes once the user approves, so
+/// there is no loopback callback to capture.
+public struct NousStartResponse: Codable, Sendable {
+    public let sessionID: String
+    public let verifyURL: String
+    public let userCode: String?
+    public init(sessionID: String, verifyURL: String, userCode: String? = nil) {
+        self.sessionID = sessionID
+        self.verifyURL = verifyURL
+        self.userCode = userCode
+    }
+}
+
+/// POST /v1/integrations/nous/complete — client posts this once the user has
+/// approved in their browser; the server awaits the polling CLI's exit.
+public struct NousCompleteRequest: Codable, Sendable {
+    public let sessionID: String
+    public init(sessionID: String) {
+        self.sessionID = sessionID
+    }
+}
+
 // ─── Hermes Gateways (HER-241) ──────────────────────────────────────────
 
 public enum HermesGatewayID: String, Codable, Sendable, CaseIterable {
