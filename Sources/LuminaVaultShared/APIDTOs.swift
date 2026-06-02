@@ -3772,3 +3772,123 @@ public struct HomeSummaryResponse: Codable, Sendable {
         self.activeProfileName = activeProfileName; self.activeProfileSlug = activeProfileSlug
     }
 }
+
+// MARK: - Kanban (native boards; LuminaVault is the system of record)
+
+public enum CardPriority: String, Codable, Sendable, CaseIterable {
+    case low, medium, high, urgent
+}
+
+public struct CardDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let columnID: UUID
+    public let title: String
+    public let body: String?
+    public let priority: CardPriority?
+    public let dueAt: Date?
+    public let rank: String
+    public let updatedAt: Date?
+
+    public init(id: UUID, columnID: UUID, title: String, body: String?,
+                priority: CardPriority?, dueAt: Date?, rank: String, updatedAt: Date?) {
+        self.id = id; self.columnID = columnID; self.title = title; self.body = body
+        self.priority = priority; self.dueAt = dueAt; self.rank = rank; self.updatedAt = updatedAt
+    }
+}
+
+public struct ColumnDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let title: String
+    public let rank: String
+    public let cards: [CardDTO]   // pre-sorted by rank ascending
+
+    public init(id: UUID, title: String, rank: String, cards: [CardDTO]) {
+        self.id = id; self.title = title; self.rank = rank; self.cards = cards
+    }
+}
+
+public struct BoardDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let title: String
+    public let version: Int64
+    public let columns: [ColumnDTO]   // pre-sorted by rank ascending
+
+    public init(id: UUID, title: String, version: Int64, columns: [ColumnDTO]) {
+        self.id = id; self.title = title; self.version = version; self.columns = columns
+    }
+}
+
+public struct BoardSummaryDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let title: String
+    public let version: Int64
+    public let columnCount: Int
+    public let cardCount: Int
+    public let updatedAt: Date?
+
+    public init(id: UUID, title: String, version: Int64, columnCount: Int, cardCount: Int, updatedAt: Date?) {
+        self.id = id; self.title = title; self.version = version
+        self.columnCount = columnCount; self.cardCount = cardCount; self.updatedAt = updatedAt
+    }
+}
+
+public struct BoardVersionDTO: Codable, Sendable, Equatable {
+    public let version: Int64
+    public init(version: Int64) { self.version = version }
+}
+
+// Requests
+public struct BoardCreateRequest: Codable, Sendable {
+    public let title: String
+    public init(title: String) { self.title = title }
+}
+public struct BoardPatchRequest: Codable, Sendable {
+    public let title: String?
+    public let archived: Bool?
+    public init(title: String? = nil, archived: Bool? = nil) { self.title = title; self.archived = archived }
+}
+public struct ColumnCreateRequest: Codable, Sendable {
+    public let title: String
+    public init(title: String) { self.title = title }
+}
+public struct ColumnPatchRequest: Codable, Sendable {
+    public let title: String
+    public init(title: String) { self.title = title }
+}
+public struct ColumnReorderRequest: Codable, Sendable {
+    public let columnID: UUID
+    public let beforeID: UUID?
+    public let afterID: UUID?
+    public init(columnID: UUID, beforeID: UUID? = nil, afterID: UUID? = nil) {
+        self.columnID = columnID; self.beforeID = beforeID; self.afterID = afterID
+    }
+}
+public struct CardCreateRequest: Codable, Sendable {
+    public let columnID: UUID
+    public let title: String
+    public let body: String?
+    public let priority: CardPriority?
+    public let dueAt: Date?
+    public init(columnID: UUID, title: String, body: String? = nil,
+                priority: CardPriority? = nil, dueAt: Date? = nil) {
+        self.columnID = columnID; self.title = title; self.body = body
+        self.priority = priority; self.dueAt = dueAt
+    }
+}
+public struct CardPatchRequest: Codable, Sendable {
+    public let title: String?
+    public let body: String?
+    public let priority: CardPriority?
+    public let dueAt: Date?
+    public init(title: String? = nil, body: String? = nil, priority: CardPriority? = nil, dueAt: Date? = nil) {
+        self.title = title; self.body = body; self.priority = priority; self.dueAt = dueAt
+    }
+}
+public struct CardMoveRequest: Codable, Sendable {
+    public let toColumnID: UUID
+    public let beforeID: UUID?
+    public let afterID: UUID?
+    public init(toColumnID: UUID, beforeID: UUID? = nil, afterID: UUID? = nil) {
+        self.toColumnID = toColumnID; self.beforeID = beforeID; self.afterID = afterID
+    }
+}
