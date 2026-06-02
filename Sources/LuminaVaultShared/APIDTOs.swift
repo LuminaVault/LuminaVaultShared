@@ -2186,6 +2186,54 @@ public struct AppleConsentUpdateRequest: Codable, Sendable {
     }
 }
 
+// ─── Apple Integration P0b — device-RPC (server ⇄ on-device live/writes) ──
+//
+// When Hermes needs fresh on-device data or a write (add reminder, create
+// event, fetch a photo), the backend enqueues a DeviceCommand, delivers it to
+// the app over the WebSocket channel (APNS-wake fallback), the app executes it
+// against the Apple SDK, and POSTs back a DeviceCommandResult. A broker
+// correlates the two by `id` with a timeout. Consent is enforced server-side
+// before the command is ever sent.
+
+public enum DeviceCommandKind: String, Codable, Sendable {
+    case ping                                  // round-trip health check
+    case reminderCreate = "reminder_create"    // EventKit write
+    case calendarCreate = "calendar_create"    // EventKit write
+    case deviceFetch = "device_fetch"          // fresh read of a domain
+    case photoAnalyze = "photo_analyze"        // on-demand single-asset analysis
+}
+
+public struct DeviceCommand: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let kind: DeviceCommandKind
+    public let domain: AppleDataDomain?
+    /// Free-form string args (kept simple + Codable; richer payloads can ride
+    /// a JSON string value). e.g. {"title":"Call mom","due":"2026-06-02T18:00"}.
+    public let payload: [String: String]
+
+    public init(id: UUID = UUID(), kind: DeviceCommandKind, domain: AppleDataDomain? = nil, payload: [String: String] = [:]) {
+        self.id = id; self.kind = kind; self.domain = domain; self.payload = payload
+    }
+}
+
+/// WebSocket envelope wrapping a command for the device (`type` lets the client
+/// route device commands apart from other WS traffic like compile progress).
+public struct DeviceCommandEnvelope: Codable, Sendable {
+    public let type: String
+    public let command: DeviceCommand
+    public init(command: DeviceCommand) { self.type = "device_command"; self.command = command }
+}
+
+public struct DeviceCommandResult: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let ok: Bool
+    public let payload: [String: String]?
+    public let error: String?
+    public init(id: UUID, ok: Bool, payload: [String: String]? = nil, error: String? = nil) {
+        self.id = id; self.ok = ok; self.payload = payload; self.error = error
+    }
+}
+
 // ─── Lumina Jobs P3 — chat→job detection + creation ──────────────────────
 
 /// Result of classifying a chat message for recurring-job intent
