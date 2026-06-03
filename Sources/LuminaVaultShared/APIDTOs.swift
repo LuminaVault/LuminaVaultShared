@@ -2812,20 +2812,30 @@ public struct LLMPreferencesGetResponse: Codable, Sendable {
     public let primaryProvider: ProviderID
     public let primaryModel: String
     public let fallbackChain: [ModelRouteDTO]
+    /// Provider allow-list. Empty = all allowed; when non-empty the router
+    /// only routes to providers in this set.
+    public let allowedProviders: [ProviderID]
+    /// Provider deny-list. The router never routes to these providers.
+    public let blockedProviders: [ProviderID]
     public init(
         mode: LLMBrainMode = .managed,
         primaryProvider: ProviderID,
         primaryModel: String,
-        fallbackChain: [ModelRouteDTO]
+        fallbackChain: [ModelRouteDTO],
+        allowedProviders: [ProviderID] = [],
+        blockedProviders: [ProviderID] = []
     ) {
         self.mode = mode
         self.primaryProvider = primaryProvider
         self.primaryModel = primaryModel
         self.fallbackChain = fallbackChain
+        self.allowedProviders = allowedProviders
+        self.blockedProviders = blockedProviders
     }
 
     private enum CodingKeys: String, CodingKey {
         case mode, primaryProvider, primaryModel, fallbackChain
+        case allowedProviders, blockedProviders
     }
 
     public init(from decoder: Decoder) throws {
@@ -2834,6 +2844,8 @@ public struct LLMPreferencesGetResponse: Codable, Sendable {
         self.primaryProvider = try c.decode(ProviderID.self, forKey: .primaryProvider)
         self.primaryModel = try c.decode(String.self, forKey: .primaryModel)
         self.fallbackChain = try c.decode([ModelRouteDTO].self, forKey: .fallbackChain)
+        self.allowedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .allowedProviders) ?? []
+        self.blockedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .blockedProviders) ?? []
     }
 }
 
@@ -2842,20 +2854,27 @@ public struct LLMPreferencesPutRequest: Codable, Sendable {
     public let primaryProvider: ProviderID
     public let primaryModel: String
     public let fallbackChain: [ModelRouteDTO]
+    public let allowedProviders: [ProviderID]
+    public let blockedProviders: [ProviderID]
     public init(
         mode: LLMBrainMode = .managed,
         primaryProvider: ProviderID,
         primaryModel: String,
-        fallbackChain: [ModelRouteDTO]
+        fallbackChain: [ModelRouteDTO],
+        allowedProviders: [ProviderID] = [],
+        blockedProviders: [ProviderID] = []
     ) {
         self.mode = mode
         self.primaryProvider = primaryProvider
         self.primaryModel = primaryModel
         self.fallbackChain = fallbackChain
+        self.allowedProviders = allowedProviders
+        self.blockedProviders = blockedProviders
     }
 
     private enum CodingKeys: String, CodingKey {
         case mode, primaryProvider, primaryModel, fallbackChain
+        case allowedProviders, blockedProviders
     }
 
     public init(from decoder: Decoder) throws {
@@ -2864,6 +2883,8 @@ public struct LLMPreferencesPutRequest: Codable, Sendable {
         self.primaryProvider = try c.decode(ProviderID.self, forKey: .primaryProvider)
         self.primaryModel = try c.decode(String.self, forKey: .primaryModel)
         self.fallbackChain = try c.decode([ModelRouteDTO].self, forKey: .fallbackChain)
+        self.allowedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .allowedProviders) ?? []
+        self.blockedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .blockedProviders) ?? []
     }
 }
 
