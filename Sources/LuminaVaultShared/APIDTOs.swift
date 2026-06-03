@@ -196,12 +196,18 @@ public struct EmailMagicVerifyRequest: Codable, Sendable {
 
 // ─── SOUL ────────────────────────────────────────────────────────────────
 
-public struct SoulResponse: Codable {
-    public let content: String
-    public let sizeBytes: Int
-    public init(content: String, sizeBytes: Int) {
-        self.content = content; self.sizeBytes = sizeBytes
+public struct SoulResponse: Codable, Sendable {
+    public let markdown: String
+    public let updatedAt: Date?
+    public init(markdown: String, updatedAt: Date? = nil) {
+        self.markdown = markdown
+        self.updatedAt = updatedAt
     }
+}
+
+public struct SoulPutRequest: Codable, Sendable {
+    public let markdown: String
+    public init(markdown: String) { self.markdown = markdown }
 }
 
 // ─── LLM / Chat ─────────────────────────────────────────────────────────
@@ -2681,22 +2687,6 @@ public struct SessionListResponse: Codable, Sendable {
         self.sessions = sessions
         self.nextCursor = nextCursor
     }
-}
-
-// ─── SOUL.md client read (HER-250) ────────────────────────────────────────
-
-public struct SoulMdResponse: Codable, Sendable {
-    public let body: String
-    public let updatedAt: Date?
-    public init(body: String, updatedAt: Date? = nil) {
-        self.body = body
-        self.updatedAt = updatedAt
-    }
-}
-
-public struct SoulMdPutRequest: Codable, Sendable {
-    public let body: String
-    public init(body: String) { self.body = body }
 }
 
 // ─── Provider Credentials (HER-252) ──────────────────────────────────────
