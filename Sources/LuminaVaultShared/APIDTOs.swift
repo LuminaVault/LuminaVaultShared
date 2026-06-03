@@ -2711,6 +2711,10 @@ public enum ProviderID: String, Codable, Sendable, CaseIterable {
     case openai
     case ollama
     case openRouter
+    /// NVIDIA NIM — OpenAI-compatible inference API
+    /// (`https://integrate.api.nvidia.com/v1`). Per-user `nvapi-` key in
+    /// `user_provider_credentials`; routed via the OpenAI-compatible adapter.
+    case nvidia
 }
 
 /// Shape of the credential we store for a given provider. `apiKey` and
