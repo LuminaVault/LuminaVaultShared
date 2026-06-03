@@ -3888,11 +3888,56 @@ public struct CardDTO: Codable, Sendable, Equatable, Identifiable {
     public let dueAt: Date?
     public let rank: String
     public let updatedAt: Date?
+    /// Card→Job promotion config. Non-nil once the card has been promoted
+    /// (carries `jobSlug`/`promotedAt`) or staged with promotion fields.
+    public let jobConfig: CardJobConfigDTO?
 
     public init(id: UUID, columnID: UUID, title: String, body: String?,
-                priority: CardPriority?, dueAt: Date?, rank: String, updatedAt: Date?) {
+                priority: CardPriority?, dueAt: Date?, rank: String, updatedAt: Date?,
+                jobConfig: CardJobConfigDTO? = nil) {
         self.id = id; self.columnID = columnID; self.title = title; self.body = body
         self.priority = priority; self.dueAt = dueAt; self.rank = rank; self.updatedAt = updatedAt
+        self.jobConfig = jobConfig
+    }
+}
+
+/// Structured config for a card promoted to a scheduled Job (card→Job).
+/// Mirrors the server's `CardJobConfig`. Recurring jobs use `cron`; one-shot
+/// jobs use `runAt`. `jobSlug`/`promotedAt` are server-filled after promotion.
+public struct CardJobConfigDTO: Codable, Sendable, Equatable {
+    public let source: String
+    public let cron: String?
+    public let runAt: Date?
+    public let domain: String?
+    public let prompt: String?
+    public let spaceID: UUID?
+    public let jobSlug: String?
+    public let promotedAt: Date?
+
+    public init(source: String = "vault", cron: String? = nil, runAt: Date? = nil,
+                domain: String? = nil, prompt: String? = nil, spaceID: UUID? = nil,
+                jobSlug: String? = nil, promotedAt: Date? = nil) {
+        self.source = source; self.cron = cron; self.runAt = runAt
+        self.domain = domain; self.prompt = prompt; self.spaceID = spaceID
+        self.jobSlug = jobSlug; self.promotedAt = promotedAt
+    }
+}
+
+/// Body for `POST /v1/cards/:cardID/promote`. Optional — when omitted the
+/// server promotes using config already on the card (`CardDTO.jobConfig`).
+/// When present these fields are written onto the card before authoring, so a
+/// card can be promoted in a single call.
+public struct CardPromoteRequest: Codable, Sendable {
+    public let cron: String?
+    public let runAt: Date?
+    public let domain: String?
+    public let prompt: String?
+    public let spaceID: UUID?
+
+    public init(cron: String? = nil, runAt: Date? = nil, domain: String? = nil,
+                prompt: String? = nil, spaceID: UUID? = nil) {
+        self.cron = cron; self.runAt = runAt; self.domain = domain
+        self.prompt = prompt; self.spaceID = spaceID
     }
 }
 
