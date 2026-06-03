@@ -2518,6 +2518,26 @@ public struct CalendarEventsResponse: Codable, Sendable {
     public init(events: [CalendarEventDTO]) { self.events = events }
 }
 
+/// `POST /v1/calendar/events` — create an event on the user's Google
+/// calendar (the app's explicit "Add to Calendar" action). The server writes
+/// to Google live, caches the result, and returns it as `CalendarEventDTO`.
+public struct CalendarCreateEventRequest: Codable, Sendable {
+    public let title: String
+    public let startsAt: Date
+    public let endsAt: Date
+    public let location: String?
+    public let notes: String?
+    public let attendees: [String]?
+    public init(title: String, startsAt: Date, endsAt: Date, location: String? = nil, notes: String? = nil, attendees: [String]? = nil) {
+        self.title = title
+        self.startsAt = startsAt
+        self.endsAt = endsAt
+        self.location = location
+        self.notes = notes
+        self.attendees = attendees
+    }
+}
+
 // ─── Reminders (EventKit) — new `apple_reminders` table (≠ M63 reminders) ─
 
 public struct AppleReminderInput: Codable, Sendable {
