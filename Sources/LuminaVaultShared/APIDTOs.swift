@@ -117,6 +117,11 @@ public struct MeResponse: Codable {
     /// HER-274 — gates the auto-save-link post-processor on the chat
     /// stream. Default `true`. Toggle via `PUT /v1/me/privacy`.
     public let autoSaveLinks: Bool
+    /// Mnemosyne default-memory toggle for the tenant's managed Hermes.
+    /// Default `true`: Mnemosyne is the memory layer and Hermes' native file
+    /// memory is disabled. Toggle via `PUT /v1/me/privacy`; takes effect on the
+    /// tenant container's next restart.
+    public let mnemosyneEnabled: Bool
     public init(
         userId: UUID,
         email: String,
@@ -124,12 +129,14 @@ public struct MeResponse: Codable {
         isVerified: Bool,
         privacyNoCNOrigin: Bool,
         contextRouting: Bool,
-        autoSaveLinks: Bool = true
+        autoSaveLinks: Bool = true,
+        mnemosyneEnabled: Bool = true
     ) {
         self.userId = userId; self.email = email; self.username = username
         self.isVerified = isVerified; self.privacyNoCNOrigin = privacyNoCNOrigin
         self.contextRouting = contextRouting
         self.autoSaveLinks = autoSaveLinks
+        self.mnemosyneEnabled = mnemosyneEnabled
     }
 }
 
@@ -141,10 +148,20 @@ public struct UpdatePrivacyRequest: Codable {
     /// are no longer captured to the vault, and no `link_saved` SSE
     /// event is emitted on the stream.
     public let autoSaveLinks: Bool?
-    public init(privacyNoCNOrigin: Bool?, contextRouting: Bool?, autoSaveLinks: Bool? = nil) {
+    /// Mnemosyne default-memory toggle. When `false`, the tenant's managed
+    /// Hermes falls back to its native file memory; when `true`, Mnemosyne is
+    /// the sole memory layer. Applied on the container's next restart.
+    public let mnemosyneEnabled: Bool?
+    public init(
+        privacyNoCNOrigin: Bool?,
+        contextRouting: Bool?,
+        autoSaveLinks: Bool? = nil,
+        mnemosyneEnabled: Bool? = nil
+    ) {
         self.privacyNoCNOrigin = privacyNoCNOrigin
         self.contextRouting = contextRouting
         self.autoSaveLinks = autoSaveLinks
+        self.mnemosyneEnabled = mnemosyneEnabled
     }
 }
 
