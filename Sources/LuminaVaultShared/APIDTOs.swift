@@ -2456,6 +2456,68 @@ public struct AppleCalendarSyncRequest: Codable, Sendable {
     public init(events: [AppleCalendarEventInput]) { self.events = events }
 }
 
+// ─── Google Calendar (cloud OAuth source) — HER-340 ──────────────────────
+//
+// Server-owned OAuth + sync (tokens in `calendar_accounts`, events in the
+// shared `calendar_events` table with `source = "google"`). These wire types
+// back the iOS connect pane + the events read endpoint. The connect flow is a
+// Web-client server-callback: iOS opens `authorizeURL` in
+// ASWebAuthenticationSession; Google redirects to the server HTTPS callback;
+// the server exchanges the code and 302s back to `luminavault://` to dismiss.
+// Event creation is performed by the Hermes `calendar_create_event` tool, so
+// there is no HTTP create DTO in Phase 1.
+
+/// `GET /v1/calendar/status` — connection state for the settings pane.
+public struct CalendarStatusResponse: Codable, Sendable {
+    public let connected: Bool
+    /// Refresh token rejected / externally revoked — pane should prompt a reconnect.
+    public let needsReauth: Bool
+    public let accountEmail: String?
+    public let lastSyncedAt: Date?
+    public init(connected: Bool, needsReauth: Bool, accountEmail: String? = nil, lastSyncedAt: Date? = nil) {
+        self.connected = connected
+        self.needsReauth = needsReauth
+        self.accountEmail = accountEmail
+        self.lastSyncedAt = lastSyncedAt
+    }
+}
+
+/// `POST /v1/calendar/connect` — returns the Google consent URL for the app
+/// to open in `ASWebAuthenticationSession`.
+public struct CalendarConnectStartResponse: Codable, Sendable {
+    public let authorizeURL: String
+    public init(authorizeURL: String) { self.authorizeURL = authorizeURL }
+}
+
+/// Read shape for a cached calendar event (source-agnostic).
+public struct CalendarEventDTO: Codable, Sendable {
+    public let id: String
+    public let source: String
+    public let externalID: String
+    public let title: String
+    public let notes: String?
+    public let location: String?
+    public let startsAt: Date
+    public let endsAt: Date
+    public let allDay: Bool
+    /// `"confirmed"` | `"tentative"` | `"cancelled"`.
+    public let status: String
+    public let organizer: String?
+    public let htmlLink: String?
+    public init(id: String, source: String, externalID: String, title: String, notes: String? = nil, location: String? = nil, startsAt: Date, endsAt: Date, allDay: Bool, status: String, organizer: String? = nil, htmlLink: String? = nil) {
+        self.id = id; self.source = source; self.externalID = externalID
+        self.title = title; self.notes = notes; self.location = location
+        self.startsAt = startsAt; self.endsAt = endsAt; self.allDay = allDay
+        self.status = status; self.organizer = organizer; self.htmlLink = htmlLink
+    }
+}
+
+/// `GET /v1/calendar/events` — upcoming events for the pane / debugging.
+public struct CalendarEventsResponse: Codable, Sendable {
+    public let events: [CalendarEventDTO]
+    public init(events: [CalendarEventDTO]) { self.events = events }
+}
+
 // ─── Reminders (EventKit) — new `apple_reminders` table (≠ M63 reminders) ─
 
 public struct AppleReminderInput: Codable, Sendable {
