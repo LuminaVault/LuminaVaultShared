@@ -2785,6 +2785,39 @@ public struct ProviderTestResponse: Codable, Sendable {
     }
 }
 
+// ─── Provider credential pools (round-robin) ─────────────────────────────
+
+/// One additional API key in a provider's round-robin pool. The plaintext
+/// key is never echoed — only id/label/createdAt.
+public struct ProviderPoolKeyDTO: Codable, Sendable {
+    public let id: UUID
+    public let label: String?
+    public let createdAt: Date?
+    public init(id: UUID, label: String? = nil, createdAt: Date? = nil) {
+        self.id = id
+        self.label = label
+        self.createdAt = createdAt
+    }
+}
+
+public struct ProviderPoolListResponse: Codable, Sendable {
+    public let provider: ProviderID
+    public let keys: [ProviderPoolKeyDTO]
+    public init(provider: ProviderID, keys: [ProviderPoolKeyDTO]) {
+        self.provider = provider
+        self.keys = keys
+    }
+}
+
+public struct ProviderPoolAddRequest: Codable, Sendable {
+    public let apiKey: String
+    public let label: String?
+    public init(apiKey: String, label: String? = nil) {
+        self.apiKey = apiKey
+        self.label = label
+    }
+}
+
 // ─── LLM Preferences (HER-252) ───────────────────────────────────────────
 
 /// HER-300 — Distinguishes server-managed default keys (`managed`) from
