@@ -2400,6 +2400,116 @@ public struct DeviceCommandResult: Codable, Sendable, Identifiable {
     }
 }
 
+// ─── Apple Selective-Sync Tier — derived data synced server-side ──────────
+//
+// Promotes Calendar / Reminders / Photos from on-demand device-RPC into a
+// persisted server cache Hermes can reason over in the background (daily
+// briefs, scheduled jobs, proactive nudges) without a live device round-trip.
+// Principle: sync derived text + metadata + structured fields ONLY; never
+// raw bytes (photo pixels stay on device). Mirrors the HealthKit ingest
+// pattern (`HealthEventInput` → `HealthIngestResponse`). All ingest routes
+// are consent-gated server-side via `AppleDataDomain`.
+
+/// Shared result shape for every selective-sync ingest endpoint.
+public struct AppleSyncResponse: Codable, Sendable {
+    public let inserted: Int
+    public let updated: Int
+    public let skipped: Int
+    public init(inserted: Int, updated: Int, skipped: Int) {
+        self.inserted = inserted; self.updated = updated; self.skipped = skipped
+    }
+}
+
+// ─── Calendar (EventKit) — reuses the HER-340 `calendar_events` table ─────
+//
+// Server stamps `source = "apple_eventkit"` (the table's `source` column
+// already reserves this; HER-340 Google sync uses `"google"`). Upsert key is
+// `(tenant_id, source, external_id)`, so EventKit deltas are idempotent and
+// never collide with Google rows. `calendar_query` reads this cache.
+
+public struct AppleCalendarEventInput: Codable, Sendable {
+    /// EventKit `eventIdentifier` — stable per-event id used as the upsert key.
+    public let externalID: String
+    public let calendarID: String?
+    public let title: String
+    public let notes: String?
+    public let location: String?
+    public let startsAt: Date
+    public let endsAt: Date
+    public let allDay: Bool
+    /// `"confirmed"` | `"cancelled"` — cancelled rows are tombstoned, not deleted.
+    public let status: String?
+    public let organizer: String?
+    /// EventKit `lastModifiedDate`; drives last-writer-wins on upsert.
+    public let remoteUpdatedAt: Date?
+    public init(externalID: String, calendarID: String? = nil, title: String, notes: String? = nil, location: String? = nil, startsAt: Date, endsAt: Date, allDay: Bool = false, status: String? = nil, organizer: String? = nil, remoteUpdatedAt: Date? = nil) {
+        self.externalID = externalID; self.calendarID = calendarID; self.title = title
+        self.notes = notes; self.location = location; self.startsAt = startsAt
+        self.endsAt = endsAt; self.allDay = allDay; self.status = status
+        self.organizer = organizer; self.remoteUpdatedAt = remoteUpdatedAt
+    }
+}
+
+/// Batch ingest body for `POST /v1/calendar/sync` (EventKit delta push).
+public struct AppleCalendarSyncRequest: Codable, Sendable {
+    public let events: [AppleCalendarEventInput]
+    public init(events: [AppleCalendarEventInput]) { self.events = events }
+}
+
+// ─── Reminders (EventKit) — new `apple_reminders` table (≠ M63 reminders) ─
+
+public struct AppleReminderInput: Codable, Sendable {
+    /// EventKit `calendarItemIdentifier` — upsert key.
+    public let externalID: String
+    public let title: String
+    public let notes: String?
+    public let dueAt: Date?
+    public let completed: Bool
+    public let completedAt: Date?
+    public let listName: String?
+    /// EventKit priority 0–9 (0 = none).
+    public let priority: Int?
+    public let remoteUpdatedAt: Date?
+    public init(externalID: String, title: String, notes: String? = nil, dueAt: Date? = nil, completed: Bool = false, completedAt: Date? = nil, listName: String? = nil, priority: Int? = nil, remoteUpdatedAt: Date? = nil) {
+        self.externalID = externalID; self.title = title; self.notes = notes
+        self.dueAt = dueAt; self.completed = completed; self.completedAt = completedAt
+        self.listName = listName; self.priority = priority; self.remoteUpdatedAt = remoteUpdatedAt
+    }
+}
+
+/// Batch ingest body for `POST /v1/reminders/sync` (EventKit delta push).
+public struct AppleRemindersSyncRequest: Codable, Sendable {
+    public let reminders: [AppleReminderInput]
+    public init(reminders: [AppleReminderInput]) { self.reminders = reminders }
+}
+
+// ─── Photos — derived-text index (OCR + on-device scene tags; no pixels) ──
+//
+// Only OCR text + Vision scene labels + metadata leave the device. Server
+// embeds `ocrText` into pgvector for semantic recall ("the screenshot about
+// the flight"). De-dup key is `assetLocalID` (PHAsset localIdentifier).
+
+public struct PhotoIndexInput: Codable, Sendable {
+    /// `PHAsset.localIdentifier` — stable per-asset id, the upsert key.
+    public let assetLocalID: String
+    public let takenAt: Date?
+    public let isScreenshot: Bool
+    /// On-device `VNRecognizeTextRequest` output. Nil/empty if no text found.
+    public let ocrText: String?
+    /// On-device `VNClassifyImageRequest` labels (e.g. ["document","receipt"]).
+    public let sceneTags: [String]?
+    public init(assetLocalID: String, takenAt: Date? = nil, isScreenshot: Bool = false, ocrText: String? = nil, sceneTags: [String]? = nil) {
+        self.assetLocalID = assetLocalID; self.takenAt = takenAt
+        self.isScreenshot = isScreenshot; self.ocrText = ocrText; self.sceneTags = sceneTags
+    }
+}
+
+/// Batch ingest body for `POST /v1/photos/index` (derived-text push).
+public struct PhotoIndexSyncRequest: Codable, Sendable {
+    public let items: [PhotoIndexInput]
+    public init(items: [PhotoIndexInput]) { self.items = items }
+}
+
 // ─── Lumina Jobs P3 — chat→job detection + creation ──────────────────────
 
 /// Result of classifying a chat message for recurring-job intent
