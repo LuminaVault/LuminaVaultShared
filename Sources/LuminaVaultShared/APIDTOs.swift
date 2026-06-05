@@ -2914,6 +2914,11 @@ public enum ProviderID: String, Codable, Sendable, CaseIterable {
     /// (`https://integrate.api.nvidia.com/v1`). Per-user `nvapi-` key in
     /// `user_provider_credentials`; routed via the OpenAI-compatible adapter.
     case nvidia
+    /// Google Gemini — native `generateContent` API (not OpenAI-compatible).
+    /// Per-user `GEMINI_API_KEY` in `user_provider_credentials`; routed via
+    /// `GeminiContentsAdapter`. Free tier handles large prompts that the
+    /// managed OpenRouter free tier rejects (402 prompt-token cap).
+    case gemini
 }
 
 /// Shape of the credential we store for a given provider. `apiKey` and
