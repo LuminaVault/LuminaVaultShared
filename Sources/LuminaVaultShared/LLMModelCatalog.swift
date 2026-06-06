@@ -36,12 +36,17 @@ public enum LLMModelCatalog {
     public static func models(for provider: ProviderID) -> [LLMModelInfo] {
         switch provider {
         case .gemini:
+            // 2.5 line leads — broadly served by the generativelanguage v1beta
+            // generateContent endpoint for standard AI-Studio keys. gemini-3
+            // preview ids are kept last (not default) since availability is
+            // key/tier-dependent and they 404 for many keys.
             return [
-                .init(id: "gemini-3-pro-preview", displayName: "Gemini 3 Pro", contextWindow: 1_000_000),
-                .init(id: "gemini-3-flash-preview", displayName: "Gemini 3 Flash", contextWindow: 1_000_000),
-                .init(id: "gemini-2.5-pro", displayName: "Gemini 2.5 Pro", contextWindow: 1_000_000),
                 .init(id: "gemini-2.5-flash", displayName: "Gemini 2.5 Flash", contextWindow: 1_000_000),
+                .init(id: "gemini-2.5-pro", displayName: "Gemini 2.5 Pro", contextWindow: 1_000_000),
                 .init(id: "gemini-2.5-flash-lite", displayName: "Gemini 2.5 Flash Lite", contextWindow: 1_000_000),
+                .init(id: "gemini-2.0-flash", displayName: "Gemini 2.0 Flash", contextWindow: 1_000_000),
+                .init(id: "gemini-3-pro-preview", displayName: "Gemini 3 Pro (preview)", contextWindow: 1_000_000),
+                .init(id: "gemini-3-flash-preview", displayName: "Gemini 3 Flash (preview)", contextWindow: 1_000_000),
             ]
         case .openai:
             return [
