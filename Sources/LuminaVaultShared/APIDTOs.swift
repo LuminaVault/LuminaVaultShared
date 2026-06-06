@@ -1529,17 +1529,21 @@ public struct HermesConfigGetResponse: Codable, Sendable {
     public let baseUrl: String
     public let hasAuthHeader: Bool
     public let verifiedAt: Date?
-    public init(baseUrl: String, hasAuthHeader: Bool, verifiedAt: Date? = nil) {
+    /// User-chosen friendly name for this Hermes endpoint (e.g. "My VPS").
+    public let name: String?
+    public init(baseUrl: String, hasAuthHeader: Bool, verifiedAt: Date? = nil, name: String? = nil) {
         self.baseUrl = baseUrl; self.hasAuthHeader = hasAuthHeader
-        self.verifiedAt = verifiedAt
+        self.verifiedAt = verifiedAt; self.name = name
     }
 }
 
 public struct HermesConfigPutRequest: Codable, Sendable {
     public let baseUrl: String
     public let authHeader: String?
-    public init(baseUrl: String, authHeader: String? = nil) {
-        self.baseUrl = baseUrl; self.authHeader = authHeader
+    /// Optional friendly name for the endpoint.
+    public let name: String?
+    public init(baseUrl: String, authHeader: String? = nil, name: String? = nil) {
+        self.baseUrl = baseUrl; self.authHeader = authHeader; self.name = name
     }
 }
 
