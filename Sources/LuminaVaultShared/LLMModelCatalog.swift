@@ -85,6 +85,16 @@ public enum LLMModelCatalog {
                 .init(id: "meta/llama-3.1-8b-instruct", displayName: "Llama 3.1 8B", contextWindow: 128_000),
                 .init(id: "deepseek-ai/deepseek-r1", displayName: "DeepSeek R1 (reasoning)", contextWindow: 128_000),
             ]
+        case .nous:
+            // Offline fallback only — Nous aggregates many upstreams and
+            // rotates free models, so the live `/v1/me/providers/nous/models`
+            // fetch is the real source. These are stable, broadly-available
+            // ids to seed the picker before the live list loads.
+            return [
+                .init(id: "stepfun/step-3.7-flash:free", displayName: "StepFun Step 3.7 Flash (free)"),
+                .init(id: "stepfun/step-3.7-flash", displayName: "StepFun Step 3.7 Flash"),
+                .init(id: "nvidia/nemotron-3-ultra:free", displayName: "Nemotron 3 Ultra (free)"),
+            ]
         case .ollama:
             // Self-hosted: model names are user-specific → free-text on client.
             return []

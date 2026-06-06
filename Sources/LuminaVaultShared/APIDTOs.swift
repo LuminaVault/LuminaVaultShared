@@ -2919,6 +2919,14 @@ public enum ProviderID: String, Codable, Sendable, CaseIterable {
     /// `GeminiContentsAdapter`. Free tier handles large prompts that the
     /// managed OpenRouter free tier rejects (402 prompt-token cap).
     case gemini
+    /// Nous Research portal inference API
+    /// (`https://inference-api.nousresearch.com/v1`). OpenAI-compatible;
+    /// per-user key in `user_provider_credentials`, routed via the
+    /// OpenAI-compatible adapter. Aggregates many upstreams OpenRouter-style
+    /// and exposes rotating free models (e.g. `stepfun/step-3.7-flash:free`),
+    /// so its model list is fetched live rather than hardcoded. Separate from
+    /// the container-scoped Nous OAuth ("Connect Nous") flow.
+    case nous
 }
 
 /// Shape of the credential we store for a given provider. `apiKey` and
@@ -2969,6 +2977,23 @@ public struct ProviderCredentialsListResponse: Codable, Sendable {
     public let providers: [ProviderCredentialDTO]
     public init(providers: [ProviderCredentialDTO]) {
         self.providers = providers
+    }
+}
+
+/// Response for `GET /v1/me/providers/{provider}/models`. The server
+/// fetches the provider's live `/v1/models` listing with the user's stored
+/// credential (OpenAI-compatible providers like Nous/OpenRouter/xAI/NVIDIA);
+/// `fetchedLive` is `true` when that succeeded, `false` when it fell back to
+/// the offline `LLMModelCatalog`. Lets the client picker stay current with
+/// providers whose model lists rotate (e.g. Nous free models).
+public struct ProviderModelsResponse: Codable, Sendable {
+    public let provider: ProviderID
+    public let models: [LLMModelInfo]
+    public let fetchedLive: Bool
+    public init(provider: ProviderID, models: [LLMModelInfo], fetchedLive: Bool) {
+        self.provider = provider
+        self.models = models
+        self.fetchedLive = fetchedLive
     }
 }
 
