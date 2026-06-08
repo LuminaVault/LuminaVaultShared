@@ -227,6 +227,47 @@ public struct SoulPutRequest: Codable, Sendable {
     public init(markdown: String) { self.markdown = markdown }
 }
 
+public enum SoulTone: String, Codable, Sendable {
+    case warm
+    case conciseTechnical = "concise_technical"
+    case playful
+    case coach
+}
+
+public enum SoulRole: String, Codable, Sendable {
+    case assistant
+    case coworker
+    case coach
+    case secondBrain = "second_brain"
+}
+
+public enum SoulAutonomy: String, Codable, Sendable {
+    case askFirst = "ask_first"
+    case suggest
+    case act
+}
+
+/// HER-100 — structured onboarding inputs the server renders into a filled
+/// SOUL.md via `POST /v1/soul/compose`. Replaces the TODO-placeholder default.
+public struct SoulComposeRequest: Codable, Sendable {
+    public let agentName: String
+    public let tone: SoulTone
+    public let role: SoulRole
+    public let autonomy: SoulAutonomy
+
+    enum CodingKeys: String, CodingKey {
+        case agentName = "agent_name"
+        case tone, role, autonomy
+    }
+
+    public init(agentName: String, tone: SoulTone, role: SoulRole, autonomy: SoulAutonomy) {
+        self.agentName = agentName
+        self.tone = tone
+        self.role = role
+        self.autonomy = autonomy
+    }
+}
+
 // ─── LLM / Chat ─────────────────────────────────────────────────────────
 
 public enum AnyJSONValue: Codable, Equatable, Sendable {
