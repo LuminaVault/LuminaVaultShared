@@ -4005,6 +4005,36 @@ public struct ReminderPatchRequest: Codable, Sendable {
     }
 }
 
+// HER-55 — chat→reminder detection. The server classifier inspects a chat
+// turn for "remind me…" intent and, when present, returns a structured
+// proposal the client surfaces as a confirm card (mirrors `JobProposalDTO`).
+// Fails closed: `isReminder == false` means "this was not a reminder request".
+public struct ReminderProposalDTO: Codable, Sendable {
+    public let isReminder: Bool
+    public let title: String?
+    public let body: String?
+    /// Absolute fire time the classifier resolved from natural language
+    /// (e.g. "tomorrow at 5pm"), in UTC. Nil when not a reminder.
+    public let fireAt: Date?
+    /// Optional cron for recurring reminders (nil = one-shot).
+    public let recurrenceCron: String?
+    /// Human-readable schedule for the card, e.g. "Tomorrow at 5:00 PM".
+    public let scheduleHuman: String?
+
+    public init(
+        isReminder: Bool,
+        title: String? = nil,
+        body: String? = nil,
+        fireAt: Date? = nil,
+        recurrenceCron: String? = nil,
+        scheduleHuman: String? = nil
+    ) {
+        self.isReminder = isReminder; self.title = title; self.body = body
+        self.fireAt = fireAt; self.recurrenceCron = recurrenceCron
+        self.scheduleHuman = scheduleHuman
+    }
+}
+
 // ─── Projects (HER-Projects) ───────────────────────────────────────────────
 // A named container that groups Todos. Tenant-scoped.
 
