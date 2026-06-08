@@ -1645,6 +1645,7 @@ public enum HermesGatewayID: String, Codable, Sendable, CaseIterable {
     case email
     case matrix
     case ntfy
+    case mattermost
 }
 
 public enum HermesGatewayStatus: String, Codable, Sendable, CaseIterable {
