@@ -1643,6 +1643,8 @@ public enum HermesGatewayID: String, Codable, Sendable, CaseIterable {
     case slack
     case whatsapp
     case email
+    case matrix
+    case ntfy
 }
 
 public enum HermesGatewayStatus: String, Codable, Sendable, CaseIterable {
