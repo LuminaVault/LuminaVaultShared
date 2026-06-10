@@ -1646,6 +1646,7 @@ public enum HermesGatewayID: String, Codable, Sendable, CaseIterable {
     case matrix
     case ntfy
     case mattermost
+    case photon
 }
 
 public enum HermesGatewayStatus: String, Codable, Sendable, CaseIterable {
@@ -1692,6 +1693,11 @@ public enum HermesGatewayPairingKind: String, Codable, Sendable, CaseIterable {
     /// app, the user scans it with their phone's *Linked Devices*. See
     /// `HermesWhatsAppPairEvent`.
     case whatsappQR
+    /// Photon iMessage setup (the free path): device-code login to the Photon
+    /// dashboard, optional phone bind to provision a Spectrum user + iMessage
+    /// line (assigned number is what contacts text). See the central Node
+    /// sidecar + public webhook design in the Photon plan.
+    case photonSetup
 }
 
 public struct HermesGatewayCatalogEntry: Codable, Sendable, Identifiable, Equatable {
@@ -1983,6 +1989,83 @@ public enum HermesWhatsAppPairEvent: Codable, Sendable, Equatable {
 /// Response body for `POST /v1/me/hermes-gateways/whatsapp/pair`. The client
 /// then opens the SSE stream at `.../whatsapp/pair/{sessionID}/stream`.
 public struct StartWhatsAppPairResponse: Codable, Sendable {
+    public let sessionID: UUID
+    public init(sessionID: UUID) { self.sessionID = sessionID }
+}
+
+// ─── Photon Setup (free iMessage path via central sidecar + webhook) ────
+//
+// Device-code login to Photon dashboard, then (optionally) bind a phone number
+// to provision a Spectrum user and obtain the assigned iMessage line that
+// contacts will text. The resulting spectrumProjectId + projectSecret are
+// sealed and stored like other gateways; at runtime the central Node sidecar
+// (spectrum-ts) is activated and inbound events arrive at the public webhook.
+
+/// Live status during a Photon setup session.
+public enum HermesPhotonSetupStatus: String, Codable, Sendable, CaseIterable {
+    case starting
+    case awaitingApproval   // device code / verification URI shown to user
+    case approved
+    case provisioning       // creating project, enabling Spectrum, registering phone
+    case done
+    case failed
+}
+
+/// SSE frame for the Photon setup stream (device approval + phone bind + line assignment).
+/// Discriminated by `type` for client decoding (mirrors WhatsApp + apply events).
+public enum HermesPhotonSetupEvent: Codable, Sendable, Equatable {
+    case status(HermesPhotonSetupStatus)
+    case deviceCode(verificationUri: String, userCode: String, expiresIn: Int)
+    /// The iMessage number contacts should text to reach the agent.
+    case assignedLine(String)
+    case error(String)
+
+    private enum CodingKeys: String, CodingKey { case type, payload }
+    private enum EventType: String, Codable {
+        case status, deviceCode, assignedLine, error
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try c.decode(EventType.self, forKey: .type)
+        switch type {
+        case .status: self = .status(try c.decode(HermesPhotonSetupStatus.self, forKey: .payload))
+        case .deviceCode:
+            let p = try c.decode(DeviceCodePayload.self, forKey: .payload)
+            self = .deviceCode(verificationUri: p.verificationUri, userCode: p.userCode, expiresIn: p.expiresIn)
+        case .assignedLine: self = .assignedLine(try c.decode(String.self, forKey: .payload))
+        case .error: self = .error(try c.decode(String.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .status(let s):
+            try c.encode(EventType.status, forKey: .type)
+            try c.encode(s, forKey: .payload)
+        case .deviceCode(let uri, let code, let exp):
+            try c.encode(EventType.deviceCode, forKey: .type)
+            try c.encode(DeviceCodePayload(verificationUri: uri, userCode: code, expiresIn: exp), forKey: .payload)
+        case .assignedLine(let line):
+            try c.encode(EventType.assignedLine, forKey: .type)
+            try c.encode(line, forKey: .payload)
+        case .error(let msg):
+            try c.encode(EventType.error, forKey: .type)
+            try c.encode(msg, forKey: .payload)
+        }
+    }
+
+    private struct DeviceCodePayload: Codable, Equatable {
+        let verificationUri: String
+        let userCode: String
+        let expiresIn: Int
+    }
+}
+
+/// Response for starting a Photon setup session. Client then subscribes to the
+/// SSE stream and later submits the phone number.
+public struct StartPhotonSetupResponse: Codable, Sendable {
     public let sessionID: UUID
     public init(sessionID: UUID) { self.sessionID = sessionID }
 }
