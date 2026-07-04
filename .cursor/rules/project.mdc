@@ -1,0 +1,30 @@
+---
+description: LuminaVaultShared — wire DTO package conventions
+alwaysApply: true
+---
+
+# LuminaVaultShared
+
+Single source of truth for HTTP wire-format DTOs shared by server and client. Full agent instructions: `AGENTS.md`.
+
+## Sibling repos
+
+| Repo | Role |
+| --- | --- |
+| `LuminaVaultServer` | OpenAPI spec (`Sources/AppAPI/openapi.yaml`) |
+| `LuminaVaultClient` | iOS consumer |
+
+## Rules
+
+- Every public wire type in `Sources/LuminaVaultShared/APIDTOs.swift` must be `Sendable`. Prefer `struct` + `Codable` + `Sendable`.
+- Field names, casing, and optionality must match **LuminaVaultServer** `Sources/AppAPI/openapi.yaml`.
+- Server-only (DB rows, internal services) and client-only (UI state) types do **not** belong here.
+
+## Adding a new DTO
+
+1. Add the type here.
+2. Update `openapi.yaml` in LuminaVaultServer.
+3. Run `make bruno-regen` on the server.
+4. Consume from server and client in the same change set.
+
+If the same DTO exists in server or client, treat it as a bug — consolidate here and delete duplicates.
