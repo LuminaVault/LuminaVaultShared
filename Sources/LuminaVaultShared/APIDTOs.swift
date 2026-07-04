@@ -227,45 +227,111 @@ public struct SoulPutRequest: Codable, Sendable {
     public init(markdown: String) { self.markdown = markdown }
 }
 
-public enum SoulTone: String, Codable, Sendable {
+/// Superset of the server compose tones and the onboarding quiz tones.
+/// Raw values are frozen: the client persists quiz answers in UserDefaults
+/// and the server stores them in composed SOUL.md front-matter-adjacent text.
+public enum SoulTone: String, Codable, Sendable, CaseIterable {
     case warm
     case conciseTechnical = "concise_technical"
     case playful
     case coach
+    case formal
+    case casual
+    case dry
 }
 
-public enum SoulRole: String, Codable, Sendable {
+public enum SoulRole: String, Codable, Sendable, CaseIterable {
     case assistant
     case coworker
     case coach
     case secondBrain = "second_brain"
 }
 
-public enum SoulAutonomy: String, Codable, Sendable {
+public enum SoulAutonomy: String, Codable, Sendable, CaseIterable {
     case askFirst = "ask_first"
     case suggest
     case act
 }
 
+/// Onboarding quiz priority chips ("What matters most to you?").
+public enum SoulPriority: String, Codable, Sendable, CaseIterable {
+    case focus
+    case health
+    case learning
+    case family
+    case money
+    case creative
+    case other
+}
+
+/// Reply format preference for the composed SOUL.md chat voice.
+public enum SoulFormat: String, Codable, Sendable, CaseIterable {
+    case bullets
+    case prose
+}
+
+/// Reply length preference for the composed SOUL.md chat voice.
+public enum SoulLength: String, Codable, Sendable, CaseIterable {
+    case short
+    case long
+}
+
 /// HER-100 — structured onboarding inputs the server renders into a filled
 /// SOUL.md via `POST /v1/soul/compose`. Replaces the TODO-placeholder default.
+///
+/// v2: every field is optional so legacy 4-field clients keep decoding and the
+/// server applies deterministic defaults for anything absent. `dryRun: true`
+/// returns the composition without persisting (onboarding preview).
 public struct SoulComposeRequest: Codable, Sendable {
-    public let agentName: String
-    public let tone: SoulTone
-    public let role: SoulRole
-    public let autonomy: SoulAutonomy
+    public let agentName: String?
+    public let tone: SoulTone?
+    public let role: SoulRole?
+    public let autonomy: SoulAutonomy?
+    public let priorities: [SoulPriority]?
+    public let otherPriority: String?
+    public let format: SoulFormat?
+    public let length: SoulLength?
+    public let emojis: Bool?
+    public let voiceSamples: [String]?
+    public let dryRun: Bool?
 
     enum CodingKeys: String, CodingKey {
         case agentName = "agent_name"
-        case tone, role, autonomy
+        case tone, role, autonomy, priorities
+        case otherPriority = "other_priority"
+        case format, length, emojis
+        case voiceSamples = "voice_samples"
+        case dryRun = "dry_run"
     }
 
-    public init(agentName: String, tone: SoulTone, role: SoulRole, autonomy: SoulAutonomy) {
+    public init(
+        agentName: String? = nil,
+        tone: SoulTone? = nil,
+        role: SoulRole? = nil,
+        autonomy: SoulAutonomy? = nil,
+        priorities: [SoulPriority]? = nil,
+        otherPriority: String? = nil,
+        format: SoulFormat? = nil,
+        length: SoulLength? = nil,
+        emojis: Bool? = nil,
+        voiceSamples: [String]? = nil,
+        dryRun: Bool? = nil
+    ) {
         self.agentName = agentName
         self.tone = tone
         self.role = role
         self.autonomy = autonomy
+        self.priorities = priorities
+        self.otherPriority = otherPriority
+        self.format = format
+        self.length = length
+        self.emojis = emojis
+        self.voiceSamples = voiceSamples
+        self.dryRun = dryRun
     }
+
+    /// All-nil request — the server composes its canonical default SOUL.md.
+    public static var defaults: SoulComposeRequest { SoulComposeRequest() }
 }
 
 // ─── LLM / Chat ─────────────────────────────────────────────────────────
