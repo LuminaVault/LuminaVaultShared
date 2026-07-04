@@ -3183,6 +3183,84 @@ public struct ProviderCredentialsListResponse: Codable, Sendable {
     }
 }
 
+// ─── BYO-Hermes capabilities (P3 live proxy) ─────────────────────────────
+
+/// Per-settings-domain availability against a connected BYO Hermes.
+/// Derived from the remote `GET /v1/capabilities` contract. Clients gate
+/// each pane on this: `live` panes read/write the remote box directly,
+/// `readOnly` panes display remote state but can't mutate it, `unsupported`
+/// panes are hidden or shown with a "your Hermes doesn't expose this"
+/// explainer. `managed` means the LuminaVault-managed container owns it
+/// (the tenant isn't on BYO Hermes at all).
+public enum HermesDomainAvailability: String, Codable, Sendable {
+    case live
+    case readOnly = "read_only"
+    case unsupported
+    case managed
+}
+
+/// Feature availability of a tenant's connected Hermes, per settings domain.
+/// A managed tenant (no BYO override) reports every domain as `.managed`.
+/// A BYO tenant reports what its remote `api_server` actually exposes —
+/// hermes-agent ≥0.18 serves chat/sessions/jobs/skills over HTTP but keeps
+/// SOUL/config/gateways/memory file-on-disk (see docs/hermes-api-server-surface.md).
+public struct HermesCapabilities: Codable, Sendable {
+    /// True when routing against a user-hosted Hermes (`user_hermes_config`).
+    public let isUserOverride: Bool
+    /// Remote `api_server` version string when known (from `/health`).
+    public let remoteVersion: String?
+    public let chat: HermesDomainAvailability
+    public let sessions: HermesDomainAvailability
+    public let jobs: HermesDomainAvailability
+    public let skills: HermesDomainAvailability
+    public let soul: HermesDomainAvailability
+    public let gateways: HermesDomainAvailability
+    public let memory: HermesDomainAvailability
+    public let providers: HermesDomainAvailability
+    public init(
+        isUserOverride: Bool,
+        remoteVersion: String? = nil,
+        chat: HermesDomainAvailability,
+        sessions: HermesDomainAvailability,
+        jobs: HermesDomainAvailability,
+        skills: HermesDomainAvailability,
+        soul: HermesDomainAvailability,
+        gateways: HermesDomainAvailability,
+        memory: HermesDomainAvailability,
+        providers: HermesDomainAvailability
+    ) {
+        self.isUserOverride = isUserOverride
+        self.remoteVersion = remoteVersion
+        self.chat = chat
+        self.sessions = sessions
+        self.jobs = jobs
+        self.skills = skills
+        self.soul = soul
+        self.gateways = gateways
+        self.memory = memory
+        self.providers = providers
+    }
+
+    /// Every domain owned by the managed container — the default for tenants
+    /// with no BYO Hermes override.
+    public static let managedDefault = HermesCapabilities(
+        isUserOverride: false,
+        chat: .managed, sessions: .managed, jobs: .managed, skills: .managed,
+        soul: .managed, gateways: .managed, memory: .managed, providers: .managed
+    )
+}
+
+/// `GET /v1/me/hermes/capabilities` response. `checkedAt` reflects when the
+/// remote probe last ran (nil for managed tenants / never-probed).
+public struct HermesCapabilitiesResponse: Codable, Sendable {
+    public let capabilities: HermesCapabilities
+    public let checkedAt: Date?
+    public init(capabilities: HermesCapabilities, checkedAt: Date? = nil) {
+        self.capabilities = capabilities
+        self.checkedAt = checkedAt
+    }
+}
+
 /// Response for `GET /v1/me/providers/{provider}/models`. The server
 /// fetches the provider's live `/v1/models` listing with the user's stored
 /// credential (OpenAI-compatible providers like Nous/OpenRouter/xAI/NVIDIA);
