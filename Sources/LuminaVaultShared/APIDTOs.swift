@@ -3124,6 +3124,12 @@ public enum ProviderID: String, Codable, Sendable, CaseIterable {
     /// so its model list is fetched live rather than hardcoded. Separate from
     /// the container-scoped Nous OAuth ("Connect Nous") flow.
     case nous
+    /// P2 — generic OpenAI-compatible endpoint: any base URL + optional
+    /// API key. Covers Groq, Together, LM Studio, vLLM, LiteLLM proxies,
+    /// llama.cpp server — anything speaking `POST /v1/chat/completions`.
+    /// `baseUrl` is required for this provider; model list is fetched live
+    /// from `<base>/v1/models` with a free-text fallback.
+    case custom
 }
 
 /// Shape of the credential we store for a given provider. `apiKey` and

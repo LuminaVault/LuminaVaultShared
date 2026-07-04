@@ -98,6 +98,10 @@ public enum LLMModelCatalog {
         case .ollama:
             // Self-hosted: model names are user-specific → free-text on client.
             return []
+        case .custom:
+            // Generic OpenAI-compatible endpoint: model list is live-fetched
+            // from the user's base URL → free-text fallback on client.
+            return []
         }
     }
 
