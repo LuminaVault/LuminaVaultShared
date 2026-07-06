@@ -671,6 +671,20 @@ public enum GraphNodeKindDTO: String, Codable, Sendable {
     case space
 }
 
+/// Precomputed, stable 3D layout coordinate for a graph node (HER-235 3D viz).
+/// Derived server-side from note embeddings (PCA top-3) and normalized to a
+/// bounded cube so the web + iOS clients render an identical, jitter-free
+/// cluster. `nil` position on a node means "not yet laid out" — clients fall
+/// back to their own force-directed placement for that node.
+public struct GraphPosition3D: Codable, Sendable, Equatable {
+    public let x: Double
+    public let y: Double
+    public let z: Double
+    public init(x: Double, y: Double, z: Double) {
+        self.x = x; self.y = y; self.z = z
+    }
+}
+
 public struct MemoryGraphNodeDTO: Codable, Sendable, Identifiable {
     public let id: UUID
     public let title: String
@@ -683,6 +697,14 @@ public struct MemoryGraphNodeDTO: Codable, Sendable, Identifiable {
     /// Optional Space the node is filed under; powers `.space` edges and
     /// space-tinted clustering. `nil` for unfiled nodes.
     public let spaceID: UUID?
+    /// HER-235 3D viz — normalized activity/heat in `[0, 1]` (recency of last
+    /// access blended with `score`). Drives the cyan→amber color ramp on the
+    /// clients. `nil` when the server predates the field → clients derive a
+    /// fallback from `createdAt`.
+    public let activity: Double?
+    /// HER-235 3D viz — precomputed stable 3D layout coordinate. `nil` when not
+    /// yet laid out (or older server) → client force-directed fallback.
+    public let position: GraphPosition3D?
 
     public init(
         id: UUID,
@@ -691,16 +713,19 @@ public struct MemoryGraphNodeDTO: Codable, Sendable, Identifiable {
         createdAt: Date,
         score: Double,
         kind: GraphNodeKindDTO = .memory,
-        spaceID: UUID? = nil
+        spaceID: UUID? = nil,
+        activity: Double? = nil,
+        position: GraphPosition3D? = nil
     ) {
         self.id = id; self.title = title; self.tags = tags
         self.createdAt = createdAt; self.score = score
         self.kind = kind; self.spaceID = spaceID
+        self.activity = activity; self.position = position
     }
 
     // Custom decode so a newer client stays robust against an older server
-    // that predates `kind`/`spaceID`: missing keys fall back to a memory
-    // node with no Space rather than failing the whole graph decode.
+    // that predates `kind`/`spaceID`/`activity`/`position`: missing keys fall
+    // back to defaults rather than failing the whole graph decode.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
@@ -710,6 +735,8 @@ public struct MemoryGraphNodeDTO: Codable, Sendable, Identifiable {
         score = try c.decode(Double.self, forKey: .score)
         kind = try c.decodeIfPresent(GraphNodeKindDTO.self, forKey: .kind) ?? .memory
         spaceID = try c.decodeIfPresent(UUID.self, forKey: .spaceID)
+        activity = try c.decodeIfPresent(Double.self, forKey: .activity)
+        position = try c.decodeIfPresent(GraphPosition3D.self, forKey: .position)
     }
 }
 
