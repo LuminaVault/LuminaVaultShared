@@ -3122,6 +3122,270 @@ public struct SessionListResponse: Codable, Sendable {
     }
 }
 
+// ─── Chat Inbox + Preferences ────────────────────────────────────────────
+
+/// Cross-platform summary row for the primary Chats inbox. This is richer than
+/// `ConversationDTO` so clients can render an inbox without fetching each
+/// transcript, and intentionally close to `SessionDTO` so the backend can reuse
+/// the existing conversation-message summary query.
+public struct ChatInboxItemDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let title: String
+    public let preview: String
+    public let messageCount: Int
+    public let lastMessageAt: Date
+    public let workspaceID: UUID?
+    public let sourceLabel: String?
+    public let providerID: ProviderID?
+    public let model: String?
+    public let pinned: Bool
+    public let archived: Bool
+
+    public init(
+        id: UUID,
+        title: String,
+        preview: String,
+        messageCount: Int,
+        lastMessageAt: Date,
+        workspaceID: UUID? = nil,
+        sourceLabel: String? = nil,
+        providerID: ProviderID? = nil,
+        model: String? = nil,
+        pinned: Bool = false,
+        archived: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.preview = preview
+        self.messageCount = messageCount
+        self.lastMessageAt = lastMessageAt
+        self.workspaceID = workspaceID
+        self.sourceLabel = sourceLabel
+        self.providerID = providerID
+        self.model = model
+        self.pinned = pinned
+        self.archived = archived
+    }
+}
+
+/// Response body for `GET /v1/chat/inbox`.
+public struct ChatInboxResponse: Codable, Sendable, Equatable {
+    public let items: [ChatInboxItemDTO]
+    public let nextCursor: String?
+
+    public init(items: [ChatInboxItemDTO], nextCursor: String? = nil) {
+        self.items = items
+        self.nextCursor = nextCursor
+    }
+}
+
+/// Cross-device chat behavior preferences. Platform-local behavior, such as
+/// iOS haptics, stays outside this contract.
+public struct ChatPreferencesDTO: Codable, Sendable, Equatable {
+    public let autoExpandThinking: Bool
+    public let sendOnReturn: Bool
+
+    public init(autoExpandThinking: Bool = true, sendOnReturn: Bool = false) {
+        self.autoExpandThinking = autoExpandThinking
+        self.sendOnReturn = sendOnReturn
+    }
+}
+
+/// Response body for `GET /v1/me/chat-preferences`.
+public struct ChatPreferencesGetResponse: Codable, Sendable, Equatable {
+    public let preferences: ChatPreferencesDTO
+
+    public init(preferences: ChatPreferencesDTO = ChatPreferencesDTO()) {
+        self.preferences = preferences
+    }
+}
+
+/// Request body for `PUT /v1/me/chat-preferences`.
+public struct ChatPreferencesPutRequest: Codable, Sendable, Equatable {
+    public let preferences: ChatPreferencesDTO
+
+    public init(preferences: ChatPreferencesDTO) {
+        self.preferences = preferences
+    }
+}
+
+// ─── Connections + Diagnostics Summary ───────────────────────────────────
+
+/// User-facing connection buckets for the task-based Settings surface.
+public enum ConnectionKind: String, Codable, Sendable, CaseIterable {
+    case llmProvider = "llm_provider"
+    case hermesServer = "hermes_server"
+    case hermesGateway = "hermes_gateway"
+    case linkedAccount = "linked_account"
+    case calendar
+    case nous
+    case plugin
+    case server
+}
+
+/// Normalized health state for connection rows and diagnostics checks.
+public enum ConnectionHealth: String, Codable, Sendable, CaseIterable {
+    case connected
+    case needsSetup = "needs_setup"
+    case degraded
+    case error
+    case unknown
+    case testing
+}
+
+/// Hint clients can use to choose the correct detail flow without re-deriving
+/// intent from a title or status string.
+public enum ConnectionActionHint: String, Codable, Sendable, CaseIterable {
+    case configureProvider = "configure_provider"
+    case configureHermes = "configure_hermes"
+    case configureGateway = "configure_gateway"
+    case connectAccount = "connect_account"
+    case openPlugin = "open_plugin"
+    case openServerSettings = "open_server_settings"
+    case viewDiagnostics = "view_diagnostics"
+}
+
+public struct ConnectionSummaryDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: String
+    public let kind: ConnectionKind
+    public let title: String
+    public let subtitle: String?
+    public let health: ConnectionHealth
+    public let providerID: ProviderID?
+    public let gatewayID: HermesGatewayID?
+    public let lastCheckedAt: Date?
+    public let statusDetail: String?
+    public let actionHint: ConnectionActionHint?
+
+    public init(
+        id: String,
+        kind: ConnectionKind,
+        title: String,
+        subtitle: String? = nil,
+        health: ConnectionHealth,
+        providerID: ProviderID? = nil,
+        gatewayID: HermesGatewayID? = nil,
+        lastCheckedAt: Date? = nil,
+        statusDetail: String? = nil,
+        actionHint: ConnectionActionHint? = nil
+    ) {
+        self.id = id
+        self.kind = kind
+        self.title = title
+        self.subtitle = subtitle
+        self.health = health
+        self.providerID = providerID
+        self.gatewayID = gatewayID
+        self.lastCheckedAt = lastCheckedAt
+        self.statusDetail = statusDetail
+        self.actionHint = actionHint
+    }
+}
+
+/// Response body for `GET /v1/me/connections`.
+public struct ConnectionsSummaryResponse: Codable, Sendable, Equatable {
+    public let connections: [ConnectionSummaryDTO]
+    public let checkedAt: Date?
+
+    public init(connections: [ConnectionSummaryDTO], checkedAt: Date? = nil) {
+        self.connections = connections
+        self.checkedAt = checkedAt
+    }
+}
+
+public struct ConnectionTestResultDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: String
+    public let kind: ConnectionKind
+    public let title: String
+    public let health: ConnectionHealth
+    public let ok: Bool
+    public let checkedAt: Date
+    public let statusDetail: String?
+    public let errorCode: String?
+    public let errorMessage: String?
+
+    public init(
+        id: String,
+        kind: ConnectionKind,
+        title: String,
+        health: ConnectionHealth,
+        ok: Bool,
+        checkedAt: Date,
+        statusDetail: String? = nil,
+        errorCode: String? = nil,
+        errorMessage: String? = nil
+    ) {
+        self.id = id
+        self.kind = kind
+        self.title = title
+        self.health = health
+        self.ok = ok
+        self.checkedAt = checkedAt
+        self.statusDetail = statusDetail
+        self.errorCode = errorCode
+        self.errorMessage = errorMessage
+    }
+}
+
+/// Response body for `POST /v1/me/connections/test-all`.
+public struct ConnectionsTestAllResponse: Codable, Sendable, Equatable {
+    public let results: [ConnectionTestResultDTO]
+    public let checkedAt: Date
+
+    public init(results: [ConnectionTestResultDTO], checkedAt: Date) {
+        self.results = results
+        self.checkedAt = checkedAt
+    }
+}
+
+public enum ConnectionDiagnosticSeverity: String, Codable, Sendable, CaseIterable {
+    case info
+    case warning
+    case error
+}
+
+public struct ConnectionDiagnosticEventDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let occurredAt: Date
+    public let kind: ConnectionKind
+    public let connectionID: String?
+    public let connectionTitle: String?
+    public let severity: ConnectionDiagnosticSeverity
+    public let message: String
+    public let code: String?
+
+    public init(
+        id: UUID,
+        occurredAt: Date,
+        kind: ConnectionKind,
+        connectionID: String? = nil,
+        connectionTitle: String? = nil,
+        severity: ConnectionDiagnosticSeverity,
+        message: String,
+        code: String? = nil
+    ) {
+        self.id = id
+        self.occurredAt = occurredAt
+        self.kind = kind
+        self.connectionID = connectionID
+        self.connectionTitle = connectionTitle
+        self.severity = severity
+        self.message = message
+        self.code = code
+    }
+}
+
+/// Response body for `GET /v1/me/connections/events`.
+public struct ConnectionDiagnosticEventsResponse: Codable, Sendable, Equatable {
+    public let events: [ConnectionDiagnosticEventDTO]
+    public let nextCursor: String?
+
+    public init(events: [ConnectionDiagnosticEventDTO], nextCursor: String? = nil) {
+        self.events = events
+        self.nextCursor = nextCursor
+    }
+}
+
 // ─── Provider Credentials (HER-252) ──────────────────────────────────────
 
 /// Identifies an external LLM provider the user can attach credentials to.
