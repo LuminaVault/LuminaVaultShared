@@ -31,7 +31,9 @@ public struct LoginRequest: Codable, Sendable {
 
 public struct RefreshRequest: Codable, Sendable {
     public let refreshToken: String
-    public init(refreshToken: String) { self.refreshToken = refreshToken }
+    public init(refreshToken: String) {
+        self.refreshToken = refreshToken
+    }
 }
 
 public struct AuthResponse: Codable {
@@ -63,12 +65,16 @@ public struct MFAVerifyRequest: Codable, Sendable {
 
 public struct MFAResendRequest: Codable, Sendable {
     public let email: String
-    public init(email: String) { self.email = email }
+    public init(email: String) {
+        self.email = email
+    }
 }
 
 public struct OAuthExchangeRequest: Codable, Sendable {
     public let idToken: String
-    public init(idToken: String) { self.idToken = idToken }
+    public init(idToken: String) {
+        self.idToken = idToken
+    }
 }
 
 /// HER-144: X (Twitter) OAuth 2.0 PKCE returns an access_token, not an
@@ -77,12 +83,16 @@ public struct OAuthExchangeRequest: Codable, Sendable {
 /// `OAuthAccessTokenRequest` schema in `openapi.yaml`.
 public struct OAuthAccessTokenRequest: Codable, Sendable {
     public let accessToken: String
-    public init(accessToken: String) { self.accessToken = accessToken }
+    public init(accessToken: String) {
+        self.accessToken = accessToken
+    }
 }
 
 public struct ForgotPasswordRequest: Codable, Sendable {
     public let email: String
-    public init(email: String) { self.email = email }
+    public init(email: String) {
+        self.email = email
+    }
 }
 
 public struct ResetPasswordRequest: Codable, Sendable {
@@ -96,7 +106,9 @@ public struct ResetPasswordRequest: Codable, Sendable {
 
 public struct SendVerificationRequest: Codable, Sendable {
     public let email: String
-    public init(email: String) { self.email = email }
+    public init(email: String) {
+        self.email = email
+    }
 }
 
 public struct ConfirmEmailRequest: Codable, Sendable {
@@ -169,7 +181,9 @@ public struct UpdatePrivacyRequest: Codable {
 
 public struct PhoneStartRequest: Codable, Sendable {
     public let phone: String
-    public init(phone: String) { self.phone = phone }
+    public init(phone: String) {
+        self.phone = phone
+    }
 }
 
 public struct PhoneStartResponse: Codable {
@@ -192,7 +206,9 @@ public struct PhoneVerifyRequest: Codable, Sendable {
 
 public struct EmailMagicStartRequest: Codable, Sendable {
     public let email: String
-    public init(email: String) { self.email = email }
+    public init(email: String) {
+        self.email = email
+    }
 }
 
 public struct EmailMagicStartResponse: Codable {
@@ -224,7 +240,9 @@ public struct SoulResponse: Codable, Sendable {
 
 public struct SoulPutRequest: Codable, Sendable {
     public let markdown: String
-    public init(markdown: String) { self.markdown = markdown }
+    public init(markdown: String) {
+        self.markdown = markdown
+    }
 }
 
 /// Superset of the server compose tones and the onboarding quiz tones.
@@ -331,7 +349,9 @@ public struct SoulComposeRequest: Codable, Sendable {
     }
 
     /// All-nil request — the server composes its canonical default SOUL.md.
-    public static var defaults: SoulComposeRequest { SoulComposeRequest() }
+    public static var defaults: SoulComposeRequest {
+        SoulComposeRequest()
+    }
 }
 
 // ─── LLM / Chat ─────────────────────────────────────────────────────────
@@ -346,13 +366,21 @@ public enum AnyJSONValue: Codable, Equatable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.singleValueContainer()
-        if let v = try? c.decode(String.self) { self = .string(v)
-        } else if let v = try? c.decode(Double.self) { self = .number(v)
-        } else if let v = try? c.decode(Bool.self) { self = .bool(v)
-        } else if let v = try? c.decode([String: AnyJSONValue].self) { self = .object(v)
-        } else if let v = try? c.decode([AnyJSONValue].self) { self = .array(v)
-        } else if c.decodeNil() { self = .null
-        } else { self = .string("") }
+        if let v = try? c.decode(String.self) {
+            self = .string(v)
+        } else if let v = try? c.decode(Double.self) {
+            self = .number(v)
+        } else if let v = try? c.decode(Bool.self) {
+            self = .bool(v)
+        } else if let v = try? c.decode([String: AnyJSONValue].self) {
+            self = .object(v)
+        } else if let v = try? c.decode([AnyJSONValue].self) {
+            self = .array(v)
+        } else if c.decodeNil() {
+            self = .null
+        } else {
+            self = .string("")
+        }
     }
 }
 
@@ -441,13 +469,13 @@ public struct ChatRequest: Codable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.messages = try c.decode([ChatMessage].self, forKey: .messages)
-        self.model = try c.decodeIfPresent(String.self, forKey: .model)
-        self.temperature = try c.decodeIfPresent(Double.self, forKey: .temperature)
-        self.stream = try c.decodeIfPresent(Bool.self, forKey: .stream) ?? false
-        self.tools = try c.decodeIfPresent([ChatTool].self, forKey: .tools)
-        self.tool_choice = try c.decodeIfPresent(AnyJSONValue.self, forKey: .tool_choice)
-        self.sessionID = try c.decodeIfPresent(String.self, forKey: .sessionID)
+        messages = try c.decode([ChatMessage].self, forKey: .messages)
+        model = try c.decodeIfPresent(String.self, forKey: .model)
+        temperature = try c.decodeIfPresent(Double.self, forKey: .temperature)
+        stream = try c.decodeIfPresent(Bool.self, forKey: .stream) ?? false
+        tools = try c.decodeIfPresent([ChatTool].self, forKey: .tools)
+        tool_choice = try c.decodeIfPresent(AnyJSONValue.self, forKey: .tool_choice)
+        sessionID = try c.decodeIfPresent(String.self, forKey: .sessionID)
     }
 }
 
@@ -478,6 +506,7 @@ public struct HermesUpstreamUsage: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case promptTokens = "prompt_tokens"; case completionTokens = "completion_tokens"; case totalTokens = "total_tokens"
     }
+
     public init(promptTokens: Int? = nil, completionTokens: Int? = nil, totalTokens: Int? = nil) {
         self.promptTokens = promptTokens; self.completionTokens = completionTokens
         self.totalTokens = totalTokens
@@ -592,7 +621,9 @@ public struct MemoryProvenanceResponse: Codable, Sendable {
 public struct MemoryFacetDTO: Codable, Sendable, Equatable, Identifiable {
     public let value: String
     public let count: Int
-    public var id: String { value }
+    public var id: String {
+        value
+    }
 
     public init(value: String, count: Int) {
         self.value = value
@@ -701,6 +732,8 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
     ///   kb-compile reject list so future runs skip the same source+content_hash pair.
     public let reviewState: String
     public let provenance: MemoryProvenanceSummaryDTO?
+    public let createdByUserId: UUID?
+    public let updatedByUserId: UUID?
     public init(
         id: UUID,
         content: String,
@@ -711,7 +744,9 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
         accuracyM: Double? = nil,
         placeName: String? = nil,
         reviewState: String = "auto",
-        provenance: MemoryProvenanceSummaryDTO? = nil
+        provenance: MemoryProvenanceSummaryDTO? = nil,
+        createdByUserId: UUID? = nil,
+        updatedByUserId: UUID? = nil
     ) {
         self.id = id
         self.content = content
@@ -723,6 +758,8 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
         self.placeName = placeName
         self.reviewState = reviewState
         self.provenance = provenance
+        self.createdByUserId = createdByUserId
+        self.updatedByUserId = updatedByUserId
     }
 }
 
@@ -853,9 +890,9 @@ public struct MemoryGraphNodeDTO: Codable, Sendable, Identifiable {
         self.provenance = provenance
     }
 
-    // Custom decode so a newer client stays robust against an older server
-    // that predates `kind`/`spaceID`/`activity`/`position`: missing keys fall
-    // back to defaults rather than failing the whole graph decode.
+    /// Custom decode so a newer client stays robust against an older server
+    /// that predates `kind`/`spaceID`/`activity`/`position`: missing keys fall
+    /// back to defaults rather than failing the whole graph decode.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
@@ -950,7 +987,9 @@ public struct MemoSummaryDTO: Codable, Sendable {
 /// can be added later without breaking the wire shape.
 public struct MemoListResponse: Codable, Sendable {
     public let memos: [MemoSummaryDTO]
-    public init(memos: [MemoSummaryDTO]) { self.memos = memos }
+    public init(memos: [MemoSummaryDTO]) {
+        self.memos = memos
+    }
 }
 
 // ─── Query ───────────────────────────────────────────────────────────────
@@ -977,9 +1016,9 @@ public struct QueryRequest: Codable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.query = try c.decode(String.self, forKey: .query)
-        self.limit = try c.decodeIfPresent(Int.self, forKey: .limit)
-        self.sessionID = try c.decodeIfPresent(String.self, forKey: .sessionID)
+        query = try c.decode(String.self, forKey: .query)
+        limit = try c.decodeIfPresent(Int.self, forKey: .limit)
+        sessionID = try c.decodeIfPresent(String.self, forKey: .sessionID)
     }
 }
 
@@ -1058,53 +1097,53 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let type = try c.decode(EventType.self, forKey: .type)
         switch type {
-        case .source: self = .source(try c.decode(QueryHitDTO.self, forKey: .payload))
-        case .token: self = .token(try c.decode(String.self, forKey: .payload))
-        case .summary: self = .summary(try c.decode(String.self, forKey: .payload))
-        case .followUps: self = .followUps(try c.decode([String].self, forKey: .payload))
+        case .source: self = try .source(c.decode(QueryHitDTO.self, forKey: .payload))
+        case .token: self = try .token(c.decode(String.self, forKey: .payload))
+        case .summary: self = try .summary(c.decode(String.self, forKey: .payload))
+        case .followUps: self = try .followUps(c.decode([String].self, forKey: .payload))
         case .done: self = .done
-        case .error: self = .error(try c.decode(String.self, forKey: .payload))
-        case .fallback: self = .fallback(try c.decode(ProviderFallbackNoticeDTO.self, forKey: .payload))
-        case .routing: self = .routing(try c.decode(RouterRoutingEventDTO.self, forKey: .payload))
-        case .usage: self = .usage(try c.decode(RouterUsageDTO.self, forKey: .payload))
-        case .parallel: self = .parallel(try c.decode(ParallelStreamEventDTO.self, forKey: .payload))
-        case .linkSaved: self = .linkSaved(try c.decode(LinkSavedDTO.self, forKey: .payload))
+        case .error: self = try .error(c.decode(String.self, forKey: .payload))
+        case .fallback: self = try .fallback(c.decode(ProviderFallbackNoticeDTO.self, forKey: .payload))
+        case .routing: self = try .routing(c.decode(RouterRoutingEventDTO.self, forKey: .payload))
+        case .usage: self = try .usage(c.decode(RouterUsageDTO.self, forKey: .payload))
+        case .parallel: self = try .parallel(c.decode(ParallelStreamEventDTO.self, forKey: .payload))
+        case .linkSaved: self = try .linkSaved(c.decode(LinkSavedDTO.self, forKey: .payload))
         }
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .source(let h):
+        case let .source(h):
             try c.encode(EventType.source, forKey: .type)
             try c.encode(h, forKey: .payload)
-        case .token(let s):
+        case let .token(s):
             try c.encode(EventType.token, forKey: .type)
             try c.encode(s, forKey: .payload)
-        case .summary(let s):
+        case let .summary(s):
             try c.encode(EventType.summary, forKey: .type)
             try c.encode(s, forKey: .payload)
-        case .followUps(let arr):
+        case let .followUps(arr):
             try c.encode(EventType.followUps, forKey: .type)
             try c.encode(arr, forKey: .payload)
         case .done:
             try c.encode(EventType.done, forKey: .type)
-        case .error(let s):
+        case let .error(s):
             try c.encode(EventType.error, forKey: .type)
             try c.encode(s, forKey: .payload)
-        case .fallback(let notice):
+        case let .fallback(notice):
             try c.encode(EventType.fallback, forKey: .type)
             try c.encode(notice, forKey: .payload)
-        case .routing(let event):
+        case let .routing(event):
             try c.encode(EventType.routing, forKey: .type)
             try c.encode(event, forKey: .payload)
-        case .usage(let usage):
+        case let .usage(usage):
             try c.encode(EventType.usage, forKey: .type)
             try c.encode(usage, forKey: .payload)
-        case .parallel(let event):
+        case let .parallel(event):
             try c.encode(EventType.parallel, forKey: .type)
             try c.encode(event, forKey: .payload)
-        case .linkSaved(let payload):
+        case let .linkSaved(payload):
             try c.encode(EventType.linkSaved, forKey: .type)
             try c.encode(payload, forKey: .payload)
         }
@@ -1273,7 +1312,9 @@ public struct SpaceDTO: Codable, Sendable {
 
 public struct SpaceListResponse: Codable, Sendable {
     public let spaces: [SpaceDTO]
-    public init(spaces: [SpaceDTO]) { self.spaces = spaces }
+    public init(spaces: [SpaceDTO]) {
+        self.spaces = spaces
+    }
 }
 
 public struct CreateSpaceRequest: Codable, Sendable {
@@ -1361,11 +1402,14 @@ public struct VaultFileDTO: Codable, Sendable {
     public let updatedAt: Date?
     /// HER-Notes — note/todo metadata. Null/absent for non-note files.
     public let metadata: VaultNoteMetadataDTO?
-    public init(id: UUID, path: String, contentType: String, sizeBytes: Int64, sha256: String, spaceId: UUID? = nil, createdAt: Date? = nil, updatedAt: Date? = nil, metadata: VaultNoteMetadataDTO? = nil) {
+    public let createdByUserId: UUID?
+    public let updatedByUserId: UUID?
+    public init(id: UUID, path: String, contentType: String, sizeBytes: Int64, sha256: String, spaceId: UUID? = nil, createdAt: Date? = nil, updatedAt: Date? = nil, metadata: VaultNoteMetadataDTO? = nil, createdByUserId: UUID? = nil, updatedByUserId: UUID? = nil) {
         self.id = id; self.path = path; self.contentType = contentType
         self.sizeBytes = sizeBytes; self.sha256 = sha256; self.spaceId = spaceId
         self.createdAt = createdAt; self.updatedAt = updatedAt
         self.metadata = metadata
+        self.createdByUserId = createdByUserId; self.updatedByUserId = updatedByUserId
     }
 }
 
@@ -1466,20 +1510,20 @@ public struct OnboardingStateDTO: Codable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.signupCompleted = try c.decode(Bool.self, forKey: .signupCompleted)
-        self.signupCompletedAt = try c.decodeIfPresent(Date.self, forKey: .signupCompletedAt)
-        self.emailVerifiedCompleted = try c.decode(Bool.self, forKey: .emailVerifiedCompleted)
-        self.emailVerifiedCompletedAt = try c.decodeIfPresent(Date.self, forKey: .emailVerifiedCompletedAt)
-        self.soulConfiguredCompleted = try c.decode(Bool.self, forKey: .soulConfiguredCompleted)
-        self.soulConfiguredCompletedAt = try c.decodeIfPresent(Date.self, forKey: .soulConfiguredCompletedAt)
-        self.firstCaptureCompleted = try c.decode(Bool.self, forKey: .firstCaptureCompleted)
-        self.firstCaptureCompletedAt = try c.decodeIfPresent(Date.self, forKey: .firstCaptureCompletedAt)
-        self.firstKBCompileCompleted = try c.decode(Bool.self, forKey: .firstKBCompileCompleted)
-        self.firstKBCompileCompletedAt = try c.decodeIfPresent(Date.self, forKey: .firstKBCompileCompletedAt)
-        self.firstQueryCompleted = try c.decode(Bool.self, forKey: .firstQueryCompleted)
-        self.firstQueryCompletedAt = try c.decodeIfPresent(Date.self, forKey: .firstQueryCompletedAt)
-        self.brainConfiguredCompleted = try c.decodeIfPresent(Bool.self, forKey: .brainConfiguredCompleted) ?? false
-        self.brainConfiguredCompletedAt = try c.decodeIfPresent(Date.self, forKey: .brainConfiguredCompletedAt)
+        signupCompleted = try c.decode(Bool.self, forKey: .signupCompleted)
+        signupCompletedAt = try c.decodeIfPresent(Date.self, forKey: .signupCompletedAt)
+        emailVerifiedCompleted = try c.decode(Bool.self, forKey: .emailVerifiedCompleted)
+        emailVerifiedCompletedAt = try c.decodeIfPresent(Date.self, forKey: .emailVerifiedCompletedAt)
+        soulConfiguredCompleted = try c.decode(Bool.self, forKey: .soulConfiguredCompleted)
+        soulConfiguredCompletedAt = try c.decodeIfPresent(Date.self, forKey: .soulConfiguredCompletedAt)
+        firstCaptureCompleted = try c.decode(Bool.self, forKey: .firstCaptureCompleted)
+        firstCaptureCompletedAt = try c.decodeIfPresent(Date.self, forKey: .firstCaptureCompletedAt)
+        firstKBCompileCompleted = try c.decode(Bool.self, forKey: .firstKBCompileCompleted)
+        firstKBCompileCompletedAt = try c.decodeIfPresent(Date.self, forKey: .firstKBCompileCompletedAt)
+        firstQueryCompleted = try c.decode(Bool.self, forKey: .firstQueryCompleted)
+        firstQueryCompletedAt = try c.decodeIfPresent(Date.self, forKey: .firstQueryCompletedAt)
+        brainConfiguredCompleted = try c.decodeIfPresent(Bool.self, forKey: .brainConfiguredCompleted) ?? false
+        brainConfiguredCompletedAt = try c.decodeIfPresent(Date.self, forKey: .brainConfiguredCompletedAt)
     }
 }
 
@@ -1567,7 +1611,9 @@ public struct KBCompileStartedDTO: Codable, Sendable, Equatable {
 
 public struct KBCompilePreparingDTO: Codable, Sendable, Equatable {
     public let runId: UUID
-    public init(runId: UUID) { self.runId = runId }
+    public init(runId: UUID) {
+        self.runId = runId
+    }
 }
 
 public struct KBCompileThinkingDTO: Codable, Sendable, Equatable {
@@ -1626,39 +1672,39 @@ public enum KBCompileProgressEvent: Codable, Sendable, Equatable {
         let type = try c.decode(EventType.self, forKey: .type)
         switch type {
         case .started:
-            self = .started(try c.decode(KBCompileStartedDTO.self, forKey: .payload))
+            self = try .started(c.decode(KBCompileStartedDTO.self, forKey: .payload))
         case .preparing:
-            self = .preparing(try c.decode(KBCompilePreparingDTO.self, forKey: .payload))
+            self = try .preparing(c.decode(KBCompilePreparingDTO.self, forKey: .payload))
         case .thinking:
-            self = .thinking(try c.decode(KBCompileThinkingDTO.self, forKey: .payload))
+            self = try .thinking(c.decode(KBCompileThinkingDTO.self, forKey: .payload))
         case .memorySaved:
-            self = .memorySaved(try c.decode(KBCompileMemorySavedDTO.self, forKey: .payload))
+            self = try .memorySaved(c.decode(KBCompileMemorySavedDTO.self, forKey: .payload))
         case .completed:
-            self = .completed(try c.decode(KBCompileCompletedDTO.self, forKey: .payload))
+            self = try .completed(c.decode(KBCompileCompletedDTO.self, forKey: .payload))
         case .error:
-            self = .error(try c.decode(KBCompileErrorDTO.self, forKey: .payload))
+            self = try .error(c.decode(KBCompileErrorDTO.self, forKey: .payload))
         }
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .started(let p):
+        case let .started(p):
             try c.encode(EventType.started, forKey: .type)
             try c.encode(p, forKey: .payload)
-        case .preparing(let p):
+        case let .preparing(p):
             try c.encode(EventType.preparing, forKey: .type)
             try c.encode(p, forKey: .payload)
-        case .thinking(let p):
+        case let .thinking(p):
             try c.encode(EventType.thinking, forKey: .type)
             try c.encode(p, forKey: .payload)
-        case .memorySaved(let p):
+        case let .memorySaved(p):
             try c.encode(EventType.memorySaved, forKey: .type)
             try c.encode(p, forKey: .payload)
-        case .completed(let p):
+        case let .completed(p):
             try c.encode(EventType.completed, forKey: .type)
             try c.encode(p, forKey: .payload)
-        case .error(let p):
+        case let .error(p):
             try c.encode(EventType.error, forKey: .type)
             try c.encode(p, forKey: .payload)
         }
@@ -1690,6 +1736,7 @@ public struct AchievementsListResponse: Codable, Sendable {
             self.progress = progress; self.unlockedAt = unlockedAt
         }
     }
+
     public struct ArchetypeDTO: Codable, Sendable {
         public let key: String
         public let label: String
@@ -1698,6 +1745,7 @@ public struct AchievementsListResponse: Codable, Sendable {
             self.key = key; self.label = label; self.sub = sub
         }
     }
+
     public let catalogVersion: Int
     public let archetypes: [ArchetypeDTO]
     public init(catalogVersion: Int, archetypes: [ArchetypeDTO]) {
@@ -1714,8 +1762,11 @@ public struct AchievementsRecentResponse: Codable, Sendable {
             self.key = key; self.label = label; self.unlockedAt = unlockedAt
         }
     }
+
     public let unlocks: [UnlockDTO]
-    public init(unlocks: [UnlockDTO]) { self.unlocks = unlocks }
+    public init(unlocks: [UnlockDTO]) {
+        self.unlocks = unlocks
+    }
 }
 
 // ─── Health Ingest ───────────────────────────────────────────────────────
@@ -1775,7 +1826,7 @@ public struct HealthEventDTO: Codable, Sendable, Equatable {
         valueNumeric: Double? = nil,
         valueText: String? = nil,
         unit: String? = nil,
-        source: String? = nil,
+        source: String? = nil
     ) {
         self.id = id; self.type = type; self.recordedAt = recordedAt
         self.valueNumeric = valueNumeric; self.valueText = valueText
@@ -1833,7 +1884,9 @@ public struct HealthDailyResponse: Codable, Sendable {
 /// from recent compiles, active Spaces, and SOUL.md tone.
 public struct SuggestionsResponse: Codable, Sendable {
     public let suggestions: [String]
-    public init(suggestions: [String]) { self.suggestions = suggestions }
+    public init(suggestions: [String]) {
+        self.suggestions = suggestions
+    }
 }
 
 // ─── Hermes Config ───────────────────────────────────────────────────────
@@ -1862,7 +1915,9 @@ public struct HermesConfigPutRequest: Codable, Sendable {
 
 public struct HermesConfigTestResponse: Codable, Sendable {
     public let verifiedAt: Date
-    public init(verifiedAt: Date) { self.verifiedAt = verifiedAt }
+    public init(verifiedAt: Date) {
+        self.verifiedAt = verifiedAt
+    }
 }
 
 // ─── Nous Portal subscription (OAuth device-code) ───────────────────────
@@ -2014,12 +2069,16 @@ public struct HermesGatewayCatalogEntry: Codable, Sendable, Identifiable, Equata
 
 public struct HermesGatewaysListResponse: Codable, Sendable {
     public let items: [HermesGatewayCatalogEntry]
-    public init(items: [HermesGatewayCatalogEntry]) { self.items = items }
+    public init(items: [HermesGatewayCatalogEntry]) {
+        self.items = items
+    }
 }
 
 public struct HermesGatewayPutRequest: Codable, Sendable {
     public let config: [String: String]
-    public init(config: [String: String]) { self.config = config }
+    public init(config: [String: String]) {
+        self.config = config
+    }
 }
 
 public struct HermesGatewayTestResponse: Codable, Sendable {
@@ -2106,7 +2165,10 @@ public struct HermesGatewayApplyJobStatus: Codable, Sendable, Equatable, Identif
     public let errorMessage: String?
     public let startedAt: Date
     public let updatedAt: Date
-    public var id: UUID { jobID }
+    public var id: UUID {
+        jobID
+    }
+
     public init(
         jobID: UUID,
         state: HermesGatewayApplyJobState,
@@ -2146,26 +2208,26 @@ public enum HermesGatewayApplyEvent: Codable, Sendable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let type = try c.decode(EventType.self, forKey: .type)
         switch type {
-        case .step: self = .step(try c.decode(HermesGatewayApplyStep.self, forKey: .payload))
-        case .status: self = .status(try c.decode(HermesGatewayApplyJobState.self, forKey: .payload))
-        case .done: self = .done(try c.decode(HermesGatewayApplyJobStatus.self, forKey: .payload))
-        case .error: self = .error(try c.decode(String.self, forKey: .payload))
+        case .step: self = try .step(c.decode(HermesGatewayApplyStep.self, forKey: .payload))
+        case .status: self = try .status(c.decode(HermesGatewayApplyJobState.self, forKey: .payload))
+        case .done: self = try .done(c.decode(HermesGatewayApplyJobStatus.self, forKey: .payload))
+        case .error: self = try .error(c.decode(String.self, forKey: .payload))
         }
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .step(let s):
+        case let .step(s):
             try c.encode(EventType.step, forKey: .type)
             try c.encode(s, forKey: .payload)
-        case .status(let st):
+        case let .status(st):
             try c.encode(EventType.status, forKey: .type)
             try c.encode(st, forKey: .payload)
-        case .done(let snapshot):
+        case let .done(snapshot):
             try c.encode(EventType.done, forKey: .type)
             try c.encode(snapshot, forKey: .payload)
-        case .error(let message):
+        case let .error(message):
             try c.encode(EventType.error, forKey: .type)
             try c.encode(message, forKey: .payload)
         }
@@ -2233,25 +2295,25 @@ public enum HermesWhatsAppPairEvent: Codable, Sendable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let type = try c.decode(EventType.self, forKey: .type)
         switch type {
-        case .qr: self = .qr(try c.decode(String.self, forKey: .payload))
-        case .status: self = .status(try c.decode(HermesWhatsAppPairStatus.self, forKey: .payload))
+        case .qr: self = try .qr(c.decode(String.self, forKey: .payload))
+        case .status: self = try .status(c.decode(HermesWhatsAppPairStatus.self, forKey: .payload))
         case .linked: self = .linked
-        case .error: self = .error(try c.decode(String.self, forKey: .payload))
+        case .error: self = try .error(c.decode(String.self, forKey: .payload))
         }
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .qr(let art):
+        case let .qr(art):
             try c.encode(EventType.qr, forKey: .type)
             try c.encode(art, forKey: .payload)
-        case .status(let s):
+        case let .status(s):
             try c.encode(EventType.status, forKey: .type)
             try c.encode(s, forKey: .payload)
         case .linked:
             try c.encode(EventType.linked, forKey: .type)
-        case .error(let message):
+        case let .error(message):
             try c.encode(EventType.error, forKey: .type)
             try c.encode(message, forKey: .payload)
         }
@@ -2262,7 +2324,9 @@ public enum HermesWhatsAppPairEvent: Codable, Sendable, Equatable {
 /// then opens the SSE stream at `.../whatsapp/pair/{sessionID}/stream`.
 public struct StartWhatsAppPairResponse: Codable, Sendable {
     public let sessionID: UUID
-    public init(sessionID: UUID) { self.sessionID = sessionID }
+    public init(sessionID: UUID) {
+        self.sessionID = sessionID
+    }
 }
 
 // ─── Photon Setup (free iMessage path via central sidecar + webhook) ────
@@ -2276,9 +2340,9 @@ public struct StartWhatsAppPairResponse: Codable, Sendable {
 /// Live status during a Photon setup session.
 public enum HermesPhotonSetupStatus: String, Codable, Sendable, CaseIterable {
     case starting
-    case awaitingApproval   // device code / verification URI shown to user
+    case awaitingApproval // device code / verification URI shown to user
     case approved
-    case provisioning       // creating project, enabling Spectrum, registering phone
+    case provisioning // creating project, enabling Spectrum, registering phone
     case done
     case failed
 }
@@ -2301,28 +2365,28 @@ public enum HermesPhotonSetupEvent: Codable, Sendable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let type = try c.decode(EventType.self, forKey: .type)
         switch type {
-        case .status: self = .status(try c.decode(HermesPhotonSetupStatus.self, forKey: .payload))
+        case .status: self = try .status(c.decode(HermesPhotonSetupStatus.self, forKey: .payload))
         case .deviceCode:
             let p = try c.decode(DeviceCodePayload.self, forKey: .payload)
             self = .deviceCode(verificationUri: p.verificationUri, userCode: p.userCode, expiresIn: p.expiresIn)
-        case .assignedLine: self = .assignedLine(try c.decode(String.self, forKey: .payload))
-        case .error: self = .error(try c.decode(String.self, forKey: .payload))
+        case .assignedLine: self = try .assignedLine(c.decode(String.self, forKey: .payload))
+        case .error: self = try .error(c.decode(String.self, forKey: .payload))
         }
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .status(let s):
+        case let .status(s):
             try c.encode(EventType.status, forKey: .type)
             try c.encode(s, forKey: .payload)
-        case .deviceCode(let uri, let code, let exp):
+        case let .deviceCode(uri, code, exp):
             try c.encode(EventType.deviceCode, forKey: .type)
             try c.encode(DeviceCodePayload(verificationUri: uri, userCode: code, expiresIn: exp), forKey: .payload)
-        case .assignedLine(let line):
+        case let .assignedLine(line):
             try c.encode(EventType.assignedLine, forKey: .type)
             try c.encode(line, forKey: .payload)
-        case .error(let msg):
+        case let .error(msg):
             try c.encode(EventType.error, forKey: .type)
             try c.encode(msg, forKey: .payload)
         }
@@ -2339,7 +2403,9 @@ public enum HermesPhotonSetupEvent: Codable, Sendable, Equatable {
 /// SSE stream and later submits the phone number.
 public struct StartPhotonSetupResponse: Codable, Sendable {
     public let sessionID: UUID
-    public init(sessionID: UUID) { self.sessionID = sessionID }
+    public init(sessionID: UUID) {
+        self.sessionID = sessionID
+    }
 }
 
 // ─── Hermes Profiles (HER-273 — multi-agent per user) ───────────────────
@@ -2590,19 +2656,25 @@ public enum SkillRunStatus: String, Codable, Sendable, CaseIterable {
 public struct LuminaChartPoint: Codable, Sendable {
     public let x: String
     public let y: Double
-    public init(x: String, y: Double) { self.x = x; self.y = y }
+    public init(x: String, y: Double) {
+        self.x = x; self.y = y
+    }
 }
 
 public struct LuminaSeries: Codable, Sendable {
     public let name: String
     public let points: [LuminaChartPoint]
-    public init(name: String, points: [LuminaChartPoint]) { self.name = name; self.points = points }
+    public init(name: String, points: [LuminaChartPoint]) {
+        self.name = name; self.points = points
+    }
 }
 
 public struct LuminaKeyValue: Codable, Sendable {
     public let key: String
     public let value: String
-    public init(key: String, value: String) { self.key = key; self.value = value }
+    public init(key: String, value: String) {
+        self.key = key; self.value = value
+    }
 }
 
 public struct LuminaBlock: Codable, Sendable {
@@ -2610,18 +2682,18 @@ public struct LuminaBlock: Codable, Sendable {
     /// lineChart · barChart · list · table · badge · keyValue · quote ·
     /// image · divider. Unknown values render a fallback client-side.
     public let type: String
-    public let text: String?          // heading/paragraph/markdown/quote/badge
-    public let level: Int?            // heading depth (1…3)
-    public let label: String?         // statCard caption
-    public let value: String?         // statCard primary value
-    public let delta: String?         // statCard change ("+1.2%")
-    public let trend: String?         // "up" | "down" | "flat"
-    public let items: [String]?       // list rows
-    public let columns: [String]?     // table header
-    public let rows: [[String]]?      // table body
+    public let text: String? // heading/paragraph/markdown/quote/badge
+    public let level: Int? // heading depth (1…3)
+    public let label: String? // statCard caption
+    public let value: String? // statCard primary value
+    public let delta: String? // statCard change ("+1.2%")
+    public let trend: String? // "up" | "down" | "flat"
+    public let items: [String]? // list rows
+    public let columns: [String]? // table header
+    public let rows: [[String]]? // table body
     public let series: [LuminaSeries]? // lineChart/barChart
     public let pairs: [LuminaKeyValue]? // keyValue grid
-    public let url: String?           // image
+    public let url: String? // image
 
     public init(
         type: String,
@@ -2708,7 +2780,9 @@ public struct SkillDTO: Codable, Sendable, Identifiable {
 
 public struct SkillListResponse: Codable, Sendable {
     public let skills: [SkillDTO]
-    public init(skills: [SkillDTO]) { self.skills = skills }
+    public init(skills: [SkillDTO]) {
+        self.skills = skills
+    }
 }
 
 // ─── Apple Ecosystem Integration — per-domain data-access consent ─────────
@@ -2728,7 +2802,10 @@ public enum AppleDataDomain: String, Codable, Sendable, CaseIterable {
 }
 
 public struct AppleConsentDTO: Codable, Sendable, Identifiable {
-    public var id: AppleDataDomain { domain }
+    public var id: AppleDataDomain {
+        domain
+    }
+
     public let domain: AppleDataDomain
     public let allowed: Bool
     public let allowWrites: Bool
@@ -2742,7 +2819,9 @@ public struct AppleConsentDTO: Codable, Sendable, Identifiable {
 
 public struct AppleConsentResponse: Codable, Sendable {
     public let consents: [AppleConsentDTO]
-    public init(consents: [AppleConsentDTO]) { self.consents = consents }
+    public init(consents: [AppleConsentDTO]) {
+        self.consents = consents
+    }
 }
 
 /// Upsert one domain's consent. `allowWrites` omitted = leave unchanged.
@@ -2765,11 +2844,11 @@ public struct AppleConsentUpdateRequest: Codable, Sendable {
 // before the command is ever sent.
 
 public enum DeviceCommandKind: String, Codable, Sendable {
-    case ping                                  // round-trip health check
-    case reminderCreate = "reminder_create"    // EventKit write
-    case calendarCreate = "calendar_create"    // EventKit write
-    case deviceFetch = "device_fetch"          // fresh read of a domain
-    case photoAnalyze = "photo_analyze"        // on-demand single-asset analysis
+    case ping // round-trip health check
+    case reminderCreate = "reminder_create" // EventKit write
+    case calendarCreate = "calendar_create" // EventKit write
+    case deviceFetch = "device_fetch" // fresh read of a domain
+    case photoAnalyze = "photo_analyze" // on-demand single-asset analysis
 }
 
 public struct DeviceCommand: Codable, Sendable, Identifiable {
@@ -2790,7 +2869,9 @@ public struct DeviceCommand: Codable, Sendable, Identifiable {
 public struct DeviceCommandEnvelope: Codable, Sendable {
     public let type: String
     public let command: DeviceCommand
-    public init(command: DeviceCommand) { self.type = "device_command"; self.command = command }
+    public init(command: DeviceCommand) {
+        type = "device_command"; self.command = command
+    }
 }
 
 public struct DeviceCommandResult: Codable, Sendable, Identifiable {
@@ -2856,7 +2937,9 @@ public struct AppleCalendarEventInput: Codable, Sendable {
 /// Batch ingest body for `POST /v1/calendar/sync` (EventKit delta push).
 public struct AppleCalendarSyncRequest: Codable, Sendable {
     public let events: [AppleCalendarEventInput]
-    public init(events: [AppleCalendarEventInput]) { self.events = events }
+    public init(events: [AppleCalendarEventInput]) {
+        self.events = events
+    }
 }
 
 // ─── Google Calendar (cloud OAuth source) — HER-340 ──────────────────────
@@ -2889,7 +2972,9 @@ public struct CalendarStatusResponse: Codable, Sendable {
 /// to open in `ASWebAuthenticationSession`.
 public struct CalendarConnectStartResponse: Codable, Sendable {
     public let authorizeURL: String
-    public init(authorizeURL: String) { self.authorizeURL = authorizeURL }
+    public init(authorizeURL: String) {
+        self.authorizeURL = authorizeURL
+    }
 }
 
 /// Read shape for a cached calendar event (source-agnostic).
@@ -2918,7 +3003,9 @@ public struct CalendarEventDTO: Codable, Sendable {
 /// `GET /v1/calendar/events` — upcoming events for the pane / debugging.
 public struct CalendarEventsResponse: Codable, Sendable {
     public let events: [CalendarEventDTO]
-    public init(events: [CalendarEventDTO]) { self.events = events }
+    public init(events: [CalendarEventDTO]) {
+        self.events = events
+    }
 }
 
 /// `POST /v1/calendar/events` — create an event on the user's Google
@@ -2965,7 +3052,9 @@ public struct AppleReminderInput: Codable, Sendable {
 /// Batch ingest body for `POST /v1/reminders/sync` (EventKit delta push).
 public struct AppleRemindersSyncRequest: Codable, Sendable {
     public let reminders: [AppleReminderInput]
-    public init(reminders: [AppleReminderInput]) { self.reminders = reminders }
+    public init(reminders: [AppleReminderInput]) {
+        self.reminders = reminders
+    }
 }
 
 // ─── Photos — derived-text index (OCR + on-device scene tags; no pixels) ──
@@ -2992,7 +3081,9 @@ public struct PhotoIndexInput: Codable, Sendable {
 /// Batch ingest body for `POST /v1/photos/index` (derived-text push).
 public struct PhotoIndexSyncRequest: Codable, Sendable {
     public let items: [PhotoIndexInput]
-    public init(items: [PhotoIndexInput]) { self.items = items }
+    public init(items: [PhotoIndexInput]) {
+        self.items = items
+    }
 }
 
 // ─── Lumina Jobs P3 — chat→job detection + creation ──────────────────────
@@ -3134,7 +3225,9 @@ public struct WorkflowDetailDTO: Codable, Sendable, Equatable {
 
 public struct WorkflowListResponse: Codable, Sendable {
     public let workflows: [WorkflowSummaryDTO]
-    public init(workflows: [WorkflowSummaryDTO]) { self.workflows = workflows }
+    public init(workflows: [WorkflowSummaryDTO]) {
+        self.workflows = workflows
+    }
 }
 
 public struct WorkflowCreateRequest: Codable, Sendable {
@@ -3205,7 +3298,9 @@ public struct WorkflowRunDTO: Codable, Sendable, Equatable, Identifiable {
 
 public struct WorkflowRunsResponse: Codable, Sendable {
     public let runs: [WorkflowRunDTO]
-    public init(runs: [WorkflowRunDTO]) { self.runs = runs }
+    public init(runs: [WorkflowRunDTO]) {
+        self.runs = runs
+    }
 }
 
 public struct WorkflowApprovalDTO: Codable, Sendable, Equatable, Identifiable {
@@ -3227,13 +3322,17 @@ public struct WorkflowApprovalDTO: Codable, Sendable, Equatable, Identifiable {
 
 public struct WorkflowApprovalsResponse: Codable, Sendable {
     public let approvals: [WorkflowApprovalDTO]
-    public init(approvals: [WorkflowApprovalDTO]) { self.approvals = approvals }
+    public init(approvals: [WorkflowApprovalDTO]) {
+        self.approvals = approvals
+    }
 }
 
 public struct WorkflowApprovalDecisionRequest: Codable, Sendable {
     public let approved: Bool
     public let note: String?
-    public init(approved: Bool, note: String? = nil) { self.approved = approved; self.note = note }
+    public init(approved: Bool, note: String? = nil) {
+        self.approved = approved; self.note = note
+    }
 }
 
 public struct SkillRunDTO: Codable, Sendable, Identifiable {
@@ -4110,7 +4209,9 @@ public struct RouterModelRouteDTO: Codable, Sendable, Hashable, Identifiable {
     public let inputPerMillionUsdMicros: Int64?
     public let outputPerMillionUsdMicros: Int64?
 
-    public var id: String { "\(provider.rawValue):\(model)" }
+    public var id: String {
+        "\(provider.rawValue):\(model)"
+    }
 
     public init(
         provider: ProviderID,
@@ -4320,7 +4421,9 @@ public struct ParallelExecutionDetailDTO: Codable, Sendable {
 
 public struct ParallelExecutionsResponse: Codable, Sendable {
     public let executions: [ParallelExecutionSummaryDTO]
-    public init(executions: [ParallelExecutionSummaryDTO]) { self.executions = executions }
+    public init(executions: [ParallelExecutionSummaryDTO]) {
+        self.executions = executions
+    }
 }
 
 public struct SynthesisPresetDTO: Codable, Sendable, Identifiable {
@@ -4342,12 +4445,16 @@ public struct SynthesisPresetDTO: Codable, Sendable, Identifiable {
 public struct SynthesisPresetWriteRequest: Codable, Sendable {
     public let name: String
     public let prompt: String
-    public init(name: String, prompt: String) { self.name = name; self.prompt = prompt }
+    public init(name: String, prompt: String) {
+        self.name = name; self.prompt = prompt
+    }
 }
 
 public struct SynthesisPresetsResponse: Codable, Sendable {
     public let presets: [SynthesisPresetDTO]
-    public init(presets: [SynthesisPresetDTO]) { self.presets = presets }
+    public init(presets: [SynthesisPresetDTO]) {
+        self.presets = presets
+    }
 }
 
 /// Both sequential and ensemble actions use one wire shape. Sequential actions
@@ -4521,12 +4628,16 @@ public struct RouterBindingDTO: Codable, Sendable, Equatable, Identifiable {
 
 public struct RouterBindingPutRequest: Codable, Sendable {
     public let profileID: UUID
-    public init(profileID: UUID) { self.profileID = profileID }
+    public init(profileID: UUID) {
+        self.profileID = profileID
+    }
 }
 
 public struct RouterBindingsResponse: Codable, Sendable {
     public let bindings: [RouterBindingDTO]
-    public init(bindings: [RouterBindingDTO]) { self.bindings = bindings }
+    public init(bindings: [RouterBindingDTO]) {
+        self.bindings = bindings
+    }
 }
 
 public struct RouterModelCatalogEntryDTO: Codable, Sendable, Equatable, Identifiable {
@@ -4539,7 +4650,9 @@ public struct RouterModelCatalogEntryDTO: Codable, Sendable, Equatable, Identifi
     public let defaultLatencyMs: Int
     public let capabilities: [String]
 
-    public var id: String { "\(provider.rawValue):\(model)" }
+    public var id: String {
+        "\(provider.rawValue):\(model)"
+    }
 
     public init(
         provider: ProviderID,
@@ -4733,12 +4846,12 @@ public struct LLMPreferencesGetResponse: Codable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.mode = try c.decodeIfPresent(LLMBrainMode.self, forKey: .mode) ?? .managed
-        self.primaryProvider = try c.decode(ProviderID.self, forKey: .primaryProvider)
-        self.primaryModel = try c.decode(String.self, forKey: .primaryModel)
-        self.fallbackChain = try c.decode([ModelRouteDTO].self, forKey: .fallbackChain)
-        self.allowedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .allowedProviders) ?? []
-        self.blockedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .blockedProviders) ?? []
+        mode = try c.decodeIfPresent(LLMBrainMode.self, forKey: .mode) ?? .managed
+        primaryProvider = try c.decode(ProviderID.self, forKey: .primaryProvider)
+        primaryModel = try c.decode(String.self, forKey: .primaryModel)
+        fallbackChain = try c.decode([ModelRouteDTO].self, forKey: .fallbackChain)
+        allowedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .allowedProviders) ?? []
+        blockedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .blockedProviders) ?? []
     }
 }
 
@@ -4772,12 +4885,12 @@ public struct LLMPreferencesPutRequest: Codable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.mode = try c.decodeIfPresent(LLMBrainMode.self, forKey: .mode) ?? .managed
-        self.primaryProvider = try c.decode(ProviderID.self, forKey: .primaryProvider)
-        self.primaryModel = try c.decode(String.self, forKey: .primaryModel)
-        self.fallbackChain = try c.decode([ModelRouteDTO].self, forKey: .fallbackChain)
-        self.allowedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .allowedProviders) ?? []
-        self.blockedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .blockedProviders) ?? []
+        mode = try c.decodeIfPresent(LLMBrainMode.self, forKey: .mode) ?? .managed
+        primaryProvider = try c.decode(ProviderID.self, forKey: .primaryProvider)
+        primaryModel = try c.decode(String.self, forKey: .primaryModel)
+        fallbackChain = try c.decode([ModelRouteDTO].self, forKey: .fallbackChain)
+        allowedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .allowedProviders) ?? []
+        blockedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .blockedProviders) ?? []
     }
 }
 
@@ -4956,12 +5069,14 @@ public struct WebAuthnBeginRegistrationRequest: Codable, Sendable {
 
 public struct WebAuthnBeginRegistrationResponse: Codable, Sendable {
     public let options: AnyJSONValue
-    public init(options: AnyJSONValue) { self.options = options }
+    public init(options: AnyJSONValue) {
+        self.options = options
+    }
 }
 
 public struct WebAuthnAttestationResponseDTO: Codable, Sendable {
     public let attestationObject: String // base64url
-    public let clientDataJSON: String    // base64url
+    public let clientDataJSON: String // base64url
     public init(attestationObject: String, clientDataJSON: String) {
         self.attestationObject = attestationObject
         self.clientDataJSON = clientDataJSON
@@ -4969,9 +5084,9 @@ public struct WebAuthnAttestationResponseDTO: Codable, Sendable {
 }
 
 public struct WebAuthnRegistrationCredentialDTO: Codable, Sendable {
-    public let id: String        // base64url credential ID
-    public let rawId: String     // base64url credential ID (raw bytes)
-    public let type: String      // "public-key"
+    public let id: String // base64url credential ID
+    public let rawId: String // base64url credential ID (raw bytes)
+    public let type: String // "public-key"
     public let response: WebAuthnAttestationResponseDTO
 
     public init(
@@ -4998,24 +5113,30 @@ public struct WebAuthnFinishRegistrationRequest: Codable, Sendable {
 
 public struct WebAuthnFinishRegistrationResponse: Codable, Sendable {
     public let credentialID: String
-    public init(credentialID: String) { self.credentialID = credentialID }
+    public init(credentialID: String) {
+        self.credentialID = credentialID
+    }
 }
 
 public struct WebAuthnBeginAuthenticationRequest: Codable, Sendable {
     public let username: String
-    public init(username: String) { self.username = username }
+    public init(username: String) {
+        self.username = username
+    }
 }
 
 public struct WebAuthnBeginAuthenticationResponse: Codable, Sendable {
     public let options: AnyJSONValue
-    public init(options: AnyJSONValue) { self.options = options }
+    public init(options: AnyJSONValue) {
+        self.options = options
+    }
 }
 
 public struct WebAuthnAssertionResponseDTO: Codable, Sendable {
     public let authenticatorData: String // base64url
-    public let clientDataJSON: String    // base64url
-    public let signature: String         // base64url
-    public let userHandle: String?       // base64url, optional
+    public let clientDataJSON: String // base64url
+    public let signature: String // base64url
+    public let userHandle: String? // base64url, optional
 
     public init(
         authenticatorData: String,
@@ -5061,7 +5182,7 @@ public struct WebAuthnFinishAuthenticationRequest: Codable, Sendable {
 // Settings — list and revoke enrolled passkeys for the authenticated user.
 
 public struct WebAuthnCredentialSummaryDTO: Codable, Sendable, Identifiable {
-    public let id: String        // base64url credential ID
+    public let id: String // base64url credential ID
     public let createdAt: Date
     public let lastUsedAt: Date?
     public let nickname: String?
@@ -5087,6 +5208,7 @@ public struct WebAuthnCredentialListResponse: Codable, Sendable {
 }
 
 // MARK: - Hermes self-update (HER-330)
+
 //
 // Wire types for the owner-triggered "Update Hermes" flow. The iOS app calls
 // `POST /v1/system/hermes/update` (owner JWT + admin-token gated), the backend
@@ -5161,7 +5283,10 @@ public struct HermesUpdateJobStatus: Codable, Sendable, Equatable, Identifiable 
     public let errorMessage: String?
     public let startedAt: Date
     public let updatedAt: Date
-    public var id: UUID { jobID }
+    public var id: UUID {
+        jobID
+    }
+
     public init(
         jobID: UUID,
         state: HermesUpdateJobState,
@@ -5205,26 +5330,26 @@ public enum HermesUpdateEvent: Codable, Sendable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let type = try c.decode(EventType.self, forKey: .type)
         switch type {
-        case .step: self = .step(try c.decode(HermesUpdateStep.self, forKey: .payload))
-        case .status: self = .status(try c.decode(HermesUpdateJobState.self, forKey: .payload))
-        case .done: self = .done(try c.decode(HermesUpdateJobStatus.self, forKey: .payload))
-        case .error: self = .error(try c.decode(String.self, forKey: .payload))
+        case .step: self = try .step(c.decode(HermesUpdateStep.self, forKey: .payload))
+        case .status: self = try .status(c.decode(HermesUpdateJobState.self, forKey: .payload))
+        case .done: self = try .done(c.decode(HermesUpdateJobStatus.self, forKey: .payload))
+        case .error: self = try .error(c.decode(String.self, forKey: .payload))
         }
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .step(let s):
+        case let .step(s):
             try c.encode(EventType.step, forKey: .type)
             try c.encode(s, forKey: .payload)
-        case .status(let st):
+        case let .status(st):
             try c.encode(EventType.status, forKey: .type)
             try c.encode(st, forKey: .payload)
-        case .done(let snapshot):
+        case let .done(snapshot):
             try c.encode(EventType.done, forKey: .type)
             try c.encode(snapshot, forKey: .payload)
-        case .error(let message):
+        case let .error(message):
             try c.encode(EventType.error, forKey: .type)
             try c.encode(message, forKey: .payload)
         }
@@ -5284,6 +5409,7 @@ public struct HermesVersionInfo: Codable, Sendable, Equatable {
 }
 
 // MARK: - "Feed Your Brain" bulk import (HER-105)
+
 //
 // These cross the wire between client and server for the import flow. Encoded
 // and decoded as plain camelCase JSON (the server reads them with the default
@@ -5444,7 +5570,10 @@ public enum PluginInstallStatus: String, Codable, Sendable, CaseIterable {
 
 /// One first-party catalog entry. `slug` is the stable id used by installs.
 public struct PluginCatalogEntryDTO: Codable, Sendable, Identifiable, Equatable {
-    public var id: String { slug }
+    public var id: String {
+        slug
+    }
+
     public let slug: String
     public let name: String
     public let summary: String
@@ -5486,7 +5615,9 @@ public struct PluginCatalogEntryDTO: Codable, Sendable, Identifiable, Equatable 
 
 public struct PluginCatalogListResponse: Codable, Sendable {
     public let items: [PluginCatalogEntryDTO]
-    public init(items: [PluginCatalogEntryDTO]) { self.items = items }
+    public init(items: [PluginCatalogEntryDTO]) {
+        self.items = items
+    }
 }
 
 /// A tenant's install of a catalog plugin. Config is never echoed — only
@@ -5518,7 +5649,9 @@ public struct PluginInstallDTO: Codable, Sendable, Identifiable, Equatable {
 
 public struct PluginInstallsListResponse: Codable, Sendable {
     public let items: [PluginInstallDTO]
-    public init(items: [PluginInstallDTO]) { self.items = items }
+    public init(items: [PluginInstallDTO]) {
+        self.items = items
+    }
 }
 
 public struct InstallPluginRequest: Codable, Sendable {
@@ -5622,10 +5755,10 @@ public struct ReminderPatchRequest: Codable, Sendable {
     }
 }
 
-// HER-55 — chat→reminder detection. The server classifier inspects a chat
-// turn for "remind me…" intent and, when present, returns a structured
-// proposal the client surfaces as a confirm card (mirrors `JobProposalDTO`).
-// Fails closed: `isReminder == false` means "this was not a reminder request".
+/// HER-55 — chat→reminder detection. The server classifier inspects a chat
+/// turn for "remind me…" intent and, when present, returns a structured
+/// proposal the client surfaces as a confirm card (mirrors `JobProposalDTO`).
+/// Fails closed: `isReminder == false` means "this was not a reminder request".
 public struct ReminderProposalDTO: Codable, Sendable {
     public let isReminder: Bool
     public let title: String?
@@ -5829,13 +5962,18 @@ public struct CardDTO: Codable, Sendable, Equatable, Identifiable {
     /// Card→Job promotion config. Non-nil once the card has been promoted
     /// (carries `jobSlug`/`promotedAt`) or staged with promotion fields.
     public let jobConfig: CardJobConfigDTO?
+    public let createdByUserId: UUID?
+    public let updatedByUserId: UUID?
 
     public init(id: UUID, columnID: UUID, title: String, body: String?,
                 priority: CardPriority?, dueAt: Date?, rank: String, updatedAt: Date?,
-                jobConfig: CardJobConfigDTO? = nil) {
+                jobConfig: CardJobConfigDTO? = nil,
+                createdByUserId: UUID? = nil, updatedByUserId: UUID? = nil)
+    {
         self.id = id; self.columnID = columnID; self.title = title; self.body = body
         self.priority = priority; self.dueAt = dueAt; self.rank = rank; self.updatedAt = updatedAt
         self.jobConfig = jobConfig
+        self.createdByUserId = createdByUserId; self.updatedByUserId = updatedByUserId
     }
 }
 
@@ -5854,7 +5992,8 @@ public struct CardJobConfigDTO: Codable, Sendable, Equatable {
 
     public init(source: String = "vault", cron: String? = nil, runAt: Date? = nil,
                 domain: String? = nil, prompt: String? = nil, spaceID: UUID? = nil,
-                jobSlug: String? = nil, promotedAt: Date? = nil) {
+                jobSlug: String? = nil, promotedAt: Date? = nil)
+    {
         self.source = source; self.cron = cron; self.runAt = runAt
         self.domain = domain; self.prompt = prompt; self.spaceID = spaceID
         self.jobSlug = jobSlug; self.promotedAt = promotedAt
@@ -5873,7 +6012,8 @@ public struct CardPromoteRequest: Codable, Sendable {
     public let spaceID: UUID?
 
     public init(cron: String? = nil, runAt: Date? = nil, domain: String? = nil,
-                prompt: String? = nil, spaceID: UUID? = nil) {
+                prompt: String? = nil, spaceID: UUID? = nil)
+    {
         self.cron = cron; self.runAt = runAt; self.domain = domain
         self.prompt = prompt; self.spaceID = spaceID
     }
@@ -5883,7 +6023,7 @@ public struct ColumnDTO: Codable, Sendable, Equatable, Identifiable {
     public let id: UUID
     public let title: String
     public let rank: String
-    public let cards: [CardDTO]   // pre-sorted by rank ascending
+    public let cards: [CardDTO] // pre-sorted by rank ascending
 
     public init(id: UUID, title: String, rank: String, cards: [CardDTO]) {
         self.id = id; self.title = title; self.rank = rank; self.cards = cards
@@ -5894,10 +6034,13 @@ public struct BoardDTO: Codable, Sendable, Equatable, Identifiable {
     public let id: UUID
     public let title: String
     public let version: Int64
-    public let columns: [ColumnDTO]   // pre-sorted by rank ascending
+    public let columns: [ColumnDTO] // pre-sorted by rank ascending
+    public let createdByUserId: UUID?
+    public let updatedByUserId: UUID?
 
-    public init(id: UUID, title: String, version: Int64, columns: [ColumnDTO]) {
+    public init(id: UUID, title: String, version: Int64, columns: [ColumnDTO], createdByUserId: UUID? = nil, updatedByUserId: UUID? = nil) {
         self.id = id; self.title = title; self.version = version; self.columns = columns
+        self.createdByUserId = createdByUserId; self.updatedByUserId = updatedByUserId
     }
 }
 
@@ -5917,7 +6060,9 @@ public struct BoardSummaryDTO: Codable, Sendable, Equatable, Identifiable {
 
 public struct BoardVersionDTO: Codable, Sendable, Equatable {
     public let version: Int64
-    public init(version: Int64) { self.version = version }
+    public init(version: Int64) {
+        self.version = version
+    }
 }
 
 // MARK: - Teams and shared vaults
@@ -5970,7 +6115,8 @@ public struct VaultSummaryDTO: Codable, Sendable, Identifiable, Equatable {
     public let archivedAt: Date?
 
     public init(id: UUID, teamId: UUID? = nil, name: String, isPersonal: Bool,
-                role: VaultRole, permissions: VaultPermissionsDTO, archivedAt: Date? = nil) {
+                role: VaultRole, permissions: VaultPermissionsDTO, archivedAt: Date? = nil)
+    {
         self.id = id
         self.teamId = teamId
         self.name = name
@@ -5990,7 +6136,8 @@ public struct VaultMemberDTO: Codable, Sendable, Identifiable, Equatable {
     public let canUseAI: Bool
 
     public init(id: UUID, userId: UUID, username: String, email: String? = nil,
-                role: VaultRole, canUseAI: Bool) {
+                role: VaultRole, canUseAI: Bool)
+    {
         self.id = id
         self.userId = userId
         self.username = username
@@ -6002,12 +6149,16 @@ public struct VaultMemberDTO: Codable, Sendable, Identifiable, Equatable {
 
 public struct TeamCreateRequest: Codable, Sendable {
     public let name: String
-    public init(name: String) { self.name = name }
+    public init(name: String) {
+        self.name = name
+    }
 }
 
 public struct SharedVaultCreateRequest: Codable, Sendable {
     public let name: String
-    public init(name: String) { self.name = name }
+    public init(name: String) {
+        self.name = name
+    }
 }
 
 public struct VaultMembershipUpdateRequest: Codable, Sendable {
@@ -6037,7 +6188,8 @@ public struct TeamInvitationDTO: Codable, Sendable, Identifiable, Equatable {
     public let acceptedAt: Date?
 
     public init(id: UUID, teamId: UUID, teamName: String, email: String,
-                expiresAt: Date, acceptedAt: Date? = nil) {
+                expiresAt: Date, acceptedAt: Date? = nil)
+    {
         self.id = id
         self.teamId = teamId
         self.teamName = teamName
@@ -6068,7 +6220,8 @@ public struct VaultActivityEventDTO: Codable, Sendable, Identifiable, Equatable 
 
     public init(id: UUID, vaultId: UUID, actor: ActorSummaryDTO, action: String,
                 targetType: String, targetId: UUID? = nil, targetTitle: String? = nil,
-                createdAt: Date) {
+                createdAt: Date)
+    {
         self.id = id
         self.vaultId = vaultId
         self.actor = actor
@@ -6089,24 +6242,36 @@ public struct VaultActivityListResponse: Codable, Sendable, Equatable {
     }
 }
 
-// Requests
+/// Requests
 public struct BoardCreateRequest: Codable, Sendable {
     public let title: String
-    public init(title: String) { self.title = title }
+    public init(title: String) {
+        self.title = title
+    }
 }
+
 public struct BoardPatchRequest: Codable, Sendable {
     public let title: String?
     public let archived: Bool?
-    public init(title: String? = nil, archived: Bool? = nil) { self.title = title; self.archived = archived }
+    public init(title: String? = nil, archived: Bool? = nil) {
+        self.title = title; self.archived = archived
+    }
 }
+
 public struct ColumnCreateRequest: Codable, Sendable {
     public let title: String
-    public init(title: String) { self.title = title }
+    public init(title: String) {
+        self.title = title
+    }
 }
+
 public struct ColumnPatchRequest: Codable, Sendable {
     public let title: String
-    public init(title: String) { self.title = title }
+    public init(title: String) {
+        self.title = title
+    }
 }
+
 public struct ColumnReorderRequest: Codable, Sendable {
     public let columnID: UUID
     public let beforeID: UUID?
@@ -6115,6 +6280,7 @@ public struct ColumnReorderRequest: Codable, Sendable {
         self.columnID = columnID; self.beforeID = beforeID; self.afterID = afterID
     }
 }
+
 public struct CardCreateRequest: Codable, Sendable {
     public let columnID: UUID
     public let title: String
@@ -6122,11 +6288,13 @@ public struct CardCreateRequest: Codable, Sendable {
     public let priority: CardPriority?
     public let dueAt: Date?
     public init(columnID: UUID, title: String, body: String? = nil,
-                priority: CardPriority? = nil, dueAt: Date? = nil) {
+                priority: CardPriority? = nil, dueAt: Date? = nil)
+    {
         self.columnID = columnID; self.title = title; self.body = body
         self.priority = priority; self.dueAt = dueAt
     }
 }
+
 public struct CardPatchRequest: Codable, Sendable {
     public let title: String?
     public let body: String?
@@ -6136,6 +6304,7 @@ public struct CardPatchRequest: Codable, Sendable {
         self.title = title; self.body = body; self.priority = priority; self.dueAt = dueAt
     }
 }
+
 public struct CardMoveRequest: Codable, Sendable {
     public let toColumnID: UUID
     public let beforeID: UUID?
