@@ -499,6 +499,129 @@ public struct HermesUpstreamResponse: Codable, Sendable {
 
 // ─── Memory ──────────────────────────────────────────────────────────────
 
+public enum MemoryActorKindDTO: String, Codable, Sendable, CaseIterable {
+    case user
+    case model
+    case system
+}
+
+public enum MemoryContributionOperationDTO: String, Codable, Sendable, CaseIterable {
+    case create
+    case update
+}
+
+public enum MemorySourceKindDTO: String, Codable, Sendable, CaseIterable {
+    case manual
+    case chat
+    case query
+    case knowledgeCompile = "knowledge_compile"
+    case skill
+    case vault
+    case `import`
+    case link
+    case legacy
+}
+
+/// Historical model identity. Provider is intentionally a string rather than
+/// `ProviderID`: managed/internal routes such as `hermesGateway` and `groq`
+/// must remain attributable even though users cannot configure them directly.
+public struct ModelProvenanceDTO: Codable, Sendable, Equatable, Hashable {
+    public let provider: String
+    public let model: String
+
+    public init(provider: String, model: String) {
+        self.provider = provider
+        self.model = model
+    }
+}
+
+public struct MemoryContributionDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let operation: MemoryContributionOperationDTO
+    public let actor: MemoryActorKindDTO
+    public let source: MemorySourceKindDTO
+    public let model: ModelProvenanceDTO?
+    public let sourceReference: String?
+    public let createdAt: Date
+
+    public init(
+        id: UUID,
+        operation: MemoryContributionOperationDTO,
+        actor: MemoryActorKindDTO,
+        source: MemorySourceKindDTO,
+        model: ModelProvenanceDTO? = nil,
+        sourceReference: String? = nil,
+        createdAt: Date
+    ) {
+        self.id = id
+        self.operation = operation
+        self.actor = actor
+        self.source = source
+        self.model = model
+        self.sourceReference = sourceReference
+        self.createdAt = createdAt
+    }
+}
+
+public struct MemoryProvenanceSummaryDTO: Codable, Sendable, Equatable {
+    public let createdBy: MemoryContributionDTO?
+    public let lastUpdatedBy: MemoryContributionDTO?
+    public let contributors: [ModelProvenanceDTO]
+
+    public init(
+        createdBy: MemoryContributionDTO? = nil,
+        lastUpdatedBy: MemoryContributionDTO? = nil,
+        contributors: [ModelProvenanceDTO] = []
+    ) {
+        self.createdBy = createdBy
+        self.lastUpdatedBy = lastUpdatedBy
+        self.contributors = contributors
+    }
+}
+
+public struct MemoryProvenanceResponse: Codable, Sendable {
+    public let memoryID: UUID
+    public let contributions: [MemoryContributionDTO]
+
+    public init(memoryID: UUID, contributions: [MemoryContributionDTO]) {
+        self.memoryID = memoryID
+        self.contributions = contributions
+    }
+}
+
+public struct MemoryFacetDTO: Codable, Sendable, Equatable, Identifiable {
+    public let value: String
+    public let count: Int
+    public var id: String { value }
+
+    public init(value: String, count: Int) {
+        self.value = value
+        self.count = count
+    }
+}
+
+public struct MemoryFacetsResponse: Codable, Sendable {
+    public let providers: [MemoryFacetDTO]
+    public let models: [MemoryFacetDTO]
+    public let sources: [MemoryFacetDTO]
+    public let oldestAt: Date?
+    public let newestAt: Date?
+
+    public init(
+        providers: [MemoryFacetDTO],
+        models: [MemoryFacetDTO],
+        sources: [MemoryFacetDTO],
+        oldestAt: Date? = nil,
+        newestAt: Date? = nil
+    ) {
+        self.providers = providers
+        self.models = models
+        self.sources = sources
+        self.oldestAt = oldestAt
+        self.newestAt = newestAt
+    }
+}
+
 public struct MemoryUpsertResponse: Codable, Sendable {
     public let memoryId: UUID
     public let content: String
@@ -577,6 +700,7 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
     /// * `"rejected"` — user dismissed it; suppressed from list defaults and added to the
     ///   kb-compile reject list so future runs skip the same source+content_hash pair.
     public let reviewState: String
+    public let provenance: MemoryProvenanceSummaryDTO?
     public init(
         id: UUID,
         content: String,
@@ -586,7 +710,8 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
         lng: Double? = nil,
         accuracyM: Double? = nil,
         placeName: String? = nil,
-        reviewState: String = "auto"
+        reviewState: String = "auto",
+        provenance: MemoryProvenanceSummaryDTO? = nil
     ) {
         self.id = id
         self.content = content
@@ -597,6 +722,7 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
         self.accuracyM = accuracyM
         self.placeName = placeName
         self.reviewState = reviewState
+        self.provenance = provenance
     }
 }
 
@@ -705,6 +831,8 @@ public struct MemoryGraphNodeDTO: Codable, Sendable, Identifiable {
     /// HER-235 3D viz — precomputed stable 3D layout coordinate. `nil` when not
     /// yet laid out (or older server) → client force-directed fallback.
     public let position: GraphPosition3D?
+    /// Compact creator/updater information used for graph styling and filters.
+    public let provenance: MemoryProvenanceSummaryDTO?
 
     public init(
         id: UUID,
@@ -715,12 +843,14 @@ public struct MemoryGraphNodeDTO: Codable, Sendable, Identifiable {
         kind: GraphNodeKindDTO = .memory,
         spaceID: UUID? = nil,
         activity: Double? = nil,
-        position: GraphPosition3D? = nil
+        position: GraphPosition3D? = nil,
+        provenance: MemoryProvenanceSummaryDTO? = nil
     ) {
         self.id = id; self.title = title; self.tags = tags
         self.createdAt = createdAt; self.score = score
         self.kind = kind; self.spaceID = spaceID
         self.activity = activity; self.position = position
+        self.provenance = provenance
     }
 
     // Custom decode so a newer client stays robust against an older server
@@ -737,6 +867,7 @@ public struct MemoryGraphNodeDTO: Codable, Sendable, Identifiable {
         spaceID = try c.decodeIfPresent(UUID.self, forKey: .spaceID)
         activity = try c.decodeIfPresent(Double.self, forKey: .activity)
         position = try c.decodeIfPresent(GraphPosition3D.self, forKey: .position)
+        provenance = try c.decodeIfPresent(MemoryProvenanceSummaryDTO.self, forKey: .provenance)
     }
 }
 
@@ -905,6 +1036,10 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
     case routing(RouterRoutingEventDTO)
     /// Final prompt-free token, cost, and latency metadata.
     case usage(RouterUsageDTO)
+    /// Live progress from a multi-model execution. Candidate deltas are
+    /// multiplexed by `outputID`; the synthesized answer continues to use
+    /// ordinary `token` events so older clients still render it.
+    case parallel(ParallelStreamEventDTO)
     /// HER-274 — emitted once per URL the server auto-captured to the
     /// user's vault while processing this chat turn. Sent AFTER tokens
     /// have streamed, BEFORE the `.done` terminator. Multiple events
@@ -915,7 +1050,7 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
     private enum EventType: String, Codable {
         case source, token, summary
         case followUps = "follow_ups"
-        case done, error, fallback, routing, usage
+        case done, error, fallback, routing, usage, parallel
         case linkSaved = "link_saved"
     }
 
@@ -932,6 +1067,7 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case .fallback: self = .fallback(try c.decode(ProviderFallbackNoticeDTO.self, forKey: .payload))
         case .routing: self = .routing(try c.decode(RouterRoutingEventDTO.self, forKey: .payload))
         case .usage: self = .usage(try c.decode(RouterUsageDTO.self, forKey: .payload))
+        case .parallel: self = .parallel(try c.decode(ParallelStreamEventDTO.self, forKey: .payload))
         case .linkSaved: self = .linkSaved(try c.decode(LinkSavedDTO.self, forKey: .payload))
         }
     }
@@ -965,6 +1101,9 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case .usage(let usage):
             try c.encode(EventType.usage, forKey: .type)
             try c.encode(usage, forKey: .payload)
+        case .parallel(let event):
+            try c.encode(EventType.parallel, forKey: .type)
+            try c.encode(event, forKey: .payload)
         case .linkSaved(let payload):
             try c.encode(EventType.linkSaved, forKey: .type)
             try c.encode(payload, forKey: .payload)
@@ -1010,9 +1149,21 @@ public struct ConversationDTO: Codable, Sendable, Identifiable {
     public let spaceId: UUID?
     public let createdAt: Date
     public let updatedAt: Date
-    public init(id: UUID, title: String, spaceId: UUID? = nil, createdAt: Date, updatedAt: Date) {
+    public let pinnedMemoryIDs: [UUID]
+    public let routeOverride: RouterModelRouteDTO?
+    public init(
+        id: UUID,
+        title: String,
+        spaceId: UUID? = nil,
+        createdAt: Date,
+        updatedAt: Date,
+        pinnedMemoryIDs: [UUID] = [],
+        routeOverride: RouterModelRouteDTO? = nil
+    ) {
         self.id = id; self.title = title; self.spaceId = spaceId
         self.createdAt = createdAt; self.updatedAt = updatedAt
+        self.pinnedMemoryIDs = pinnedMemoryIDs
+        self.routeOverride = routeOverride
     }
 }
 
@@ -1027,6 +1178,9 @@ public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
     /// Memory IDs the assistant cited when producing this turn. Empty for
     /// user/system turns.
     public let sourceMemoryIDs: [UUID]
+    /// Present for assistant turns produced by multi-model execution. Clients
+    /// fetch the potentially large comparison payload only when expanded.
+    public let parallelExecutionID: UUID?
     public let createdAt: Date
     public init(
         id: UUID,
@@ -1034,10 +1188,12 @@ public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
         role: ConversationMessageRole,
         content: String,
         sourceMemoryIDs: [UUID] = [],
+        parallelExecutionID: UUID? = nil,
         createdAt: Date
     ) {
         self.id = id; self.conversationId = conversationId; self.role = role
         self.content = content; self.sourceMemoryIDs = sourceMemoryIDs
+        self.parallelExecutionID = parallelExecutionID
         self.createdAt = createdAt
     }
 }
@@ -1046,8 +1202,17 @@ public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
 public struct ConversationCreateRequest: Codable, Sendable {
     public let title: String?
     public let spaceId: UUID?
-    public init(title: String? = nil, spaceId: UUID? = nil) {
+    public let pinnedMemoryIDs: [UUID]
+    public let routeOverride: RouterModelRouteDTO?
+    public init(
+        title: String? = nil,
+        spaceId: UUID? = nil,
+        pinnedMemoryIDs: [UUID] = [],
+        routeOverride: RouterModelRouteDTO? = nil
+    ) {
         self.title = title; self.spaceId = spaceId
+        self.pinnedMemoryIDs = pinnedMemoryIDs
+        self.routeOverride = routeOverride
     }
 }
 
@@ -1073,8 +1238,10 @@ public struct ConversationDetailResponse: Codable, Sendable {
 /// response is an SSE stream of `QueryStreamEvent`.
 public struct MessageStreamRequest: Codable, Sendable {
     public let content: String
-    public init(content: String) {
+    public let multiModel: ChatMultiModelOptionsDTO?
+    public init(content: String, multiModel: ChatMultiModelOptionsDTO? = nil) {
         self.content = content
+        self.multiModel = multiModel
     }
 }
 
@@ -2873,6 +3040,202 @@ public struct JobCreateRequest: Codable, Sendable {
     }
 }
 
+// ─── Visual Workflows (Automation 2.0) ──────────────────────────────────
+
+public enum WorkflowTriggerKind: String, Codable, Sendable, CaseIterable {
+    case manual, chat, schedule, webhook
+}
+
+public enum WorkflowNodeKind: String, Codable, Sendable, CaseIterable {
+    case trigger, llm, skill, memorySearch, memoryWrite, template, condition, approval, output
+}
+
+public enum WorkflowRunStatus: String, Codable, Sendable, CaseIterable {
+    case queued, running, waitingForApproval, succeeded, failed, cancelled, timedOut
+}
+
+public enum WorkflowNodeRunStatus: String, Codable, Sendable, CaseIterable {
+    case pending, running, waitingForApproval, succeeded, failed, skipped, cancelled
+}
+
+/// A canvas node. `configuration` is intentionally string-valued in v1:
+/// prompts and mappings use the restricted `{{path.to.value}}` expression
+/// syntax, while numeric and boolean settings use their canonical strings.
+public struct WorkflowNodeDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let kind: WorkflowNodeKind
+    public let name: String
+    public let x: Double
+    public let y: Double
+    public let configuration: [String: String]
+
+    public init(id: UUID = UUID(), kind: WorkflowNodeKind, name: String, x: Double, y: Double, configuration: [String: String] = [:]) {
+        self.id = id; self.kind = kind; self.name = name
+        self.x = x; self.y = y; self.configuration = configuration
+    }
+}
+
+public struct WorkflowEdgeDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let sourceNodeID: UUID
+    public let sourcePort: String
+    public let targetNodeID: UUID
+    public let targetPort: String
+
+    public init(id: UUID = UUID(), sourceNodeID: UUID, sourcePort: String = "output", targetNodeID: UUID, targetPort: String = "input") {
+        self.id = id; self.sourceNodeID = sourceNodeID; self.sourcePort = sourcePort
+        self.targetNodeID = targetNodeID; self.targetPort = targetPort
+    }
+}
+
+public struct WorkflowDefinitionDTO: Codable, Sendable, Equatable {
+    public let trigger: WorkflowTriggerKind
+    public let triggerConfiguration: [String: String]
+    public let nodes: [WorkflowNodeDTO]
+    public let edges: [WorkflowEdgeDTO]
+
+    public init(trigger: WorkflowTriggerKind, triggerConfiguration: [String: String] = [:], nodes: [WorkflowNodeDTO], edges: [WorkflowEdgeDTO]) {
+        self.trigger = trigger; self.triggerConfiguration = triggerConfiguration
+        self.nodes = nodes; self.edges = edges
+    }
+}
+
+public struct WorkflowSummaryDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let name: String
+    public let descriptionText: String?
+    public let enabled: Bool
+    public let trigger: WorkflowTriggerKind
+    public let draftRevision: Int
+    public let publishedVersion: Int?
+    public let lastRunStatus: WorkflowRunStatus?
+    public let lastRunAt: Date?
+    public let pendingApprovalCount: Int
+    public let isLegacyJob: Bool
+    public let createdAt: Date
+    public let updatedAt: Date
+
+    public init(id: UUID, name: String, descriptionText: String? = nil, enabled: Bool, trigger: WorkflowTriggerKind, draftRevision: Int, publishedVersion: Int? = nil, lastRunStatus: WorkflowRunStatus? = nil, lastRunAt: Date? = nil, pendingApprovalCount: Int = 0, isLegacyJob: Bool = false, createdAt: Date, updatedAt: Date) {
+        self.id = id; self.name = name; self.descriptionText = descriptionText
+        self.enabled = enabled; self.trigger = trigger; self.draftRevision = draftRevision
+        self.publishedVersion = publishedVersion; self.lastRunStatus = lastRunStatus
+        self.lastRunAt = lastRunAt; self.pendingApprovalCount = pendingApprovalCount
+        self.isLegacyJob = isLegacyJob; self.createdAt = createdAt; self.updatedAt = updatedAt
+    }
+}
+
+public struct WorkflowDetailDTO: Codable, Sendable, Equatable {
+    public let workflow: WorkflowSummaryDTO
+    public let definition: WorkflowDefinitionDTO
+    public init(workflow: WorkflowSummaryDTO, definition: WorkflowDefinitionDTO) {
+        self.workflow = workflow; self.definition = definition
+    }
+}
+
+public struct WorkflowListResponse: Codable, Sendable {
+    public let workflows: [WorkflowSummaryDTO]
+    public init(workflows: [WorkflowSummaryDTO]) { self.workflows = workflows }
+}
+
+public struct WorkflowCreateRequest: Codable, Sendable {
+    public let name: String
+    public let descriptionText: String?
+    public let definition: WorkflowDefinitionDTO
+    public init(name: String, descriptionText: String? = nil, definition: WorkflowDefinitionDTO) {
+        self.name = name; self.descriptionText = descriptionText; self.definition = definition
+    }
+}
+
+public struct WorkflowDraftUpdateRequest: Codable, Sendable {
+    public let name: String?
+    public let descriptionText: String?
+    public let enabled: Bool?
+    public let expectedRevision: Int
+    public let definition: WorkflowDefinitionDTO
+    public init(name: String? = nil, descriptionText: String? = nil, enabled: Bool? = nil, expectedRevision: Int, definition: WorkflowDefinitionDTO) {
+        self.name = name; self.descriptionText = descriptionText; self.enabled = enabled
+        self.expectedRevision = expectedRevision; self.definition = definition
+    }
+}
+
+public struct WorkflowRunRequest: Codable, Sendable {
+    public let input: [String: String]
+    public let conversationID: UUID?
+    public init(input: [String: String] = [:], conversationID: UUID? = nil) {
+        self.input = input; self.conversationID = conversationID
+    }
+}
+
+public struct WorkflowNodeRunDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let nodeID: UUID
+    public let nodeName: String
+    public let status: WorkflowNodeRunStatus
+    public let attempt: Int
+    public let startedAt: Date?
+    public let endedAt: Date?
+    public let outputPreview: String?
+    public let error: String?
+    public init(id: UUID, nodeID: UUID, nodeName: String, status: WorkflowNodeRunStatus, attempt: Int, startedAt: Date? = nil, endedAt: Date? = nil, outputPreview: String? = nil, error: String? = nil) {
+        self.id = id; self.nodeID = nodeID; self.nodeName = nodeName; self.status = status
+        self.attempt = attempt; self.startedAt = startedAt; self.endedAt = endedAt
+        self.outputPreview = outputPreview; self.error = error
+    }
+}
+
+public struct WorkflowRunDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let workflowID: UUID
+    public let workflowName: String
+    public let version: Int
+    public let status: WorkflowRunStatus
+    public let trigger: WorkflowTriggerKind
+    public let startedAt: Date?
+    public let endedAt: Date?
+    public let createdAt: Date
+    public let error: String?
+    public let nodeRuns: [WorkflowNodeRunDTO]
+    public init(id: UUID, workflowID: UUID, workflowName: String, version: Int, status: WorkflowRunStatus, trigger: WorkflowTriggerKind, startedAt: Date? = nil, endedAt: Date? = nil, createdAt: Date, error: String? = nil, nodeRuns: [WorkflowNodeRunDTO] = []) {
+        self.id = id; self.workflowID = workflowID; self.workflowName = workflowName
+        self.version = version; self.status = status; self.trigger = trigger
+        self.startedAt = startedAt; self.endedAt = endedAt; self.createdAt = createdAt
+        self.error = error; self.nodeRuns = nodeRuns
+    }
+}
+
+public struct WorkflowRunsResponse: Codable, Sendable {
+    public let runs: [WorkflowRunDTO]
+    public init(runs: [WorkflowRunDTO]) { self.runs = runs }
+}
+
+public struct WorkflowApprovalDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let runID: UUID
+    public let workflowID: UUID
+    public let workflowName: String
+    public let nodeID: UUID
+    public let title: String
+    public let message: String?
+    public let expiresAt: Date
+    public let createdAt: Date
+    public init(id: UUID, runID: UUID, workflowID: UUID, workflowName: String, nodeID: UUID, title: String, message: String? = nil, expiresAt: Date, createdAt: Date) {
+        self.id = id; self.runID = runID; self.workflowID = workflowID
+        self.workflowName = workflowName; self.nodeID = nodeID; self.title = title
+        self.message = message; self.expiresAt = expiresAt; self.createdAt = createdAt
+    }
+}
+
+public struct WorkflowApprovalsResponse: Codable, Sendable {
+    public let approvals: [WorkflowApprovalDTO]
+    public init(approvals: [WorkflowApprovalDTO]) { self.approvals = approvals }
+}
+
+public struct WorkflowApprovalDecisionRequest: Codable, Sendable {
+    public let approved: Bool
+    public let note: String?
+    public init(approved: Bool, note: String? = nil) { self.approved = approved; self.note = note }
+}
+
 public struct SkillRunDTO: Codable, Sendable, Identifiable {
     public let id: UUID
     public let startedAt: Date
@@ -3686,6 +4049,39 @@ public enum RouterRetryPolicy: String, Codable, Sendable, CaseIterable {
     case resilient
 }
 
+/// User-facing orchestration semantics layered on top of Cerberus routing.
+public enum ParallelStrategyDTO: String, Codable, Sendable, CaseIterable, Hashable {
+    case auto
+    case bestOfN
+    case debate
+    case consensus
+    case specialist
+}
+
+public enum ParallelExecutionStatusDTO: String, Codable, Sendable, Hashable {
+    case running
+    case completed
+    case degraded
+    case failed
+    case cancelled
+}
+
+public enum ParallelOutputStageDTO: String, Codable, Sendable, Hashable {
+    case answer
+    case revision
+    case synthesis
+}
+
+public enum ParallelStreamEventKindDTO: String, Codable, Sendable, Hashable {
+    case executionStarted
+    case outputStarted
+    case outputDelta
+    case outputCompleted
+    case outputFailed
+    case synthesisStarted
+    case executionCompleted
+}
+
 public struct RouterObjectiveWeightsDTO: Codable, Sendable, Equatable {
     public let quality: Int
     public let cost: Int
@@ -3729,6 +4125,231 @@ public struct RouterModelRouteDTO: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
+public struct ParallelParticipantDTO: Codable, Sendable, Hashable, Identifiable {
+    public let id: UUID
+    public let role: String
+    public let instructions: String?
+    public let route: RouterModelRouteDTO
+
+    public init(
+        id: UUID = UUID(),
+        role: String,
+        instructions: String? = nil,
+        route: RouterModelRouteDTO
+    ) {
+        self.id = id
+        self.role = role
+        self.instructions = instructions
+        self.route = route
+    }
+}
+
+public struct ChatMultiModelOptionsDTO: Codable, Sendable, Equatable {
+    public let enabled: Bool
+    public let strategy: ParallelStrategyDTO
+
+    public init(enabled: Bool, strategy: ParallelStrategyDTO = .auto) {
+        self.enabled = enabled
+        self.strategy = strategy
+    }
+}
+
+public struct ParallelExecutionRequestDTO: Codable, Sendable {
+    public let prompt: String
+    public let strategy: ParallelStrategyDTO
+    public let participants: [ParallelParticipantDTO]?
+    public let synthesisRoute: RouterModelRouteDTO?
+    public let synthesisPrompt: String?
+    public let synthesisPresetID: UUID?
+    public let spaceID: UUID?
+
+    public init(
+        prompt: String,
+        strategy: ParallelStrategyDTO = .auto,
+        participants: [ParallelParticipantDTO]? = nil,
+        synthesisRoute: RouterModelRouteDTO? = nil,
+        synthesisPrompt: String? = nil,
+        synthesisPresetID: UUID? = nil,
+        spaceID: UUID? = nil
+    ) {
+        self.prompt = prompt
+        self.strategy = strategy
+        self.participants = participants
+        self.synthesisRoute = synthesisRoute
+        self.synthesisPrompt = synthesisPrompt
+        self.synthesisPresetID = synthesisPresetID
+        self.spaceID = spaceID
+    }
+}
+
+public struct ParallelStreamEventDTO: Codable, Sendable, Equatable {
+    public let executionID: UUID
+    public let kind: ParallelStreamEventKindDTO
+    public let strategy: ParallelStrategyDTO?
+    public let outputID: UUID?
+    public let participantID: UUID?
+    public let role: String?
+    public let route: RouterModelRouteDTO?
+    public let stage: ParallelOutputStageDTO?
+    public let round: Int?
+    public let delta: String?
+    public let errorCode: String?
+    public let status: ParallelExecutionStatusDTO?
+
+    public init(
+        executionID: UUID,
+        kind: ParallelStreamEventKindDTO,
+        strategy: ParallelStrategyDTO? = nil,
+        outputID: UUID? = nil,
+        participantID: UUID? = nil,
+        role: String? = nil,
+        route: RouterModelRouteDTO? = nil,
+        stage: ParallelOutputStageDTO? = nil,
+        round: Int? = nil,
+        delta: String? = nil,
+        errorCode: String? = nil,
+        status: ParallelExecutionStatusDTO? = nil
+    ) {
+        self.executionID = executionID
+        self.kind = kind
+        self.strategy = strategy
+        self.outputID = outputID
+        self.participantID = participantID
+        self.role = role
+        self.route = route
+        self.stage = stage
+        self.round = round
+        self.delta = delta
+        self.errorCode = errorCode
+        self.status = status
+    }
+}
+
+public struct ParallelOutputDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let participantID: UUID?
+    public let role: String
+    public let route: RouterModelRouteDTO
+    public let stage: ParallelOutputStageDTO
+    public let round: Int
+    public let content: String
+    public let status: String
+    public let tokensIn: Int
+    public let tokensOut: Int
+    public let estimatedCostUsdMicros: Int64
+    public let latencyMs: Int
+
+    public init(
+        id: UUID,
+        participantID: UUID? = nil,
+        role: String,
+        route: RouterModelRouteDTO,
+        stage: ParallelOutputStageDTO,
+        round: Int,
+        content: String,
+        status: String,
+        tokensIn: Int,
+        tokensOut: Int,
+        estimatedCostUsdMicros: Int64,
+        latencyMs: Int
+    ) {
+        self.id = id
+        self.participantID = participantID
+        self.role = role
+        self.route = route
+        self.stage = stage
+        self.round = round
+        self.content = content
+        self.status = status
+        self.tokensIn = tokensIn
+        self.tokensOut = tokensOut
+        self.estimatedCostUsdMicros = estimatedCostUsdMicros
+        self.latencyMs = latencyMs
+    }
+}
+
+public struct ParallelExecutionSummaryDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let strategy: ParallelStrategyDTO
+    public let status: ParallelExecutionStatusDTO
+    public let promptPreview: String
+    public let participantCount: Int
+    public let estimatedCostUsdMicros: Int64
+    public let latencyMs: Int
+    public let createdAt: Date
+
+    public init(
+        id: UUID,
+        strategy: ParallelStrategyDTO,
+        status: ParallelExecutionStatusDTO,
+        promptPreview: String,
+        participantCount: Int,
+        estimatedCostUsdMicros: Int64,
+        latencyMs: Int,
+        createdAt: Date
+    ) {
+        self.id = id
+        self.strategy = strategy
+        self.status = status
+        self.promptPreview = promptPreview
+        self.participantCount = participantCount
+        self.estimatedCostUsdMicros = estimatedCostUsdMicros
+        self.latencyMs = latencyMs
+        self.createdAt = createdAt
+    }
+}
+
+public struct ParallelExecutionDetailDTO: Codable, Sendable {
+    public let summary: ParallelExecutionSummaryDTO
+    public let prompt: String
+    public let outputs: [ParallelOutputDTO]
+    public let synthesizedAnswer: String?
+
+    public init(
+        summary: ParallelExecutionSummaryDTO,
+        prompt: String,
+        outputs: [ParallelOutputDTO],
+        synthesizedAnswer: String? = nil
+    ) {
+        self.summary = summary
+        self.prompt = prompt
+        self.outputs = outputs
+        self.synthesizedAnswer = synthesizedAnswer
+    }
+}
+
+public struct ParallelExecutionsResponse: Codable, Sendable {
+    public let executions: [ParallelExecutionSummaryDTO]
+    public init(executions: [ParallelExecutionSummaryDTO]) { self.executions = executions }
+}
+
+public struct SynthesisPresetDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let name: String
+    public let prompt: String
+    public let createdAt: Date
+    public let updatedAt: Date
+
+    public init(id: UUID, name: String, prompt: String, createdAt: Date, updatedAt: Date) {
+        self.id = id
+        self.name = name
+        self.prompt = prompt
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct SynthesisPresetWriteRequest: Codable, Sendable {
+    public let name: String
+    public let prompt: String
+    public init(name: String, prompt: String) { self.name = name; self.prompt = prompt }
+}
+
+public struct SynthesisPresetsResponse: Codable, Sendable {
+    public let presets: [SynthesisPresetDTO]
+    public init(presets: [SynthesisPresetDTO]) { self.presets = presets }
+}
+
 /// Both sequential and ensemble actions use one wire shape. Sequential actions
 /// consume `routes` as an ordered fallback chain. Ensemble actions run 2–4
 /// routes concurrently and use `synthesisRoute` for the final answer.
@@ -3738,19 +4359,25 @@ public struct RouterActionDTO: Codable, Sendable, Equatable {
     public let synthesisRoute: RouterModelRouteDTO?
     public let minimumSuccessfulResults: Int?
     public let retryPolicy: RouterRetryPolicy
+    public let parallelStrategy: ParallelStrategyDTO?
+    public let participants: [ParallelParticipantDTO]?
 
     public init(
         kind: RouterActionKind = .sequential,
         routes: [RouterModelRouteDTO],
         synthesisRoute: RouterModelRouteDTO? = nil,
         minimumSuccessfulResults: Int? = nil,
-        retryPolicy: RouterRetryPolicy = .fast
+        retryPolicy: RouterRetryPolicy = .fast,
+        parallelStrategy: ParallelStrategyDTO? = nil,
+        participants: [ParallelParticipantDTO]? = nil
     ) {
         self.kind = kind
         self.routes = routes
         self.synthesisRoute = synthesisRoute
         self.minimumSuccessfulResults = minimumSuccessfulResults
         self.retryPolicy = retryPolicy
+        self.parallelStrategy = parallelStrategy
+        self.participants = participants
     }
 }
 
@@ -5291,6 +5918,175 @@ public struct BoardSummaryDTO: Codable, Sendable, Equatable, Identifiable {
 public struct BoardVersionDTO: Codable, Sendable, Equatable {
     public let version: Int64
     public init(version: Int64) { self.version = version }
+}
+
+// MARK: - Teams and shared vaults
+
+public enum TeamRole: String, Codable, Sendable, CaseIterable {
+    case owner, admin, member
+}
+
+public enum VaultRole: String, Codable, Sendable, CaseIterable {
+    case viewer, editor, admin
+}
+
+public struct VaultPermissionsDTO: Codable, Sendable, Equatable {
+    public let canRead: Bool
+    public let canWrite: Bool
+    public let canAdmin: Bool
+    public let canUseAI: Bool
+
+    public init(canRead: Bool, canWrite: Bool, canAdmin: Bool, canUseAI: Bool) {
+        self.canRead = canRead
+        self.canWrite = canWrite
+        self.canAdmin = canAdmin
+        self.canUseAI = canUseAI
+    }
+}
+
+public struct TeamDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let name: String
+    public let role: TeamRole
+    public let archivedAt: Date?
+    public let createdAt: Date?
+
+    public init(id: UUID, name: String, role: TeamRole, archivedAt: Date? = nil, createdAt: Date? = nil) {
+        self.id = id
+        self.name = name
+        self.role = role
+        self.archivedAt = archivedAt
+        self.createdAt = createdAt
+    }
+}
+
+public struct VaultSummaryDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let teamId: UUID?
+    public let name: String
+    public let isPersonal: Bool
+    public let role: VaultRole
+    public let permissions: VaultPermissionsDTO
+    public let archivedAt: Date?
+
+    public init(id: UUID, teamId: UUID? = nil, name: String, isPersonal: Bool,
+                role: VaultRole, permissions: VaultPermissionsDTO, archivedAt: Date? = nil) {
+        self.id = id
+        self.teamId = teamId
+        self.name = name
+        self.isPersonal = isPersonal
+        self.role = role
+        self.permissions = permissions
+        self.archivedAt = archivedAt
+    }
+}
+
+public struct VaultMemberDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let userId: UUID
+    public let username: String
+    public let email: String?
+    public let role: VaultRole
+    public let canUseAI: Bool
+
+    public init(id: UUID, userId: UUID, username: String, email: String? = nil,
+                role: VaultRole, canUseAI: Bool) {
+        self.id = id
+        self.userId = userId
+        self.username = username
+        self.email = email
+        self.role = role
+        self.canUseAI = canUseAI
+    }
+}
+
+public struct TeamCreateRequest: Codable, Sendable {
+    public let name: String
+    public init(name: String) { self.name = name }
+}
+
+public struct SharedVaultCreateRequest: Codable, Sendable {
+    public let name: String
+    public init(name: String) { self.name = name }
+}
+
+public struct VaultMembershipUpdateRequest: Codable, Sendable {
+    public let role: VaultRole
+    public let canUseAI: Bool
+    public init(role: VaultRole, canUseAI: Bool) {
+        self.role = role
+        self.canUseAI = canUseAI
+    }
+}
+
+public struct TeamInviteRequest: Codable, Sendable {
+    public let email: String
+    public let vaultGrants: [UUID: VaultMembershipUpdateRequest]
+    public init(email: String, vaultGrants: [UUID: VaultMembershipUpdateRequest]) {
+        self.email = email
+        self.vaultGrants = vaultGrants
+    }
+}
+
+public struct TeamInvitationDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let teamId: UUID
+    public let teamName: String
+    public let email: String
+    public let expiresAt: Date
+    public let acceptedAt: Date?
+
+    public init(id: UUID, teamId: UUID, teamName: String, email: String,
+                expiresAt: Date, acceptedAt: Date? = nil) {
+        self.id = id
+        self.teamId = teamId
+        self.teamName = teamName
+        self.email = email
+        self.expiresAt = expiresAt
+        self.acceptedAt = acceptedAt
+    }
+}
+
+public struct ActorSummaryDTO: Codable, Sendable, Equatable {
+    public let userId: UUID?
+    public let username: String
+    public init(userId: UUID?, username: String) {
+        self.userId = userId
+        self.username = username
+    }
+}
+
+public struct VaultActivityEventDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let vaultId: UUID
+    public let actor: ActorSummaryDTO
+    public let action: String
+    public let targetType: String
+    public let targetId: UUID?
+    public let targetTitle: String?
+    public let createdAt: Date
+
+    public init(id: UUID, vaultId: UUID, actor: ActorSummaryDTO, action: String,
+                targetType: String, targetId: UUID? = nil, targetTitle: String? = nil,
+                createdAt: Date) {
+        self.id = id
+        self.vaultId = vaultId
+        self.actor = actor
+        self.action = action
+        self.targetType = targetType
+        self.targetId = targetId
+        self.targetTitle = targetTitle
+        self.createdAt = createdAt
+    }
+}
+
+public struct VaultActivityListResponse: Codable, Sendable, Equatable {
+    public let events: [VaultActivityEventDTO]
+    public let nextCursor: UUID?
+    public init(events: [VaultActivityEventDTO], nextCursor: UUID? = nil) {
+        self.events = events
+        self.nextCursor = nextCursor
+    }
 }
 
 // Requests

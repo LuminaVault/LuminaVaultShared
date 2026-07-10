@@ -37,6 +37,22 @@ struct QueryStreamEventCodableTests {
         #expect(try roundTrip(.error("boom")) == .error("boom"))
     }
 
+    @Test func parallel() throws {
+        let executionID = UUID()
+        let outputID = UUID()
+        let event: QueryStreamEvent = .parallel(.init(
+            executionID: executionID,
+            kind: .outputDelta,
+            strategy: .debate,
+            outputID: outputID,
+            role: "Skeptic",
+            stage: .revision,
+            round: 2,
+            delta: "Counterpoint"
+        ))
+        #expect(try roundTrip(event) == event)
+    }
+
     @Test func wireShapeIsTypePayloadDiscriminator() throws {
         let event: QueryStreamEvent = .token("hi")
         let json = try JSONEncoder().encode(event)
@@ -79,18 +95,21 @@ struct ConversationDTOCodableTests {
     }
 
     @Test func message() throws {
+        let executionID = UUID()
         let m = ConversationMessageDTO(
             id: UUID(),
             conversationId: UUID(),
             role: .assistant,
             content: "Based on 7 notes from your vault…",
             sourceMemoryIDs: [UUID(), UUID()],
+            parallelExecutionID: executionID,
             createdAt: Date()
         )
         let data = try JSONEncoder().encode(m)
         let decoded = try JSONDecoder().decode(ConversationMessageDTO.self, from: data)
         #expect(decoded.role == .assistant)
         #expect(decoded.sourceMemoryIDs.count == 2)
+        #expect(decoded.parallelExecutionID == executionID)
     }
 
     @Test func roleWireValues() {
@@ -102,6 +121,13 @@ struct ConversationDTOCodableTests {
 
 @Suite("Backward-compatible additive DTO fields")
 struct AdditiveFieldsTests {
+    @Test func messageStreamRequestDecodesWithoutMultiModel() throws {
+        let decoded = try JSONDecoder().decode(
+            MessageStreamRequest.self,
+            from: Data(#"{"content":"hello"}"#.utf8)
+        )
+        #expect(decoded.multiModel == nil)
+    }
     @Test func queryResponseFollowUpsIsOptionalAndDefaultsNil() throws {
         let r = QueryResponse(summary: "s", hits: [])
         #expect(r.followUps == nil)
