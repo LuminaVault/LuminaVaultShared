@@ -901,6 +901,10 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
     /// Sent before subsequent `.token` events so the client banner
     /// renders in time.
     case fallback(ProviderFallbackNoticeDTO)
+    /// Cerberus route selection / attempt phase. Emitted before model tokens.
+    case routing(RouterRoutingEventDTO)
+    /// Final prompt-free token, cost, and latency metadata.
+    case usage(RouterUsageDTO)
     /// HER-274 — emitted once per URL the server auto-captured to the
     /// user's vault while processing this chat turn. Sent AFTER tokens
     /// have streamed, BEFORE the `.done` terminator. Multiple events
@@ -911,7 +915,7 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
     private enum EventType: String, Codable {
         case source, token, summary
         case followUps = "follow_ups"
-        case done, error, fallback
+        case done, error, fallback, routing, usage
         case linkSaved = "link_saved"
     }
 
@@ -926,6 +930,8 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case .done: self = .done
         case .error: self = .error(try c.decode(String.self, forKey: .payload))
         case .fallback: self = .fallback(try c.decode(ProviderFallbackNoticeDTO.self, forKey: .payload))
+        case .routing: self = .routing(try c.decode(RouterRoutingEventDTO.self, forKey: .payload))
+        case .usage: self = .usage(try c.decode(RouterUsageDTO.self, forKey: .payload))
         case .linkSaved: self = .linkSaved(try c.decode(LinkSavedDTO.self, forKey: .payload))
         }
     }
@@ -953,6 +959,12 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case .fallback(let notice):
             try c.encode(EventType.fallback, forKey: .type)
             try c.encode(notice, forKey: .payload)
+        case .routing(let event):
+            try c.encode(EventType.routing, forKey: .type)
+            try c.encode(event, forKey: .payload)
+        case .usage(let usage):
+            try c.encode(EventType.usage, forKey: .type)
+            try c.encode(usage, forKey: .payload)
         case .linkSaved(let payload):
             try c.encode(EventType.linkSaved, forKey: .type)
             try c.encode(payload, forKey: .payload)
@@ -3639,6 +3651,416 @@ public struct ProviderPoolAddRequest: Codable, Sendable {
 public enum LLMBrainMode: String, Codable, Sendable, CaseIterable {
     case managed
     case byok
+}
+
+// ─── Cerberus Router ───────────────────────────────────────
+
+public enum RouterTaskType: String, Codable, Sendable, CaseIterable {
+    case general
+    case reasoning
+    case coding
+    case search
+    case summarization
+    case extraction
+    case creative
+    case automation
+}
+
+public enum RouterSurface: String, Codable, Sendable, CaseIterable {
+    case chat
+    case query
+    case knowledgeCompile
+    case job
+    case skill
+    case memo
+    case system
+}
+
+public enum RouterActionKind: String, Codable, Sendable, CaseIterable {
+    case sequential
+    case ensemble
+}
+
+public enum RouterRetryPolicy: String, Codable, Sendable, CaseIterable {
+    case fast
+    case resilient
+}
+
+public struct RouterObjectiveWeightsDTO: Codable, Sendable, Equatable {
+    public let quality: Int
+    public let cost: Int
+    public let latency: Int
+
+    public init(quality: Int = 50, cost: Int = 25, latency: Int = 25) {
+        self.quality = quality
+        self.cost = cost
+        self.latency = latency
+    }
+}
+
+public struct RouterBudgetPolicyDTO: Codable, Sendable, Equatable {
+    public let softLimitUsdMicros: Int64?
+    public let hardLimitUsdMicros: Int64?
+
+    public init(softLimitUsdMicros: Int64? = nil, hardLimitUsdMicros: Int64? = nil) {
+        self.softLimitUsdMicros = softLimitUsdMicros
+        self.hardLimitUsdMicros = hardLimitUsdMicros
+    }
+}
+
+public struct RouterModelRouteDTO: Codable, Sendable, Hashable, Identifiable {
+    public let provider: ProviderID
+    public let model: String
+    public let inputPerMillionUsdMicros: Int64?
+    public let outputPerMillionUsdMicros: Int64?
+
+    public var id: String { "\(provider.rawValue):\(model)" }
+
+    public init(
+        provider: ProviderID,
+        model: String,
+        inputPerMillionUsdMicros: Int64? = nil,
+        outputPerMillionUsdMicros: Int64? = nil
+    ) {
+        self.provider = provider
+        self.model = model
+        self.inputPerMillionUsdMicros = inputPerMillionUsdMicros
+        self.outputPerMillionUsdMicros = outputPerMillionUsdMicros
+    }
+}
+
+/// Both sequential and ensemble actions use one wire shape. Sequential actions
+/// consume `routes` as an ordered fallback chain. Ensemble actions run 2–4
+/// routes concurrently and use `synthesisRoute` for the final answer.
+public struct RouterActionDTO: Codable, Sendable, Equatable {
+    public let kind: RouterActionKind
+    public let routes: [RouterModelRouteDTO]
+    public let synthesisRoute: RouterModelRouteDTO?
+    public let minimumSuccessfulResults: Int?
+    public let retryPolicy: RouterRetryPolicy
+
+    public init(
+        kind: RouterActionKind = .sequential,
+        routes: [RouterModelRouteDTO],
+        synthesisRoute: RouterModelRouteDTO? = nil,
+        minimumSuccessfulResults: Int? = nil,
+        retryPolicy: RouterRetryPolicy = .fast
+    ) {
+        self.kind = kind
+        self.routes = routes
+        self.synthesisRoute = synthesisRoute
+        self.minimumSuccessfulResults = minimumSuccessfulResults
+        self.retryPolicy = retryPolicy
+    }
+}
+
+public struct RouterRuleDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let name: String
+    public let enabled: Bool
+    public let priority: Int
+    public let taskTypes: [RouterTaskType]
+    public let surfaces: [RouterSurface]
+    public let action: RouterActionDTO
+
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        enabled: Bool = true,
+        priority: Int,
+        taskTypes: [RouterTaskType],
+        surfaces: [RouterSurface] = [],
+        action: RouterActionDTO
+    ) {
+        self.id = id
+        self.name = name
+        self.enabled = enabled
+        self.priority = priority
+        self.taskTypes = taskTypes
+        self.surfaces = surfaces
+        self.action = action
+    }
+}
+
+public struct RouterProfileDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let name: String
+    public let mode: LLMBrainMode
+    public let isPreset: Bool
+    public let objective: RouterObjectiveWeightsDTO
+    public let budget: RouterBudgetPolicyDTO
+    public let allowedProviders: [ProviderID]
+    public let blockedProviders: [ProviderID]
+    public let defaultAction: RouterActionDTO
+    public let rules: [RouterRuleDTO]
+    public let revision: Int
+    public let createdAt: Date?
+    public let updatedAt: Date?
+
+    public init(
+        id: UUID,
+        name: String,
+        mode: LLMBrainMode,
+        isPreset: Bool = false,
+        objective: RouterObjectiveWeightsDTO = .init(),
+        budget: RouterBudgetPolicyDTO = .init(),
+        allowedProviders: [ProviderID] = [],
+        blockedProviders: [ProviderID] = [],
+        defaultAction: RouterActionDTO,
+        rules: [RouterRuleDTO] = [],
+        revision: Int = 1,
+        createdAt: Date? = nil,
+        updatedAt: Date? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.mode = mode
+        self.isPreset = isPreset
+        self.objective = objective
+        self.budget = budget
+        self.allowedProviders = allowedProviders
+        self.blockedProviders = blockedProviders
+        self.defaultAction = defaultAction
+        self.rules = rules
+        self.revision = revision
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct RouterProfileWriteRequest: Codable, Sendable {
+    public let name: String
+    public let mode: LLMBrainMode
+    public let objective: RouterObjectiveWeightsDTO
+    public let budget: RouterBudgetPolicyDTO
+    public let allowedProviders: [ProviderID]
+    public let blockedProviders: [ProviderID]
+    public let defaultAction: RouterActionDTO
+    public let rules: [RouterRuleDTO]
+    public let expectedRevision: Int?
+
+    public init(
+        name: String,
+        mode: LLMBrainMode,
+        objective: RouterObjectiveWeightsDTO,
+        budget: RouterBudgetPolicyDTO,
+        allowedProviders: [ProviderID] = [],
+        blockedProviders: [ProviderID] = [],
+        defaultAction: RouterActionDTO,
+        rules: [RouterRuleDTO] = [],
+        expectedRevision: Int? = nil
+    ) {
+        self.name = name
+        self.mode = mode
+        self.objective = objective
+        self.budget = budget
+        self.allowedProviders = allowedProviders
+        self.blockedProviders = blockedProviders
+        self.defaultAction = defaultAction
+        self.rules = rules
+        self.expectedRevision = expectedRevision
+    }
+}
+
+public struct RouterProfilesResponse: Codable, Sendable {
+    public let profiles: [RouterProfileDTO]
+    public let defaultProfileID: UUID
+
+    public init(profiles: [RouterProfileDTO], defaultProfileID: UUID) {
+        self.profiles = profiles
+        self.defaultProfileID = defaultProfileID
+    }
+}
+
+public enum RouterBindingScope: String, Codable, Sendable, CaseIterable {
+    case user
+    case space
+    case job
+}
+
+public struct RouterBindingDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let scope: RouterBindingScope
+    public let scopeID: String
+    public let profileID: UUID
+
+    public init(id: UUID, scope: RouterBindingScope, scopeID: String, profileID: UUID) {
+        self.id = id
+        self.scope = scope
+        self.scopeID = scopeID
+        self.profileID = profileID
+    }
+}
+
+public struct RouterBindingPutRequest: Codable, Sendable {
+    public let profileID: UUID
+    public init(profileID: UUID) { self.profileID = profileID }
+}
+
+public struct RouterBindingsResponse: Codable, Sendable {
+    public let bindings: [RouterBindingDTO]
+    public init(bindings: [RouterBindingDTO]) { self.bindings = bindings }
+}
+
+public struct RouterModelCatalogEntryDTO: Codable, Sendable, Equatable, Identifiable {
+    public let provider: ProviderID
+    public let model: String
+    public let displayName: String
+    public let taskQuality: [String: Int]
+    public let inputPerMillionUsdMicros: Int64?
+    public let outputPerMillionUsdMicros: Int64?
+    public let defaultLatencyMs: Int
+    public let capabilities: [String]
+
+    public var id: String { "\(provider.rawValue):\(model)" }
+
+    public init(
+        provider: ProviderID,
+        model: String,
+        displayName: String,
+        taskQuality: [String: Int],
+        inputPerMillionUsdMicros: Int64? = nil,
+        outputPerMillionUsdMicros: Int64? = nil,
+        defaultLatencyMs: Int,
+        capabilities: [String] = []
+    ) {
+        self.provider = provider
+        self.model = model
+        self.displayName = displayName
+        self.taskQuality = taskQuality
+        self.inputPerMillionUsdMicros = inputPerMillionUsdMicros
+        self.outputPerMillionUsdMicros = outputPerMillionUsdMicros
+        self.defaultLatencyMs = defaultLatencyMs
+        self.capabilities = capabilities
+    }
+}
+
+public struct RouterCatalogResponse: Codable, Sendable {
+    public let models: [RouterModelCatalogEntryDTO]
+    public let taskTypes: [RouterTaskType]
+    public let surfaces: [RouterSurface]
+    public let customProfilesAllowed: Bool
+    public let ensemblesAllowed: Bool
+
+    public init(
+        models: [RouterModelCatalogEntryDTO],
+        taskTypes: [RouterTaskType] = RouterTaskType.allCases,
+        surfaces: [RouterSurface] = RouterSurface.allCases,
+        customProfilesAllowed: Bool,
+        ensemblesAllowed: Bool
+    ) {
+        self.models = models
+        self.taskTypes = taskTypes
+        self.surfaces = surfaces
+        self.customProfilesAllowed = customProfilesAllowed
+        self.ensemblesAllowed = ensemblesAllowed
+    }
+}
+
+public enum RouterEventPhase: String, Codable, Sendable {
+    case selected
+    case attemptStarted
+    case synthesisStarted
+    case completed
+}
+
+public struct RouterRoutingEventDTO: Codable, Sendable, Equatable {
+    public let executionID: UUID
+    public let phase: RouterEventPhase
+    public let profileID: UUID
+    public let profileName: String
+    public let taskType: RouterTaskType
+    public let strategy: RouterActionKind
+    public let activeRoutes: [RouterModelRouteDTO]
+
+    public init(
+        executionID: UUID,
+        phase: RouterEventPhase,
+        profileID: UUID,
+        profileName: String,
+        taskType: RouterTaskType,
+        strategy: RouterActionKind,
+        activeRoutes: [RouterModelRouteDTO]
+    ) {
+        self.executionID = executionID
+        self.phase = phase
+        self.profileID = profileID
+        self.profileName = profileName
+        self.taskType = taskType
+        self.strategy = strategy
+        self.activeRoutes = activeRoutes
+    }
+}
+
+public struct RouterUsageDTO: Codable, Sendable, Equatable {
+    public let executionID: UUID
+    public let provider: ProviderID?
+    public let model: String?
+    public let tokensIn: Int
+    public let tokensOut: Int
+    public let estimatedCostUsdMicros: Int64
+    public let latencyMs: Int
+    public let usageEstimated: Bool
+
+    public init(
+        executionID: UUID,
+        provider: ProviderID? = nil,
+        model: String? = nil,
+        tokensIn: Int,
+        tokensOut: Int,
+        estimatedCostUsdMicros: Int64,
+        latencyMs: Int,
+        usageEstimated: Bool
+    ) {
+        self.executionID = executionID
+        self.provider = provider
+        self.model = model
+        self.tokensIn = tokensIn
+        self.tokensOut = tokensOut
+        self.estimatedCostUsdMicros = estimatedCostUsdMicros
+        self.latencyMs = latencyMs
+        self.usageEstimated = usageEstimated
+    }
+}
+
+public struct RouterDashboardResponse: Codable, Sendable {
+    public let periodStart: Date
+    public let periodEnd: Date
+    public let requests: Int
+    public let successfulRequests: Int
+    public let fallbackCount: Int
+    public let tokensIn: Int
+    public let tokensOut: Int
+    public let estimatedCostUsdMicros: Int64
+    public let averageLatencyMs: Int
+    public let monthlySoftLimitUsdMicros: Int64?
+    public let monthlyHardLimitUsdMicros: Int64?
+
+    public init(
+        periodStart: Date,
+        periodEnd: Date,
+        requests: Int,
+        successfulRequests: Int,
+        fallbackCount: Int,
+        tokensIn: Int,
+        tokensOut: Int,
+        estimatedCostUsdMicros: Int64,
+        averageLatencyMs: Int,
+        monthlySoftLimitUsdMicros: Int64? = nil,
+        monthlyHardLimitUsdMicros: Int64? = nil
+    ) {
+        self.periodStart = periodStart
+        self.periodEnd = periodEnd
+        self.requests = requests
+        self.successfulRequests = successfulRequests
+        self.fallbackCount = fallbackCount
+        self.tokensIn = tokensIn
+        self.tokensOut = tokensOut
+        self.estimatedCostUsdMicros = estimatedCostUsdMicros
+        self.averageLatencyMs = averageLatencyMs
+        self.monthlySoftLimitUsdMicros = monthlySoftLimitUsdMicros
+        self.monthlyHardLimitUsdMicros = monthlyHardLimitUsdMicros
+    }
 }
 
 /// A single `(provider, model)` step in a user's fallback chain.
