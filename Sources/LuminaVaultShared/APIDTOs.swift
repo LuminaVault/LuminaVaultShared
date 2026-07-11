@@ -134,6 +134,7 @@ public struct MeResponse: Codable {
     /// memory is disabled. Toggle via `PUT /v1/me/privacy`; takes effect on the
     /// tenant container's next restart.
     public let mnemosyneEnabled: Bool
+    public let isAdmin: Bool
     public init(
         userId: UUID,
         email: String,
@@ -142,13 +143,15 @@ public struct MeResponse: Codable {
         privacyNoCNOrigin: Bool,
         contextRouting: Bool,
         autoSaveLinks: Bool = true,
-        mnemosyneEnabled: Bool = true
+        mnemosyneEnabled: Bool = true,
+        isAdmin: Bool = false
     ) {
         self.userId = userId; self.email = email; self.username = username
         self.isVerified = isVerified; self.privacyNoCNOrigin = privacyNoCNOrigin
         self.contextRouting = contextRouting
         self.autoSaveLinks = autoSaveLinks
         self.mnemosyneEnabled = mnemosyneEnabled
+        self.isAdmin = isAdmin
     }
 }
 
@@ -5629,6 +5632,8 @@ public struct PluginInstallDTO: Codable, Sendable, Identifiable, Equatable {
     public let hasConfig: Bool
     public let createdAt: Date?
     public let lastSyncAt: Date?
+    public let marketplaceVersionId: UUID?
+    public let grantedPermissions: [PluginPermission]
 
     public init(
         id: UUID,
@@ -5636,7 +5641,9 @@ public struct PluginInstallDTO: Codable, Sendable, Identifiable, Equatable {
         status: PluginInstallStatus,
         hasConfig: Bool,
         createdAt: Date? = nil,
-        lastSyncAt: Date? = nil
+        lastSyncAt: Date? = nil,
+        marketplaceVersionId: UUID? = nil,
+        grantedPermissions: [PluginPermission] = []
     ) {
         self.id = id
         self.pluginSlug = pluginSlug
@@ -5644,6 +5651,8 @@ public struct PluginInstallDTO: Codable, Sendable, Identifiable, Equatable {
         self.hasConfig = hasConfig
         self.createdAt = createdAt
         self.lastSyncAt = lastSyncAt
+        self.marketplaceVersionId = marketplaceVersionId
+        self.grantedPermissions = grantedPermissions
     }
 }
 
@@ -5691,6 +5700,248 @@ public struct PluginSyncResponse: Codable, Sendable {
         self.total = total
         self.staged = staged
         self.skipped = skipped
+    }
+}
+
+// ─── Marketplace (HER-43 public ecosystem) ──────────────────────────────────
+
+public enum MarketplacePluginStatus: String, Codable, Sendable, CaseIterable {
+    case draft
+    case inReview = "in_review"
+    case published
+    case suspended
+}
+
+public enum MarketplaceVersionStatus: String, Codable, Sendable, CaseIterable {
+    case draft
+    case validating
+    case inReview = "in_review"
+    case approved
+    case rejected
+    case revoked
+}
+
+public enum MarketplaceRuntimeKind: String, Codable, Sendable, CaseIterable {
+    case native
+    case declarative
+    case wasm
+}
+
+public enum PluginPermission: String, Codable, Sendable, CaseIterable, Hashable {
+    case memoryRead = "memory.read"
+    case memoryWrite = "memory.write"
+    case vaultRead = "vault.read"
+    case vaultWrite = "vault.write"
+    case networkFetch = "network.fetch"
+    case outputEmit = "output.emit"
+}
+
+public struct MarketplacePublisherDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let handle: String
+    public let displayName: String
+    public let bio: String?
+    public let websiteURL: String?
+    public let verified: Bool
+
+    public init(id: UUID, handle: String, displayName: String, bio: String? = nil, websiteURL: String? = nil, verified: Bool) {
+        self.id = id
+        self.handle = handle
+        self.displayName = displayName
+        self.bio = bio
+        self.websiteURL = websiteURL
+        self.verified = verified
+    }
+}
+
+public struct MarketplaceVersionDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let version: String
+    public let status: MarketplaceVersionStatus
+    public let runtimeKind: MarketplaceRuntimeKind
+    public let permissions: [PluginPermission]
+    public let networkHosts: [String]
+    public let changelog: String?
+    public let publishedAt: Date?
+
+    public init(id: UUID, version: String, status: MarketplaceVersionStatus, runtimeKind: MarketplaceRuntimeKind, permissions: [PluginPermission], networkHosts: [String] = [], changelog: String? = nil, publishedAt: Date? = nil) {
+        self.id = id
+        self.version = version
+        self.status = status
+        self.runtimeKind = runtimeKind
+        self.permissions = permissions
+        self.networkHosts = networkHosts
+        self.changelog = changelog
+        self.publishedAt = publishedAt
+    }
+}
+
+public struct MarketplacePluginDTO: Codable, Sendable, Identifiable, Equatable {
+    public var id: String { slug }
+    public let slug: String
+    public let name: String
+    public let summary: String
+    public let description: String
+    public let category: PluginCategory
+    public let iconURL: String?
+    public let screenshots: [String]
+    public let publisher: MarketplacePublisherDTO
+    public let latestVersion: MarketplaceVersionDTO
+    public let featured: Bool
+    public let ratingAverage: Double
+    public let ratingCount: Int
+    public let installCount: Int
+    public let configFields: [PluginConfigField]
+
+    public init(slug: String, name: String, summary: String, description: String, category: PluginCategory, iconURL: String? = nil, screenshots: [String] = [], publisher: MarketplacePublisherDTO, latestVersion: MarketplaceVersionDTO, featured: Bool = false, ratingAverage: Double = 0, ratingCount: Int = 0, installCount: Int = 0, configFields: [PluginConfigField] = []) {
+        self.slug = slug
+        self.name = name
+        self.summary = summary
+        self.description = description
+        self.category = category
+        self.iconURL = iconURL
+        self.screenshots = screenshots
+        self.publisher = publisher
+        self.latestVersion = latestVersion
+        self.featured = featured
+        self.ratingAverage = ratingAverage
+        self.ratingCount = ratingCount
+        self.installCount = installCount
+        self.configFields = configFields
+    }
+}
+
+public struct MarketplaceListResponse: Codable, Sendable {
+    public let items: [MarketplacePluginDTO]
+    public let nextCursor: String?
+    public init(items: [MarketplacePluginDTO], nextCursor: String? = nil) {
+        self.items = items
+        self.nextCursor = nextCursor
+    }
+}
+
+public struct MarketplaceReviewDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let rating: Int
+    public let body: String?
+    public let authorUsername: String
+    public let verifiedInstall: Bool
+    public let createdAt: Date?
+    public let updatedAt: Date?
+
+    public init(id: UUID, rating: Int, body: String? = nil, authorUsername: String, verifiedInstall: Bool, createdAt: Date? = nil, updatedAt: Date? = nil) {
+        self.id = id
+        self.rating = rating
+        self.body = body
+        self.authorUsername = authorUsername
+        self.verifiedInstall = verifiedInstall
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct MarketplaceReviewsResponse: Codable, Sendable {
+    public let items: [MarketplaceReviewDTO]
+    public init(items: [MarketplaceReviewDTO]) { self.items = items }
+}
+
+public struct MarketplaceRatingRequest: Codable, Sendable {
+    public let rating: Int
+    public let body: String?
+    public init(rating: Int, body: String? = nil) {
+        self.rating = rating
+        self.body = body
+    }
+}
+
+public struct MarketplaceInstallRequest: Codable, Sendable {
+    public let versionId: UUID
+    public let grantedPermissions: [PluginPermission]
+    public let config: [String: String]
+    public init(versionId: UUID, grantedPermissions: [PluginPermission], config: [String: String] = [:]) {
+        self.versionId = versionId
+        self.grantedPermissions = grantedPermissions
+        self.config = config
+    }
+}
+
+public struct PublisherApplicationRequest: Codable, Sendable {
+    public let handle: String
+    public let displayName: String
+    public let bio: String?
+    public let websiteURL: String?
+    public init(handle: String, displayName: String, bio: String? = nil, websiteURL: String? = nil) {
+        self.handle = handle
+        self.displayName = displayName
+        self.bio = bio
+        self.websiteURL = websiteURL
+    }
+}
+
+public struct MarketplaceSubmissionDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let pluginSlug: String
+    public let versionId: UUID
+    public let status: MarketplaceVersionStatus
+    public let validationErrors: [String]
+    public let reviewNote: String?
+    public let submittedAt: Date?
+    public let reviewedAt: Date?
+
+    public init(id: UUID, pluginSlug: String, versionId: UUID, status: MarketplaceVersionStatus, validationErrors: [String] = [], reviewNote: String? = nil, submittedAt: Date? = nil, reviewedAt: Date? = nil) {
+        self.id = id
+        self.pluginSlug = pluginSlug
+        self.versionId = versionId
+        self.status = status
+        self.validationErrors = validationErrors
+        self.reviewNote = reviewNote
+        self.submittedAt = submittedAt
+        self.reviewedAt = reviewedAt
+    }
+}
+
+public struct MarketplaceModerationRequest: Codable, Sendable {
+    public let approved: Bool
+    public let note: String?
+    public init(approved: Bool, note: String? = nil) {
+        self.approved = approved
+        self.note = note
+    }
+}
+
+public struct PluginToolRunRequest: Codable, Sendable {
+    public let input: [String: String]
+    public init(input: [String: String] = [:]) { self.input = input }
+}
+
+public struct PluginToolRunResponse: Codable, Sendable {
+    public let runId: UUID
+    public let output: [String: String]
+    public let fuelConsumed: Int
+    public init(runId: UUID, output: [String: String], fuelConsumed: Int) {
+        self.runId = runId
+        self.output = output
+        self.fuelConsumed = fuelConsumed
+    }
+}
+
+public struct MarketplaceArtifactUploadRequest: Codable, Sendable {
+    public let fileName: String
+    public let bytesBase64: String
+    public init(fileName: String, bytesBase64: String) {
+        self.fileName = fileName
+        self.bytesBase64 = bytesBase64
+    }
+}
+
+public struct MarketplaceArtifactUploadResponse: Codable, Sendable {
+    public let artifactKey: String
+    public let sha256: String
+    public let sizeBytes: Int
+    public init(artifactKey: String, sha256: String, sizeBytes: Int) {
+        self.artifactKey = artifactKey
+        self.sha256 = sha256
+        self.sizeBytes = sizeBytes
     }
 }
 
