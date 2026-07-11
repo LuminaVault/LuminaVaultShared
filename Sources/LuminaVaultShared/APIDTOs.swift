@@ -1165,7 +1165,9 @@ public struct ReasoningStreamEventDTO: Codable, Sendable, Equatable {
 
 public struct InferenceReviewRequest: Codable, Sendable, Equatable {
     public let note: String?
-    public init(note: String? = nil) { self.note = note }
+    public init(note: String? = nil) {
+        self.note = note
+    }
 }
 
 // ─── Memo ────────────────────────────────────────────────────────────────
@@ -1549,7 +1551,9 @@ public struct HybridRoutingPreferencesDTO: Codable, Sendable, Equatable {
 
 public struct ConversationPrepareRequest: Codable, Sendable {
     public let content: String
-    public init(content: String) { self.content = content }
+    public init(content: String) {
+        self.content = content
+    }
 }
 
 public struct ConversationPrepareResponse: Codable, Sendable {
@@ -3495,7 +3499,7 @@ public enum WorkflowTriggerKind: String, Codable, Sendable, CaseIterable {
 }
 
 public enum WorkflowNodeKind: String, Codable, Sendable, CaseIterable {
-    case trigger, llm, skill, memorySearch, memoryWrite, template, condition, approval, output
+    case trigger, llm, skill, memorySearch, memoryWrite, template, condition, approval, parallel, forEach, whileLoop, output
 }
 
 public enum WorkflowRunStatus: String, Codable, Sendable, CaseIterable {
@@ -3689,6 +3693,17 @@ public struct WorkflowApprovalDecisionRequest: Codable, Sendable {
     public let note: String?
     public init(approved: Bool, note: String? = nil) {
         self.approved = approved; self.note = note
+    }
+}
+
+/// Returned only when a webhook credential is created or rotated. The secret
+/// is write-only and cannot be fetched again.
+public struct WorkflowWebhookCredentialDTO: Codable, Sendable, Equatable {
+    public let hookID: UUID
+    public let path: String
+    public let secret: String
+    public init(hookID: UUID, path: String, secret: String) {
+        self.hookID = hookID; self.path = path; self.secret = secret
     }
 }
 
@@ -6097,14 +6112,45 @@ public struct MarketplacePublisherDTO: Codable, Sendable, Identifiable, Equatabl
     public let bio: String?
     public let websiteURL: String?
     public let verified: Bool
+    public let status: String?
 
-    public init(id: UUID, handle: String, displayName: String, bio: String? = nil, websiteURL: String? = nil, verified: Bool) {
+    public init(id: UUID, handle: String, displayName: String, bio: String? = nil, websiteURL: String? = nil, verified: Bool, status: String? = nil) {
         self.id = id
         self.handle = handle
         self.displayName = displayName
         self.bio = bio
         self.websiteURL = websiteURL
         self.verified = verified
+        self.status = status
+    }
+}
+
+public struct MarketplacePublishersResponse: Codable, Sendable {
+    public let items: [MarketplacePublisherDTO]
+    public init(items: [MarketplacePublisherDTO]) {
+        self.items = items
+    }
+}
+
+public struct MarketplaceToolManifest: Codable, Sendable, Identifiable, Equatable {
+    public var id: String {
+        name
+    }
+
+    public let name: String
+    public let description: String
+    public init(name: String, description: String) {
+        self.name = name
+        self.description = description
+    }
+}
+
+public struct MarketplacePluginManifest: Codable, Sendable, Equatable {
+    public let schemaVersion: Int
+    public let tools: [MarketplaceToolManifest]
+    public init(schemaVersion: Int = 1, tools: [MarketplaceToolManifest]) {
+        self.schemaVersion = schemaVersion
+        self.tools = tools
     }
 }
 
@@ -6117,8 +6163,9 @@ public struct MarketplaceVersionDTO: Codable, Sendable, Identifiable, Equatable 
     public let networkHosts: [String]
     public let changelog: String?
     public let publishedAt: Date?
+    public let tools: [MarketplaceToolManifest]?
 
-    public init(id: UUID, version: String, status: MarketplaceVersionStatus, runtimeKind: MarketplaceRuntimeKind, permissions: [PluginPermission], networkHosts: [String] = [], changelog: String? = nil, publishedAt: Date? = nil) {
+    public init(id: UUID, version: String, status: MarketplaceVersionStatus, runtimeKind: MarketplaceRuntimeKind, permissions: [PluginPermission], networkHosts: [String] = [], changelog: String? = nil, publishedAt: Date? = nil, tools: [MarketplaceToolManifest]? = nil) {
         self.id = id
         self.version = version
         self.status = status
@@ -6127,11 +6174,22 @@ public struct MarketplaceVersionDTO: Codable, Sendable, Identifiable, Equatable 
         self.networkHosts = networkHosts
         self.changelog = changelog
         self.publishedAt = publishedAt
+        self.tools = tools
+    }
+}
+
+public struct MarketplaceRevokeVersionRequest: Codable, Sendable {
+    public let reason: String
+    public init(reason: String) {
+        self.reason = reason
     }
 }
 
 public struct MarketplacePluginDTO: Codable, Sendable, Identifiable, Equatable {
-    public var id: String { slug }
+    public var id: String {
+        slug
+    }
+
     public let slug: String
     public let name: String
     public let summary: String
@@ -6196,7 +6254,9 @@ public struct MarketplaceReviewDTO: Codable, Sendable, Identifiable, Equatable {
 
 public struct MarketplaceReviewsResponse: Codable, Sendable {
     public let items: [MarketplaceReviewDTO]
-    public init(items: [MarketplaceReviewDTO]) { self.items = items }
+    public init(items: [MarketplaceReviewDTO]) {
+        self.items = items
+    }
 }
 
 public struct MarketplaceRatingRequest: Codable, Sendable {
@@ -6265,7 +6325,9 @@ public struct MarketplaceModerationRequest: Codable, Sendable {
 
 public struct PluginToolRunRequest: Codable, Sendable {
     public let input: [String: String]
-    public init(input: [String: String] = [:]) { self.input = input }
+    public init(input: [String: String] = [:]) {
+        self.input = input
+    }
 }
 
 public struct PluginToolRunResponse: Codable, Sendable {
@@ -6673,7 +6735,10 @@ public struct AnalyticsOverviewResponse: Codable, Sendable {
 }
 
 public struct ModelEffectivenessDTO: Codable, Sendable, Equatable, Identifiable {
-    public var id: String { "\(provider):\(model)" }
+    public var id: String {
+        "\(provider):\(model)"
+    }
+
     public let provider: String
     public let model: String
     public let requests: Int
@@ -6794,7 +6859,9 @@ public struct AnalyticsRecommendationStateRequest: Codable, Sendable {
 
 public struct AnalyticsMutationResponse: Codable, Sendable {
     public let accepted: Bool
-    public init(accepted: Bool = true) { self.accepted = accepted }
+    public init(accepted: Bool = true) {
+        self.accepted = accepted
+    }
 }
 
 public struct MemoryReviewResponse: Codable, Sendable {
@@ -7414,5 +7481,7 @@ public struct IngestionBatchDTO: Codable, Sendable, Identifiable {
 
 public struct IngestionBatchListDTO: Codable, Sendable {
     public let batches: [IngestionBatchDTO]
-    public init(batches: [IngestionBatchDTO]) { self.batches = batches }
+    public init(batches: [IngestionBatchDTO]) {
+        self.batches = batches
+    }
 }
