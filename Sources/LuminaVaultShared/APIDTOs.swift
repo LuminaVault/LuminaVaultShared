@@ -948,6 +948,226 @@ public struct MemoryGraphResponse: Codable, Sendable {
     }
 }
 
+// ─── Knowledge Graph + Reasoning ────────────────────────────────────────
+
+public enum KnowledgeNodeKindDTO: String, Codable, Sendable, CaseIterable {
+    case claim
+    case entity
+    case event
+}
+
+public enum KnowledgeEdgePredicateDTO: String, Codable, Sendable, CaseIterable {
+    case mentions
+    case about
+    case supports
+    case contradicts
+    case causes
+    case precedes
+    case relatedTo = "related_to"
+    case derivedFrom = "derived_from"
+}
+
+public enum KnowledgeEdgeStateDTO: String, Codable, Sendable, CaseIterable {
+    case asserted
+    case suggested
+    case confirmed
+    case dismissed
+    case stale
+}
+
+public struct KnowledgeEvidenceDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let memoryID: UUID
+    public let sourceVaultFileID: UUID?
+    public let quote: String
+    public let startOffset: Int?
+    public let endOffset: Int?
+
+    public init(
+        id: UUID,
+        memoryID: UUID,
+        sourceVaultFileID: UUID? = nil,
+        quote: String,
+        startOffset: Int? = nil,
+        endOffset: Int? = nil
+    ) {
+        self.id = id
+        self.memoryID = memoryID
+        self.sourceVaultFileID = sourceVaultFileID
+        self.quote = quote
+        self.startOffset = startOffset
+        self.endOffset = endOffset
+    }
+}
+
+public struct KnowledgeNodeDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let kind: KnowledgeNodeKindDTO
+    public let label: String
+    public let summary: String?
+    public let occurredAt: Date?
+    public let confidence: Double
+    public let evidence: [KnowledgeEvidenceDTO]
+
+    public init(
+        id: UUID,
+        kind: KnowledgeNodeKindDTO,
+        label: String,
+        summary: String? = nil,
+        occurredAt: Date? = nil,
+        confidence: Double,
+        evidence: [KnowledgeEvidenceDTO] = []
+    ) {
+        self.id = id
+        self.kind = kind
+        self.label = label
+        self.summary = summary
+        self.occurredAt = occurredAt
+        self.confidence = confidence
+        self.evidence = evidence
+    }
+}
+
+public struct KnowledgeEdgeDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let from: UUID
+    public let to: UUID
+    public let predicate: KnowledgeEdgePredicateDTO
+    public let state: KnowledgeEdgeStateDTO
+    public let confidence: Double
+    public let rationale: String?
+    public let counterEvidence: String?
+    public let evidence: [KnowledgeEvidenceDTO]
+
+    public init(
+        id: UUID,
+        from: UUID,
+        to: UUID,
+        predicate: KnowledgeEdgePredicateDTO,
+        state: KnowledgeEdgeStateDTO,
+        confidence: Double,
+        rationale: String? = nil,
+        counterEvidence: String? = nil,
+        evidence: [KnowledgeEvidenceDTO] = []
+    ) {
+        self.id = id
+        self.from = from
+        self.to = to
+        self.predicate = predicate
+        self.state = state
+        self.confidence = confidence
+        self.rationale = rationale
+        self.counterEvidence = counterEvidence
+        self.evidence = evidence
+    }
+}
+
+public struct KnowledgeGraphResponse: Codable, Sendable, Equatable {
+    public let nodes: [KnowledgeNodeDTO]
+    public let edges: [KnowledgeEdgeDTO]
+    public let generatedAt: Date
+
+    public init(nodes: [KnowledgeNodeDTO], edges: [KnowledgeEdgeDTO], generatedAt: Date) {
+        self.nodes = nodes
+        self.edges = edges
+        self.generatedAt = generatedAt
+    }
+}
+
+public struct KnowledgePathDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let nodes: [KnowledgeNodeDTO]
+    public let edges: [KnowledgeEdgeDTO]
+    public let confidence: Double
+
+    public init(id: UUID = UUID(), nodes: [KnowledgeNodeDTO], edges: [KnowledgeEdgeDTO], confidence: Double) {
+        self.id = id
+        self.nodes = nodes
+        self.edges = edges
+        self.confidence = confidence
+    }
+}
+
+public struct ConnectionExplanationRequest: Codable, Sendable, Equatable {
+    public let fromNodeID: UUID
+    public let toNodeID: UUID
+    public let maxDepth: Int?
+
+    public init(fromNodeID: UUID, toNodeID: UUID, maxDepth: Int? = nil) {
+        self.fromNodeID = fromNodeID
+        self.toNodeID = toNodeID
+        self.maxDepth = maxDepth
+    }
+}
+
+public struct ConnectionExplanationResponse: Codable, Sendable, Equatable {
+    public let explanation: String
+    public let paths: [KnowledgePathDTO]
+    public let confidence: Double
+    public let caveats: [String]
+
+    public init(explanation: String, paths: [KnowledgePathDTO], confidence: Double, caveats: [String] = []) {
+        self.explanation = explanation
+        self.paths = paths
+        self.confidence = confidence
+        self.caveats = caveats
+    }
+}
+
+public struct ReasoningQueryRequest: Codable, Sendable, Equatable {
+    public let query: String
+    public let maxDepth: Int?
+    public let limit: Int?
+
+    public init(query: String, maxDepth: Int? = nil, limit: Int? = nil) {
+        self.query = query
+        self.maxDepth = maxDepth
+        self.limit = limit
+    }
+}
+
+public struct ReasoningQueryResponse: Codable, Sendable, Equatable {
+    public let answer: String
+    public let paths: [KnowledgePathDTO]
+    public let evidence: [KnowledgeEvidenceDTO]
+    public let confidence: Double
+    public let caveats: [String]
+    public let suggestions: [KnowledgeEdgeDTO]
+
+    public init(
+        answer: String,
+        paths: [KnowledgePathDTO],
+        evidence: [KnowledgeEvidenceDTO],
+        confidence: Double,
+        caveats: [String] = [],
+        suggestions: [KnowledgeEdgeDTO] = []
+    ) {
+        self.answer = answer
+        self.paths = paths
+        self.evidence = evidence
+        self.confidence = confidence
+        self.caveats = caveats
+        self.suggestions = suggestions
+    }
+}
+
+public struct ReasoningStreamEventDTO: Codable, Sendable, Equatable {
+    public let type: String
+    public let response: ReasoningQueryResponse?
+    public let message: String?
+
+    public init(type: String, response: ReasoningQueryResponse? = nil, message: String? = nil) {
+        self.type = type
+        self.response = response
+        self.message = message
+    }
+}
+
+public struct InferenceReviewRequest: Codable, Sendable, Equatable {
+    public let note: String?
+    public init(note: String? = nil) { self.note = note }
+}
+
 // ─── Memo ────────────────────────────────────────────────────────────────
 
 /// Request body for `POST /v1/memos`. The server runs the memo-generator
@@ -1284,6 +1504,140 @@ public struct MessageStreamRequest: Codable, Sendable {
     public init(content: String, multiModel: ChatMultiModelOptionsDTO? = nil) {
         self.content = content
         self.multiModel = multiModel
+    }
+}
+
+// ─── Hybrid local + cloud execution ─────────────────────────────────────
+
+public enum HybridExecutionProfile: String, Codable, Sendable, CaseIterable {
+    case `private`
+    case balanced
+    case quality
+}
+
+public enum ExecutionLocation: String, Codable, Sendable, CaseIterable {
+    case onDevice = "on_device"
+    case localEndpoint = "local_endpoint"
+    case cloud
+}
+
+public enum LocalEndpointKind: String, Codable, Sendable, CaseIterable {
+    case ollama
+    case lmStudio = "lm_studio"
+    case mlxServer = "mlx_server"
+    case openAICompatible = "openai_compatible"
+}
+
+public struct HybridRoutingPreferencesDTO: Codable, Sendable, Equatable {
+    public let profile: HybridExecutionProfile
+    public let localFallbackEnabled: Bool
+    public let cloudFallbackEnabled: Bool
+    public let syncLocalConversations: Bool
+
+    public init(
+        profile: HybridExecutionProfile = .balanced,
+        localFallbackEnabled: Bool = true,
+        cloudFallbackEnabled: Bool = true,
+        syncLocalConversations: Bool = true
+    ) {
+        self.profile = profile
+        self.localFallbackEnabled = localFallbackEnabled
+        self.cloudFallbackEnabled = cloudFallbackEnabled
+        self.syncLocalConversations = syncLocalConversations
+    }
+}
+
+public struct ConversationPrepareRequest: Codable, Sendable {
+    public let content: String
+    public init(content: String) { self.content = content }
+}
+
+public struct ConversationPrepareResponse: Codable, Sendable {
+    public let executionID: UUID
+    public let messages: [ChatMessage]
+    public let sources: [QueryHitDTO]
+    public let expiresAt: Date
+
+    public init(executionID: UUID, messages: [ChatMessage], sources: [QueryHitDTO], expiresAt: Date) {
+        self.executionID = executionID
+        self.messages = messages
+        self.sources = sources
+        self.expiresAt = expiresAt
+    }
+}
+
+public struct LocalExecutionUsageDTO: Codable, Sendable, Equatable {
+    public let inputTokens: Int
+    public let outputTokens: Int
+    public let latencyMs: Int
+
+    public init(inputTokens: Int = 0, outputTokens: Int = 0, latencyMs: Int = 0) {
+        self.inputTokens = inputTokens
+        self.outputTokens = outputTokens
+        self.latencyMs = latencyMs
+    }
+}
+
+public struct ConversationCommitRequest: Codable, Sendable {
+    public let executionID: UUID
+    public let content: String
+    public let location: ExecutionLocation
+    public let provider: String
+    public let model: String
+    public let usage: LocalExecutionUsageDTO?
+
+    public init(
+        executionID: UUID,
+        content: String,
+        location: ExecutionLocation,
+        provider: String,
+        model: String,
+        usage: LocalExecutionUsageDTO? = nil
+    ) {
+        self.executionID = executionID
+        self.content = content
+        self.location = location
+        self.provider = provider
+        self.model = model
+        self.usage = usage
+    }
+}
+
+public struct ConversationCommitResponse: Codable, Sendable {
+    public let message: ConversationMessageDTO
+    public let followUps: [String]
+
+    public init(message: ConversationMessageDTO, followUps: [String] = []) {
+        self.message = message
+        self.followUps = followUps
+    }
+}
+
+public struct LocalMemorySyncItemDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let content: String
+    public let source: MemorySourceKindDTO
+    public let createdAt: Date
+    public let updatedAt: Date
+
+    public init(id: UUID, content: String, source: MemorySourceKindDTO, createdAt: Date, updatedAt: Date) {
+        self.id = id
+        self.content = content
+        self.source = source
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct LocalMemorySyncResponse: Codable, Sendable {
+    public let memories: [LocalMemorySyncItemDTO]
+    public let deletedIDs: [UUID]
+    public let nextCursor: String?
+
+    public init(memories: [LocalMemorySyncItemDTO], deletedIDs: [UUID] = [], nextCursor: String? = nil) {
+        self.memories = memories
+        self.deletedIDs = deletedIDs
+        self.nextCursor = nextCursor
     }
 }
 
@@ -6165,6 +6519,295 @@ public struct UsageSummaryResponse: Codable, Sendable {
     }
 }
 
+// ─── Usage intelligence dashboard ─────────────────────────────────────────
+
+public enum AnalyticsRange: String, Codable, Sendable, CaseIterable {
+    case week = "7d"
+    case month = "30d"
+    case quarter = "90d"
+
+    public var days: Int {
+        switch self {
+        case .week: 7
+        case .month: 30
+        case .quarter: 90
+        }
+    }
+}
+
+public enum AnalyticsScope: String, Codable, Sendable, CaseIterable {
+    case personal
+    case active
+}
+
+public struct AnalyticsDailyPointDTO: Codable, Sendable, Equatable {
+    public let date: Date
+    public let sessions: Int
+    public let aiRequests: Int
+    public let tokens: Int
+    public let captures: Int
+    public let retrievals: Int
+    public let estimatedCostUsdMicros: Int64
+
+    public init(date: Date, sessions: Int = 0, aiRequests: Int = 0, tokens: Int = 0,
+                captures: Int = 0, retrievals: Int = 0, estimatedCostUsdMicros: Int64 = 0)
+    {
+        self.date = date
+        self.sessions = sessions
+        self.aiRequests = aiRequests
+        self.tokens = tokens
+        self.captures = captures
+        self.retrievals = retrievals
+        self.estimatedCostUsdMicros = estimatedCostUsdMicros
+    }
+}
+
+public struct AnalyticsSummaryDTO: Codable, Sendable, Equatable {
+    public let sessions: Int
+    public let aiRequests: Int
+    public let tokensIn: Int
+    public let tokensOut: Int
+    public let captures: Int
+    public let retrievals: Int
+    public let estimatedCostUsdMicros: Int64
+
+    public init(sessions: Int = 0, aiRequests: Int = 0, tokensIn: Int = 0, tokensOut: Int = 0,
+                captures: Int = 0, retrievals: Int = 0, estimatedCostUsdMicros: Int64 = 0)
+    {
+        self.sessions = sessions
+        self.aiRequests = aiRequests
+        self.tokensIn = tokensIn
+        self.tokensOut = tokensOut
+        self.captures = captures
+        self.retrievals = retrievals
+        self.estimatedCostUsdMicros = estimatedCostUsdMicros
+    }
+}
+
+public struct MemoryHealthComponentDTO: Codable, Sendable, Equatable {
+    public let key: String
+    public let title: String
+    public let score: Int
+    public let weight: Int
+
+    public init(key: String, title: String, score: Int, weight: Int) {
+        self.key = key
+        self.title = title
+        self.score = score
+        self.weight = weight
+    }
+}
+
+public struct MemoryHealthDTO: Codable, Sendable, Equatable {
+    public let score: Int
+    public let totalMemories: Int
+    public let staleCount: Int
+    public let neverRetrievedCount: Int
+    public let unorganizedCount: Int
+    public let pendingReviewCount: Int
+    public let components: [MemoryHealthComponentDTO]
+
+    public init(score: Int, totalMemories: Int, staleCount: Int, neverRetrievedCount: Int,
+                unorganizedCount: Int, pendingReviewCount: Int,
+                components: [MemoryHealthComponentDTO])
+    {
+        self.score = score
+        self.totalMemories = totalMemories
+        self.staleCount = staleCount
+        self.neverRetrievedCount = neverRetrievedCount
+        self.unorganizedCount = unorganizedCount
+        self.pendingReviewCount = pendingReviewCount
+        self.components = components
+    }
+}
+
+public enum AnalyticsRecommendationSeverity: String, Codable, Sendable {
+    case info, attention, important
+}
+
+public struct AnalyticsRecommendationDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let title: String
+    public let detail: String
+    public let severity: AnalyticsRecommendationSeverity
+    public let actionTitle: String
+    public let deepLink: String
+
+    public init(id: String, title: String, detail: String, severity: AnalyticsRecommendationSeverity,
+                actionTitle: String, deepLink: String)
+    {
+        self.id = id
+        self.title = title
+        self.detail = detail
+        self.severity = severity
+        self.actionTitle = actionTitle
+        self.deepLink = deepLink
+    }
+}
+
+public struct AnalyticsOverviewResponse: Codable, Sendable {
+    public let scope: AnalyticsScope
+    public let vaultId: UUID
+    public let range: AnalyticsRange
+    public let periodStart: Date
+    public let periodEnd: Date
+    public let summary: AnalyticsSummaryDTO
+    public let daily: [AnalyticsDailyPointDTO]
+    public let memoryHealth: MemoryHealthDTO
+    public let recommendations: [AnalyticsRecommendationDTO]
+
+    public init(scope: AnalyticsScope, vaultId: UUID, range: AnalyticsRange, periodStart: Date,
+                periodEnd: Date, summary: AnalyticsSummaryDTO, daily: [AnalyticsDailyPointDTO],
+                memoryHealth: MemoryHealthDTO, recommendations: [AnalyticsRecommendationDTO])
+    {
+        self.scope = scope
+        self.vaultId = vaultId
+        self.range = range
+        self.periodStart = periodStart
+        self.periodEnd = periodEnd
+        self.summary = summary
+        self.daily = daily
+        self.memoryHealth = memoryHealth
+        self.recommendations = recommendations
+    }
+}
+
+public struct ModelEffectivenessDTO: Codable, Sendable, Equatable, Identifiable {
+    public var id: String { "\(provider):\(model)" }
+    public let provider: String
+    public let model: String
+    public let requests: Int
+    public let successRate: Double
+    public let fallbackRate: Double
+    public let averageLatencyMs: Int
+    public let p95LatencyMs: Int
+    public let tokens: Int
+    public let estimatedCostUsdMicros: Int64
+
+    public init(provider: String, model: String, requests: Int, successRate: Double,
+                fallbackRate: Double, averageLatencyMs: Int, p95LatencyMs: Int,
+                tokens: Int, estimatedCostUsdMicros: Int64)
+    {
+        self.provider = provider
+        self.model = model
+        self.requests = requests
+        self.successRate = successRate
+        self.fallbackRate = fallbackRate
+        self.averageLatencyMs = averageLatencyMs
+        self.p95LatencyMs = p95LatencyMs
+        self.tokens = tokens
+        self.estimatedCostUsdMicros = estimatedCostUsdMicros
+    }
+}
+
+public struct ModelEffectivenessResponse: Codable, Sendable {
+    public let range: AnalyticsRange
+    public let models: [ModelEffectivenessDTO]
+    public init(range: AnalyticsRange, models: [ModelEffectivenessDTO]) {
+        self.range = range
+        self.models = models
+    }
+}
+
+public struct TeamMemberAnalyticsDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let displayName: String
+    public let captures: Int
+    public let retrievals: Int
+    public let aiRequests: Int
+    public let tokens: Int
+    public let estimatedCostUsdMicros: Int64
+
+    public init(id: UUID, displayName: String, captures: Int, retrievals: Int,
+                aiRequests: Int, tokens: Int, estimatedCostUsdMicros: Int64)
+    {
+        self.id = id
+        self.displayName = displayName
+        self.captures = captures
+        self.retrievals = retrievals
+        self.aiRequests = aiRequests
+        self.tokens = tokens
+        self.estimatedCostUsdMicros = estimatedCostUsdMicros
+    }
+}
+
+public struct TeamAnalyticsResponse: Codable, Sendable {
+    public let vaultId: UUID
+    public let range: AnalyticsRange
+    public let summary: AnalyticsSummaryDTO
+    /// Present only for team owners/admins; omitted for ordinary members.
+    public let members: [TeamMemberAnalyticsDTO]?
+
+    public init(vaultId: UUID, range: AnalyticsRange, summary: AnalyticsSummaryDTO,
+                members: [TeamMemberAnalyticsDTO]? = nil)
+    {
+        self.vaultId = vaultId
+        self.range = range
+        self.summary = summary
+        self.members = members
+    }
+}
+
+public enum AnalyticsClientEventName: String, Codable, Sendable, CaseIterable {
+    case dashboardViewed = "analytics_dashboard_viewed"
+    case rangeChanged = "analytics_range_changed"
+    case recommendationOpened = "analytics_recommendation_opened"
+    case recommendationDismissed = "analytics_recommendation_dismissed"
+    case recommendationSnoozed = "analytics_recommendation_snoozed"
+}
+
+public enum AnalyticsEventSource: String, Codable, Sendable {
+    case ios, web
+}
+
+public struct AnalyticsEventRequest: Codable, Sendable {
+    public let name: AnalyticsClientEventName
+    public let source: AnalyticsEventSource
+    public let range: AnalyticsRange?
+    public let recommendationId: String?
+    public let idempotencyKey: String?
+
+    public init(name: AnalyticsClientEventName, source: AnalyticsEventSource,
+                range: AnalyticsRange? = nil, recommendationId: String? = nil,
+                idempotencyKey: String? = nil)
+    {
+        self.name = name
+        self.source = source
+        self.range = range
+        self.recommendationId = recommendationId
+        self.idempotencyKey = idempotencyKey
+    }
+}
+
+public enum AnalyticsRecommendationDisposition: String, Codable, Sendable {
+    case dismiss, snooze7, snooze30
+}
+
+public struct AnalyticsRecommendationStateRequest: Codable, Sendable {
+    public let recommendationId: String
+    public let disposition: AnalyticsRecommendationDisposition
+    public init(recommendationId: String, disposition: AnalyticsRecommendationDisposition) {
+        self.recommendationId = recommendationId
+        self.disposition = disposition
+    }
+}
+
+public struct AnalyticsMutationResponse: Codable, Sendable {
+    public let accepted: Bool
+    public init(accepted: Bool = true) { self.accepted = accepted }
+}
+
+public struct MemoryReviewResponse: Codable, Sendable {
+    public let memoryId: UUID
+    public let reviewedAt: Date
+    public let reviewCount: Int
+    public init(memoryId: UUID, reviewedAt: Date, reviewCount: Int) {
+        self.memoryId = memoryId
+        self.reviewedAt = reviewedAt
+        self.reviewCount = reviewCount
+    }
+}
+
 // ─── Home aggregate (HER-Home) ─────────────────────────────────────────────
 // One-shot counts powering the Home dashboard cards, plus the active Hermes
 // profile. Avoids N round-trips on the landing screen.
@@ -6563,4 +7206,213 @@ public struct CardMoveRequest: Codable, Sendable {
     public init(toColumnID: UUID, beforeID: UUID? = nil, afterID: UUID? = nil) {
         self.toColumnID = toColumnID; self.beforeID = beforeID; self.afterID = afterID
     }
+}
+
+// MARK: - Multimodal ingestion
+
+public enum IngestionSourceKindDTO: String, Codable, Sendable, CaseIterable {
+    case file
+    case url
+}
+
+public enum IngestionItemStateDTO: String, Codable, Sendable, CaseIterable {
+    case awaitingUpload = "awaiting_upload"
+    case queued
+    case extracting
+    case analyzing
+    case saving
+    case blockedCapability = "blocked_capability"
+    case completed
+    case failed
+    case cancelled
+}
+
+public struct IngestionCreateItemRequest: Codable, Sendable {
+    public let kind: IngestionSourceKindDTO
+    public let fileName: String?
+    public let contentType: String?
+    public let sizeBytes: Int64?
+    public let sha256: String?
+    public let url: String?
+
+    public init(
+        kind: IngestionSourceKindDTO,
+        fileName: String? = nil,
+        contentType: String? = nil,
+        sizeBytes: Int64? = nil,
+        sha256: String? = nil,
+        url: String? = nil
+    ) {
+        self.kind = kind
+        self.fileName = fileName
+        self.contentType = contentType
+        self.sizeBytes = sizeBytes
+        self.sha256 = sha256
+        self.url = url
+    }
+}
+
+public struct IngestionCreateRequest: Codable, Sendable {
+    public let spaceID: UUID?
+    public let items: [IngestionCreateItemRequest]
+
+    public init(spaceID: UUID? = nil, items: [IngestionCreateItemRequest]) {
+        self.spaceID = spaceID
+        self.items = items
+    }
+}
+
+public struct IngestionCredibilityDTO: Codable, Sendable, Equatable {
+    public let score: Int?
+    public let confidence: Double
+    public let signals: [String]
+    public let rationale: String
+    public let version: String
+
+    public init(score: Int?, confidence: Double, signals: [String], rationale: String, version: String) {
+        self.score = score
+        self.confidence = confidence
+        self.signals = signals
+        self.rationale = rationale
+        self.version = version
+    }
+}
+
+public struct IngestionEntityDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let name: String
+    public let type: String
+    public let confidence: Double
+
+    public init(id: UUID, name: String, type: String, confidence: Double) {
+        self.id = id
+        self.name = name
+        self.type = type
+        self.confidence = confidence
+    }
+}
+
+public struct IngestionRelationshipDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let subjectEntityID: UUID
+    public let predicate: String
+    public let objectEntityID: UUID
+    public let confidence: Double
+    public let evidence: String?
+
+    public init(
+        id: UUID,
+        subjectEntityID: UUID,
+        predicate: String,
+        objectEntityID: UUID,
+        confidence: Double,
+        evidence: String? = nil
+    ) {
+        self.id = id
+        self.subjectEntityID = subjectEntityID
+        self.predicate = predicate
+        self.objectEntityID = objectEntityID
+        self.confidence = confidence
+        self.evidence = evidence
+    }
+}
+
+public struct IngestionItemDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let batchID: UUID
+    public let kind: IngestionSourceKindDTO
+    public let state: IngestionItemStateDTO
+    public let fileName: String?
+    public let contentType: String?
+    public let sizeBytes: Int64?
+    public let uploadedBytes: Int64
+    public let url: String?
+    public let vaultFileID: UUID?
+    public let memoryID: UUID?
+    public let summary: String?
+    public let error: String?
+    public let credibility: IngestionCredibilityDTO?
+    public let entities: [IngestionEntityDTO]
+    public let relationships: [IngestionRelationshipDTO]
+    public let createdAt: Date?
+    public let updatedAt: Date?
+
+    public init(
+        id: UUID,
+        batchID: UUID,
+        kind: IngestionSourceKindDTO,
+        state: IngestionItemStateDTO,
+        fileName: String? = nil,
+        contentType: String? = nil,
+        sizeBytes: Int64? = nil,
+        uploadedBytes: Int64 = 0,
+        url: String? = nil,
+        vaultFileID: UUID? = nil,
+        memoryID: UUID? = nil,
+        summary: String? = nil,
+        error: String? = nil,
+        credibility: IngestionCredibilityDTO? = nil,
+        entities: [IngestionEntityDTO] = [],
+        relationships: [IngestionRelationshipDTO] = [],
+        createdAt: Date? = nil,
+        updatedAt: Date? = nil
+    ) {
+        self.id = id
+        self.batchID = batchID
+        self.kind = kind
+        self.state = state
+        self.fileName = fileName
+        self.contentType = contentType
+        self.sizeBytes = sizeBytes
+        self.uploadedBytes = uploadedBytes
+        self.url = url
+        self.vaultFileID = vaultFileID
+        self.memoryID = memoryID
+        self.summary = summary
+        self.error = error
+        self.credibility = credibility
+        self.entities = entities
+        self.relationships = relationships
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct IngestionBatchDTO: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let state: String
+    public let total: Int
+    public let completed: Int
+    public let failed: Int
+    public let chunkSizeBytes: Int
+    public let items: [IngestionItemDTO]
+    public let createdAt: Date?
+    public let updatedAt: Date?
+
+    public init(
+        id: UUID,
+        state: String,
+        total: Int,
+        completed: Int,
+        failed: Int,
+        chunkSizeBytes: Int,
+        items: [IngestionItemDTO],
+        createdAt: Date? = nil,
+        updatedAt: Date? = nil
+    ) {
+        self.id = id
+        self.state = state
+        self.total = total
+        self.completed = completed
+        self.failed = failed
+        self.chunkSizeBytes = chunkSizeBytes
+        self.items = items
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct IngestionBatchListDTO: Codable, Sendable {
+    public let batches: [IngestionBatchDTO]
+    public init(batches: [IngestionBatchDTO]) { self.batches = batches }
 }
