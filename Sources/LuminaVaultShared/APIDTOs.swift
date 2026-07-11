@@ -4354,6 +4354,14 @@ public struct HermesCapabilities: Codable, Sendable {
     public let gateways: HermesDomainAvailability
     public let memory: HermesDomainAvailability
     public let providers: HermesDomainAvailability
+    /// Availability of the structured document/image/audio/video ingestion API.
+    public let multimodalIngestion: HermesDomainAvailability?
+    /// MIME types advertised by a remote Hermes. Nil means the gateway did not advertise a list.
+    public let ingestionSupportedMimeTypes: [String]?
+    /// Maximum source size accepted by the remote gateway, when advertised.
+    public let ingestionMaxSourceBytes: Int64?
+    /// Whether the remote gateway can fetch a short-lived HTTPS source URL.
+    public let ingestionRemoteSourceURL: Bool?
     public init(
         isUserOverride: Bool,
         remoteVersion: String? = nil,
@@ -4364,7 +4372,11 @@ public struct HermesCapabilities: Codable, Sendable {
         soul: HermesDomainAvailability,
         gateways: HermesDomainAvailability,
         memory: HermesDomainAvailability,
-        providers: HermesDomainAvailability
+        providers: HermesDomainAvailability,
+        multimodalIngestion: HermesDomainAvailability? = nil,
+        ingestionSupportedMimeTypes: [String]? = nil,
+        ingestionMaxSourceBytes: Int64? = nil,
+        ingestionRemoteSourceURL: Bool? = nil
     ) {
         self.isUserOverride = isUserOverride
         self.remoteVersion = remoteVersion
@@ -4376,6 +4388,10 @@ public struct HermesCapabilities: Codable, Sendable {
         self.gateways = gateways
         self.memory = memory
         self.providers = providers
+        self.multimodalIngestion = multimodalIngestion
+        self.ingestionSupportedMimeTypes = ingestionSupportedMimeTypes
+        self.ingestionMaxSourceBytes = ingestionMaxSourceBytes
+        self.ingestionRemoteSourceURL = ingestionRemoteSourceURL
     }
 
     /// Every domain owned by the managed container — the default for tenants
@@ -4383,7 +4399,11 @@ public struct HermesCapabilities: Codable, Sendable {
     public static let managedDefault = HermesCapabilities(
         isUserOverride: false,
         chat: .managed, sessions: .managed, jobs: .managed, skills: .managed,
-        soul: .managed, gateways: .managed, memory: .managed, providers: .managed
+        soul: .managed, gateways: .managed, memory: .managed, providers: .managed,
+        multimodalIngestion: .managed,
+        ingestionSupportedMimeTypes: ["application/pdf", "image/*", "audio/*", "video/*", "text/html"],
+        ingestionMaxSourceBytes: 2 * 1024 * 1024 * 1024,
+        ingestionRemoteSourceURL: false
     )
 }
 
