@@ -7421,6 +7421,10 @@ public struct IngestionItemDTO: Codable, Sendable, Identifiable {
     public let credibility: IngestionCredibilityDTO?
     public let entities: [IngestionEntityDTO]
     public let relationships: [IngestionRelationshipDTO]
+    public let contentSHA256: String?
+    public let pipelineVersion: String?
+    public let reusedFromItemID: UUID?
+    public let graphReadyAt: Date?
     public let createdAt: Date?
     public let updatedAt: Date?
 
@@ -7441,6 +7445,10 @@ public struct IngestionItemDTO: Codable, Sendable, Identifiable {
         credibility: IngestionCredibilityDTO? = nil,
         entities: [IngestionEntityDTO] = [],
         relationships: [IngestionRelationshipDTO] = [],
+        contentSHA256: String? = nil,
+        pipelineVersion: String? = nil,
+        reusedFromItemID: UUID? = nil,
+        graphReadyAt: Date? = nil,
         createdAt: Date? = nil,
         updatedAt: Date? = nil
     ) {
@@ -7460,8 +7468,40 @@ public struct IngestionItemDTO: Codable, Sendable, Identifiable {
         self.credibility = credibility
         self.entities = entities
         self.relationships = relationships
+        self.contentSHA256 = contentSHA256
+        self.pipelineVersion = pipelineVersion
+        self.reusedFromItemID = reusedFromItemID
+        self.graphReadyAt = graphReadyAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+}
+
+public enum IngestionEventTypeDTO: String, Codable, Sendable {
+    case snapshot
+    case stateChanged = "state_changed"
+    case progress
+    case terminal
+    case heartbeat
+}
+
+public struct IngestionEventDTO: Codable, Sendable, Identifiable {
+    public let id: Int64
+    public let batchID: UUID
+    public let itemID: UUID?
+    public let type: IngestionEventTypeDTO
+    public let state: IngestionItemStateDTO?
+    public let uploadedBytes: Int64?
+    public let createdAt: Date
+
+    public init(id: Int64, batchID: UUID, itemID: UUID? = nil, type: IngestionEventTypeDTO, state: IngestionItemStateDTO? = nil, uploadedBytes: Int64? = nil, createdAt: Date) {
+        self.id = id
+        self.batchID = batchID
+        self.itemID = itemID
+        self.type = type
+        self.state = state
+        self.uploadedBytes = uploadedBytes
+        self.createdAt = createdAt
     }
 }
 
