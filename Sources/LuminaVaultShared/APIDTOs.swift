@@ -6836,10 +6836,15 @@ public struct ModelEffectivenessDTO: Codable, Sendable, Equatable, Identifiable 
     public let p95LatencyMs: Int
     public let tokens: Int
     public let estimatedCostUsdMicros: Int64
+    public let positiveFeedback: Int?
+    public let negativeFeedback: Int?
+    public let satisfactionRate: Double?
 
     public init(provider: String, model: String, requests: Int, successRate: Double,
                 fallbackRate: Double, averageLatencyMs: Int, p95LatencyMs: Int,
-                tokens: Int, estimatedCostUsdMicros: Int64)
+                tokens: Int, estimatedCostUsdMicros: Int64,
+                positiveFeedback: Int? = nil, negativeFeedback: Int? = nil,
+                satisfactionRate: Double? = nil)
     {
         self.provider = provider
         self.model = model
@@ -6850,6 +6855,9 @@ public struct ModelEffectivenessDTO: Codable, Sendable, Equatable, Identifiable 
         self.p95LatencyMs = p95LatencyMs
         self.tokens = tokens
         self.estimatedCostUsdMicros = estimatedCostUsdMicros
+        self.positiveFeedback = positiveFeedback
+        self.negativeFeedback = negativeFeedback
+        self.satisfactionRate = satisfactionRate
     }
 }
 
@@ -6859,6 +6867,26 @@ public struct ModelEffectivenessResponse: Codable, Sendable {
     public init(range: AnalyticsRange, models: [ModelEffectivenessDTO]) {
         self.range = range
         self.models = models
+    }
+}
+
+public enum ModelFeedbackRating: String, Codable, Sendable {
+    case positive, negative
+}
+
+public struct ModelFeedbackRequest: Codable, Sendable {
+    public let provider: String
+    public let model: String
+    public let rating: ModelFeedbackRating
+    public let idempotencyKey: String?
+
+    public init(provider: String, model: String, rating: ModelFeedbackRating,
+                idempotencyKey: String? = nil)
+    {
+        self.provider = provider
+        self.model = model
+        self.rating = rating
+        self.idempotencyKey = idempotencyKey
     }
 }
 
