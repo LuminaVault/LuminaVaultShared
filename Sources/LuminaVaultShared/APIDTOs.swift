@@ -6299,6 +6299,25 @@ public struct MarketplaceInstallRequest: Codable, Sendable {
     }
 }
 
+public struct MarketplaceUpgradeRequest: Codable, Sendable {
+    public let fromVersionId: UUID
+    public let toVersionId: UUID
+    public let grantedPermissions: [PluginPermission]
+    public let config: [String: String]
+
+    public init(
+        fromVersionId: UUID,
+        toVersionId: UUID,
+        grantedPermissions: [PluginPermission],
+        config: [String: String] = [:]
+    ) {
+        self.fromVersionId = fromVersionId
+        self.toVersionId = toVersionId
+        self.grantedPermissions = grantedPermissions
+        self.config = config
+    }
+}
+
 public struct PublisherApplicationRequest: Codable, Sendable {
     public let handle: String
     public let displayName: String
@@ -6374,10 +6393,13 @@ public struct MarketplaceArtifactUploadResponse: Codable, Sendable {
     public let artifactKey: String
     public let sha256: String
     public let sizeBytes: Int
-    public init(artifactKey: String, sha256: String, sizeBytes: Int) {
+    public let signature: String
+
+    public init(artifactKey: String, sha256: String, sizeBytes: Int, signature: String) {
         self.artifactKey = artifactKey
         self.sha256 = sha256
         self.sizeBytes = sizeBytes
+        self.signature = signature
     }
 }
 

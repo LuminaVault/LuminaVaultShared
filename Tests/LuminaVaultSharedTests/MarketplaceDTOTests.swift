@@ -38,4 +38,34 @@ struct MarketplaceDTOTests {
         #expect(decoded.grantedPermissions == [.vaultRead, .outputEmit])
         #expect(decoded.config == ["token": "secret"])
     }
+
+    @Test
+    func `upgrade request preserves optimistic version lock and consent`() throws {
+        let original = MarketplaceUpgradeRequest(
+            fromVersionId: UUID(), toVersionId: UUID(),
+            grantedPermissions: [.memoryRead, .vaultWrite], config: ["folder": "Research"]
+        )
+
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(MarketplaceUpgradeRequest.self, from: data)
+
+        #expect(decoded.fromVersionId == original.fromVersionId)
+        #expect(decoded.toVersionId == original.toVersionId)
+        #expect(decoded.grantedPermissions == original.grantedPermissions)
+        #expect(decoded.config == original.config)
+    }
+
+    @Test
+    func `artifact upload response carries server signature`() throws {
+        let original = MarketplaceArtifactUploadResponse(
+            artifactKey: "publisher/plugin/hash.wasm", sha256: String(repeating: "a", count: 64),
+            sizeBytes: 128, signature: String(repeating: "b", count: 64)
+        )
+
+        let decoded = try JSONDecoder().decode(
+            MarketplaceArtifactUploadResponse.self, from: JSONEncoder().encode(original)
+        )
+
+        #expect(decoded.signature == original.signature)
+    }
 }
