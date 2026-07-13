@@ -1561,12 +1561,58 @@ public struct ConversationPrepareResponse: Codable, Sendable {
     public let messages: [ChatMessage]
     public let sources: [QueryHitDTO]
     public let expiresAt: Date
+    public let allowedTools: [LocalExecutionToolDTO]
 
-    public init(executionID: UUID, messages: [ChatMessage], sources: [QueryHitDTO], expiresAt: Date) {
+    public init(
+        executionID: UUID,
+        messages: [ChatMessage],
+        sources: [QueryHitDTO],
+        expiresAt: Date,
+        allowedTools: [LocalExecutionToolDTO] = []
+    ) {
         self.executionID = executionID
         self.messages = messages
         self.sources = sources
         self.expiresAt = expiresAt
+        self.allowedTools = allowedTools
+    }
+}
+
+public enum LocalExecutionToolName: String, Codable, Sendable, CaseIterable {
+    case memorySearch = "memory_search"
+}
+
+public struct LocalExecutionToolDTO: Codable, Sendable, Equatable {
+    public let name: LocalExecutionToolName
+    public let description: String
+
+    public init(name: LocalExecutionToolName, description: String) {
+        self.name = name
+        self.description = description
+    }
+}
+
+public struct LocalToolInvokeRequest: Codable, Sendable, Equatable {
+    public let name: LocalExecutionToolName
+    public let query: String
+    public let limit: Int?
+
+    public init(name: LocalExecutionToolName, query: String, limit: Int? = nil) {
+        self.name = name
+        self.query = query
+        self.limit = limit
+    }
+}
+
+public struct LocalToolInvokeResponse: Codable, Sendable {
+    public let name: LocalExecutionToolName
+    public let content: String
+    public let sources: [QueryHitDTO]
+
+    public init(name: LocalExecutionToolName, content: String, sources: [QueryHitDTO]) {
+        self.name = name
+        self.content = content
+        self.sources = sources
     }
 }
 
