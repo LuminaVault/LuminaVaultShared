@@ -560,10 +560,53 @@ public enum MemorySourceKindDTO: String, Codable, Sendable, CaseIterable {
 public struct ModelProvenanceDTO: Codable, Sendable, Equatable, Hashable {
     public let provider: String
     public let model: String
+    /// Optional Auto (Smart) explanation, e.g. "simple query → fast tier".
+    public let reason: String?
+    public let routingPolicy: LLMRoutingPolicy?
+    public let complexity: RouterComplexity?
+    public let taskType: RouterTaskType?
 
-    public init(provider: String, model: String) {
+    public init(
+        provider: String,
+        model: String,
+        reason: String? = nil,
+        routingPolicy: LLMRoutingPolicy? = nil,
+        complexity: RouterComplexity? = nil,
+        taskType: RouterTaskType? = nil
+    ) {
         self.provider = provider
         self.model = model
+        self.reason = reason
+        self.routingPolicy = routingPolicy
+        self.complexity = complexity
+        self.taskType = taskType
+    }
+}
+
+/// Server → client summary of a single Auto/Cerberus routing decision.
+public struct RoutingDecisionDTO: Codable, Sendable, Equatable {
+    public let policy: LLMRoutingPolicy
+    public let taskType: RouterTaskType
+    public let complexity: RouterComplexity
+    public let selected: ModelProvenanceDTO
+    public let reason: String
+    /// True when Auto was skipped (BYO Hermes, locked policy, single candidate).
+    public let deferred: Bool
+
+    public init(
+        policy: LLMRoutingPolicy,
+        taskType: RouterTaskType,
+        complexity: RouterComplexity,
+        selected: ModelProvenanceDTO,
+        reason: String,
+        deferred: Bool = false
+    ) {
+        self.policy = policy
+        self.taskType = taskType
+        self.complexity = complexity
+        self.selected = selected
+        self.reason = reason
+        self.deferred = deferred
     }
 }
 
@@ -4553,7 +4596,95 @@ public enum LLMBrainMode: String, Codable, Sendable, CaseIterable {
     case byok
 }
 
+/// Task-aware routing policy. Orthogonal to `LLMBrainMode` (who pays / which keys).
+///
+/// - `locked` — always the configured primary (or forced route)
+/// - `autoSmart` — complexity + task type pick the smallest sufficient model
+/// - `fastCheap` / `balanced` / `maxQuality` — objective weight presets
+public enum LLMRoutingPolicy: String, Codable, Sendable, CaseIterable {
+    case locked
+    case autoSmart
+    case fastCheap
+    case balanced
+    case maxQuality
+
+    /// Default objective weights for preset policies. `autoSmart` and `locked`
+    /// return `nil` so the profile's stored weights apply.
+    public var presetObjective: RouterObjectiveWeightsDTO? {
+        switch self {
+        case .locked, .autoSmart:
+            return nil
+        case .fastCheap:
+            return RouterObjectiveWeightsDTO(quality: 20, cost: 50, latency: 30)
+        case .balanced:
+            return RouterObjectiveWeightsDTO(quality: 50, cost: 25, latency: 25)
+        case .maxQuality:
+            return RouterObjectiveWeightsDTO(quality: 80, cost: 10, latency: 10)
+        }
+    }
+
+    public var displayName: String {
+        switch self {
+        case .locked: return "Locked to primary"
+        case .autoSmart: return "Auto (Smart)"
+        case .fastCheap: return "Fast & Cheap"
+        case .balanced: return "Balanced"
+        case .maxQuality: return "Max Quality"
+        }
+    }
+}
+
 // ─── Cerberus Router ───────────────────────────────────────
+
+/// How hard a turn is — drives the minimum model tier Auto may pick.
+public enum RouterComplexity: String, Codable, Sendable, CaseIterable, Comparable {
+    case low
+    case medium
+    case high
+
+    private var rank: Int {
+        switch self {
+        case .low: return 0
+        case .medium: return 1
+        case .high: return 2
+        }
+    }
+
+    public static func < (lhs: RouterComplexity, rhs: RouterComplexity) -> Bool {
+        lhs.rank < rhs.rank
+    }
+}
+
+/// Capability band of a concrete model in the routing catalog.
+public enum RouterModelTier: String, Codable, Sendable, CaseIterable, Comparable {
+    /// Haiku / Flash / mini class — cheap and fast.
+    case fast
+    /// Sonnet / GPT-4o / mid-tier workhorses.
+    case balanced
+    /// Opus / Fable / frontier reasoning.
+    case max
+
+    private var rank: Int {
+        switch self {
+        case .fast: return 0
+        case .balanced: return 1
+        case .max: return 2
+        }
+    }
+
+    public static func < (lhs: RouterModelTier, rhs: RouterModelTier) -> Bool {
+        lhs.rank < rhs.rank
+    }
+
+    /// Minimum tier allowed for a complexity floor.
+    public static func minimum(for complexity: RouterComplexity) -> RouterModelTier {
+        switch complexity {
+        case .low: return .fast
+        case .medium: return .balanced
+        case .high: return .max
+        }
+    }
+}
 
 public enum RouterTaskType: String, Codable, Sendable, CaseIterable {
     case general
@@ -4965,6 +5096,8 @@ public struct RouterProfileDTO: Codable, Sendable, Equatable, Identifiable {
     public let blockedProviders: [ProviderID]
     public let defaultAction: RouterActionDTO
     public let rules: [RouterRuleDTO]
+    /// Task-aware routing policy. Defaults to `autoSmart` for new profiles.
+    public let routingPolicy: LLMRoutingPolicy
     public let revision: Int
     public let createdAt: Date?
     public let updatedAt: Date?
@@ -4980,6 +5113,7 @@ public struct RouterProfileDTO: Codable, Sendable, Equatable, Identifiable {
         blockedProviders: [ProviderID] = [],
         defaultAction: RouterActionDTO,
         rules: [RouterRuleDTO] = [],
+        routingPolicy: LLMRoutingPolicy = .autoSmart,
         revision: Int = 1,
         createdAt: Date? = nil,
         updatedAt: Date? = nil
@@ -4994,9 +5128,34 @@ public struct RouterProfileDTO: Codable, Sendable, Equatable, Identifiable {
         self.blockedProviders = blockedProviders
         self.defaultAction = defaultAction
         self.rules = rules
+        self.routingPolicy = routingPolicy
         self.revision = revision
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, mode, isPreset, objective, budget
+        case allowedProviders, blockedProviders, defaultAction, rules
+        case routingPolicy, revision, createdAt, updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        mode = try c.decode(LLMBrainMode.self, forKey: .mode)
+        isPreset = try c.decodeIfPresent(Bool.self, forKey: .isPreset) ?? false
+        objective = try c.decodeIfPresent(RouterObjectiveWeightsDTO.self, forKey: .objective) ?? .init()
+        budget = try c.decodeIfPresent(RouterBudgetPolicyDTO.self, forKey: .budget) ?? .init()
+        allowedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .allowedProviders) ?? []
+        blockedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .blockedProviders) ?? []
+        defaultAction = try c.decode(RouterActionDTO.self, forKey: .defaultAction)
+        rules = try c.decodeIfPresent([RouterRuleDTO].self, forKey: .rules) ?? []
+        routingPolicy = try c.decodeIfPresent(LLMRoutingPolicy.self, forKey: .routingPolicy) ?? .autoSmart
+        revision = try c.decodeIfPresent(Int.self, forKey: .revision) ?? 1
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
+        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt)
     }
 }
 
@@ -5009,6 +5168,7 @@ public struct RouterProfileWriteRequest: Codable, Sendable {
     public let blockedProviders: [ProviderID]
     public let defaultAction: RouterActionDTO
     public let rules: [RouterRuleDTO]
+    public let routingPolicy: LLMRoutingPolicy
     public let expectedRevision: Int?
 
     public init(
@@ -5020,6 +5180,7 @@ public struct RouterProfileWriteRequest: Codable, Sendable {
         blockedProviders: [ProviderID] = [],
         defaultAction: RouterActionDTO,
         rules: [RouterRuleDTO] = [],
+        routingPolicy: LLMRoutingPolicy = .autoSmart,
         expectedRevision: Int? = nil
     ) {
         self.name = name
@@ -5030,7 +5191,27 @@ public struct RouterProfileWriteRequest: Codable, Sendable {
         self.blockedProviders = blockedProviders
         self.defaultAction = defaultAction
         self.rules = rules
+        self.routingPolicy = routingPolicy
         self.expectedRevision = expectedRevision
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name, mode, objective, budget, allowedProviders, blockedProviders
+        case defaultAction, rules, routingPolicy, expectedRevision
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        mode = try c.decode(LLMBrainMode.self, forKey: .mode)
+        objective = try c.decode(RouterObjectiveWeightsDTO.self, forKey: .objective)
+        budget = try c.decode(RouterBudgetPolicyDTO.self, forKey: .budget)
+        allowedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .allowedProviders) ?? []
+        blockedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .blockedProviders) ?? []
+        defaultAction = try c.decode(RouterActionDTO.self, forKey: .defaultAction)
+        rules = try c.decodeIfPresent([RouterRuleDTO].self, forKey: .rules) ?? []
+        routingPolicy = try c.decodeIfPresent(LLMRoutingPolicy.self, forKey: .routingPolicy) ?? .autoSmart
+        expectedRevision = try c.decodeIfPresent(Int.self, forKey: .expectedRevision)
     }
 }
 
@@ -5087,6 +5268,8 @@ public struct RouterModelCatalogEntryDTO: Codable, Sendable, Equatable, Identifi
     public let outputPerMillionUsdMicros: Int64?
     public let defaultLatencyMs: Int
     public let capabilities: [String]
+    /// Capability band used by Auto (Smart) tier floors. Defaults to `.balanced`.
+    public let tier: RouterModelTier
 
     public var id: String {
         "\(provider.rawValue):\(model)"
@@ -5100,7 +5283,8 @@ public struct RouterModelCatalogEntryDTO: Codable, Sendable, Equatable, Identifi
         inputPerMillionUsdMicros: Int64? = nil,
         outputPerMillionUsdMicros: Int64? = nil,
         defaultLatencyMs: Int,
-        capabilities: [String] = []
+        capabilities: [String] = [],
+        tier: RouterModelTier = .balanced
     ) {
         self.provider = provider
         self.model = model
@@ -5110,6 +5294,26 @@ public struct RouterModelCatalogEntryDTO: Codable, Sendable, Equatable, Identifi
         self.outputPerMillionUsdMicros = outputPerMillionUsdMicros
         self.defaultLatencyMs = defaultLatencyMs
         self.capabilities = capabilities
+        self.tier = tier
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case provider, model, displayName, taskQuality
+        case inputPerMillionUsdMicros, outputPerMillionUsdMicros
+        case defaultLatencyMs, capabilities, tier
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        provider = try c.decode(ProviderID.self, forKey: .provider)
+        model = try c.decode(String.self, forKey: .model)
+        displayName = try c.decode(String.self, forKey: .displayName)
+        taskQuality = try c.decode([String: Int].self, forKey: .taskQuality)
+        inputPerMillionUsdMicros = try c.decodeIfPresent(Int64.self, forKey: .inputPerMillionUsdMicros)
+        outputPerMillionUsdMicros = try c.decodeIfPresent(Int64.self, forKey: .outputPerMillionUsdMicros)
+        defaultLatencyMs = try c.decode(Int.self, forKey: .defaultLatencyMs)
+        capabilities = try c.decodeIfPresent([String].self, forKey: .capabilities) ?? []
+        tier = try c.decodeIfPresent(RouterModelTier.self, forKey: .tier) ?? .balanced
     }
 }
 
@@ -5261,13 +5465,17 @@ public struct LLMPreferencesGetResponse: Codable, Sendable {
     public let allowedProviders: [ProviderID]
     /// Provider deny-list. The router never routes to these providers.
     public let blockedProviders: [ProviderID]
+    /// Task-aware routing policy. Source of truth is the bound router profile;
+    /// this field mirrors it for Settings UI convenience.
+    public let routingPolicy: LLMRoutingPolicy
     public init(
         mode: LLMBrainMode = .managed,
         primaryProvider: ProviderID,
         primaryModel: String,
         fallbackChain: [ModelRouteDTO],
         allowedProviders: [ProviderID] = [],
-        blockedProviders: [ProviderID] = []
+        blockedProviders: [ProviderID] = [],
+        routingPolicy: LLMRoutingPolicy = .autoSmart
     ) {
         self.mode = mode
         self.primaryProvider = primaryProvider
@@ -5275,11 +5483,12 @@ public struct LLMPreferencesGetResponse: Codable, Sendable {
         self.fallbackChain = fallbackChain
         self.allowedProviders = allowedProviders
         self.blockedProviders = blockedProviders
+        self.routingPolicy = routingPolicy
     }
 
     private enum CodingKeys: String, CodingKey {
         case mode, primaryProvider, primaryModel, fallbackChain
-        case allowedProviders, blockedProviders
+        case allowedProviders, blockedProviders, routingPolicy
     }
 
     public init(from decoder: Decoder) throws {
@@ -5290,6 +5499,7 @@ public struct LLMPreferencesGetResponse: Codable, Sendable {
         fallbackChain = try c.decode([ModelRouteDTO].self, forKey: .fallbackChain)
         allowedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .allowedProviders) ?? []
         blockedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .blockedProviders) ?? []
+        routingPolicy = try c.decodeIfPresent(LLMRoutingPolicy.self, forKey: .routingPolicy) ?? .autoSmart
     }
 }
 
@@ -5300,13 +5510,15 @@ public struct LLMPreferencesPutRequest: Codable, Sendable {
     public let fallbackChain: [ModelRouteDTO]
     public let allowedProviders: [ProviderID]
     public let blockedProviders: [ProviderID]
+    public let routingPolicy: LLMRoutingPolicy
     public init(
         mode: LLMBrainMode = .managed,
         primaryProvider: ProviderID,
         primaryModel: String,
         fallbackChain: [ModelRouteDTO],
         allowedProviders: [ProviderID] = [],
-        blockedProviders: [ProviderID] = []
+        blockedProviders: [ProviderID] = [],
+        routingPolicy: LLMRoutingPolicy = .autoSmart
     ) {
         self.mode = mode
         self.primaryProvider = primaryProvider
@@ -5314,11 +5526,12 @@ public struct LLMPreferencesPutRequest: Codable, Sendable {
         self.fallbackChain = fallbackChain
         self.allowedProviders = allowedProviders
         self.blockedProviders = blockedProviders
+        self.routingPolicy = routingPolicy
     }
 
     private enum CodingKeys: String, CodingKey {
         case mode, primaryProvider, primaryModel, fallbackChain
-        case allowedProviders, blockedProviders
+        case allowedProviders, blockedProviders, routingPolicy
     }
 
     public init(from decoder: Decoder) throws {
@@ -5329,6 +5542,7 @@ public struct LLMPreferencesPutRequest: Codable, Sendable {
         fallbackChain = try c.decode([ModelRouteDTO].self, forKey: .fallbackChain)
         allowedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .allowedProviders) ?? []
         blockedProviders = try c.decodeIfPresent([ProviderID].self, forKey: .blockedProviders) ?? []
+        routingPolicy = try c.decodeIfPresent(LLMRoutingPolicy.self, forKey: .routingPolicy) ?? .autoSmart
     }
 }
 

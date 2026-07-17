@@ -195,6 +195,25 @@ struct LLMBrainModeRoundTripTests {
         #expect(LLMBrainMode.allCases.count == 2)
     }
 
+    @Test func routingPolicyWireValues() {
+        #expect(LLMRoutingPolicy.autoSmart.rawValue == "autoSmart")
+        #expect(LLMRoutingPolicy.fastCheap.presetObjective?.cost == 50)
+        #expect(LLMRoutingPolicy.allCases.count == 5)
+    }
+
+    @Test func complexityAndTierOrdering() {
+        #expect(RouterComplexity.low < RouterComplexity.high)
+        #expect(RouterModelTier.fast < RouterModelTier.max)
+        #expect(RouterModelTier.minimum(for: .low) == .fast)
+        #expect(RouterModelTier.minimum(for: .high) == .max)
+    }
+
+    @Test func legacyPreferencesJSONDefaultsRoutingPolicy() throws {
+        let legacyJSON = Data(#"{"mode":"byok","primaryProvider":"openai","primaryModel":"gpt-4o","fallbackChain":[]}"#.utf8)
+        let decoded = try JSONDecoder().decode(LLMPreferencesGetResponse.self, from: legacyJSON)
+        #expect(decoded.routingPolicy == .autoSmart)
+    }
+
     @Test func getResponseRoundTrip() throws {
         let original = LLMPreferencesGetResponse(
             mode: .byok,
