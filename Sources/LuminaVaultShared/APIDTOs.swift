@@ -6991,12 +6991,13 @@ public struct MemoryReviewResponse: Codable, Sendable {
     }
 }
 
-// ─── Home aggregate (HER-Home) ─────────────────────────────────────────────
-// One-shot counts powering the Home dashboard cards, plus the active Hermes
-// profile. Avoids N round-trips on the landing screen.
+// ─── Home aggregate (HER-Home / Command Center) ───────────────────────────
+// One-shot payload for the Home Command Center: counts, active model, power
+// progress, skill names, and live active jobs. Avoids N round-trips.
 
 public struct HomeSummaryResponse: Codable, Sendable {
     public let skillsCount: Int
+    /// Lifetime skill-run count (historical). Prefer `activeJobsCount` for live work.
     public let jobsCount: Int
     public let remindersCount: Int
     public let todosCount: Int
@@ -7004,6 +7005,25 @@ public struct HomeSummaryResponse: Codable, Sendable {
     public let insightsCount: Int
     public let activeProfileName: String?
     public let activeProfileSlug: String?
+    /// Active brain model (e.g. `openRouter`). Nil when using deploy defaults with no row.
+    public let primaryProvider: String?
+    /// Active model id (e.g. `qwen/qwen-2.5-72b-instruct`).
+    public let primaryModel: String?
+    /// Whether the tenant has a usable agent profile / recent activity signal.
+    public let agentOnline: Bool
+    public let memoriesToday: Int
+    public let memoriesTotal: Int
+    public let sessionsCount: Int
+    /// Running + queued agent work (workflows, gateway apply, …).
+    public let activeJobsCount: Int
+    public let activeJobs: [TaskDTO]
+    /// Enabled skill names (preview, capped server-side).
+    public let skills: [String]
+    public let powerLevel: Int
+    public let powerXP: Int
+    public let badgesEarned: Int
+    public let streakDays: Int
+
     public init(
         skillsCount: Int,
         jobsCount: Int,
@@ -7012,12 +7032,68 @@ public struct HomeSummaryResponse: Codable, Sendable {
         projectsCount: Int,
         insightsCount: Int,
         activeProfileName: String? = nil,
-        activeProfileSlug: String? = nil
+        activeProfileSlug: String? = nil,
+        primaryProvider: String? = nil,
+        primaryModel: String? = nil,
+        agentOnline: Bool = true,
+        memoriesToday: Int = 0,
+        memoriesTotal: Int = 0,
+        sessionsCount: Int = 0,
+        activeJobsCount: Int = 0,
+        activeJobs: [TaskDTO] = [],
+        skills: [String] = [],
+        powerLevel: Int = 1,
+        powerXP: Int = 0,
+        badgesEarned: Int = 0,
+        streakDays: Int = 0
     ) {
-        self.skillsCount = skillsCount; self.jobsCount = jobsCount
-        self.remindersCount = remindersCount; self.todosCount = todosCount
-        self.projectsCount = projectsCount; self.insightsCount = insightsCount
-        self.activeProfileName = activeProfileName; self.activeProfileSlug = activeProfileSlug
+        self.skillsCount = skillsCount
+        self.jobsCount = jobsCount
+        self.remindersCount = remindersCount
+        self.todosCount = todosCount
+        self.projectsCount = projectsCount
+        self.insightsCount = insightsCount
+        self.activeProfileName = activeProfileName
+        self.activeProfileSlug = activeProfileSlug
+        self.primaryProvider = primaryProvider
+        self.primaryModel = primaryModel
+        self.agentOnline = agentOnline
+        self.memoriesToday = memoriesToday
+        self.memoriesTotal = memoriesTotal
+        self.sessionsCount = sessionsCount
+        self.activeJobsCount = activeJobsCount
+        self.activeJobs = activeJobs
+        self.skills = skills
+        self.powerLevel = powerLevel
+        self.powerXP = powerXP
+        self.badgesEarned = badgesEarned
+        self.streakDays = streakDays
+    }
+
+    /// Decode-tolerant: older servers omit Command Center fields; fill defaults.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        skillsCount = try c.decode(Int.self, forKey: .skillsCount)
+        jobsCount = try c.decode(Int.self, forKey: .jobsCount)
+        remindersCount = try c.decode(Int.self, forKey: .remindersCount)
+        todosCount = try c.decode(Int.self, forKey: .todosCount)
+        projectsCount = try c.decode(Int.self, forKey: .projectsCount)
+        insightsCount = try c.decode(Int.self, forKey: .insightsCount)
+        activeProfileName = try c.decodeIfPresent(String.self, forKey: .activeProfileName)
+        activeProfileSlug = try c.decodeIfPresent(String.self, forKey: .activeProfileSlug)
+        primaryProvider = try c.decodeIfPresent(String.self, forKey: .primaryProvider)
+        primaryModel = try c.decodeIfPresent(String.self, forKey: .primaryModel)
+        agentOnline = try c.decodeIfPresent(Bool.self, forKey: .agentOnline) ?? true
+        memoriesToday = try c.decodeIfPresent(Int.self, forKey: .memoriesToday) ?? 0
+        memoriesTotal = try c.decodeIfPresent(Int.self, forKey: .memoriesTotal) ?? 0
+        sessionsCount = try c.decodeIfPresent(Int.self, forKey: .sessionsCount) ?? 0
+        activeJobsCount = try c.decodeIfPresent(Int.self, forKey: .activeJobsCount) ?? 0
+        activeJobs = try c.decodeIfPresent([TaskDTO].self, forKey: .activeJobs) ?? []
+        skills = try c.decodeIfPresent([String].self, forKey: .skills) ?? []
+        powerLevel = try c.decodeIfPresent(Int.self, forKey: .powerLevel) ?? 1
+        powerXP = try c.decodeIfPresent(Int.self, forKey: .powerXP) ?? 0
+        badgesEarned = try c.decodeIfPresent(Int.self, forKey: .badgesEarned) ?? 0
+        streakDays = try c.decodeIfPresent(Int.self, forKey: .streakDays) ?? 0
     }
 }
 
