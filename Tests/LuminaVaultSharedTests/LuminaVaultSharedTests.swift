@@ -279,3 +279,50 @@ struct LLMBrainModeRoundTripTests {
         #expect(dict?["brainConfiguredCompleted"] as? Bool == true)
     }
 }
+
+@Suite("Cerberus Studio workflow contracts")
+struct CerberusStudioContractTests {
+    @Test func legacyDefinitionDefaultsSchemaVersion() throws {
+        let json = Data(#"{"trigger":"manual","triggerConfiguration":{},"nodes":[],"edges":[]}"#.utf8)
+        let definition = try JSONDecoder().decode(WorkflowDefinitionDTO.self, from: json)
+        #expect(definition.schemaVersion == 1)
+    }
+
+    @Test func approvalAttachmentsAreAdditive() throws {
+        let legacy = try JSONDecoder().decode(
+            WorkflowApprovalDecisionRequest.self,
+            from: Data(#"{"approved":true,"note":"Looks good"}"#.utf8)
+        )
+        #expect(legacy.memoryIDs == nil)
+
+        let memoryID = UUID()
+        let current = WorkflowApprovalDecisionRequest(approved: true, memoryIDs: [memoryID])
+        let roundTrip = try JSONDecoder().decode(
+            WorkflowApprovalDecisionRequest.self,
+            from: JSONEncoder().encode(current)
+        )
+        #expect(roundTrip.memoryIDs == [memoryID])
+    }
+
+    @Test func workflowRoutingScopesHaveStableWireValues() {
+        #expect(RouterSurface.workflow.rawValue == "workflow")
+        #expect(RouterBindingScope.workflow.rawValue == "workflow")
+    }
+
+    @Test func runEventRoundTrips() throws {
+        let event = WorkflowRunEventDTO(
+            id: 42,
+            runID: UUID(),
+            kind: .nodeOutput,
+            nodeID: UUID(),
+            message: "Streaming",
+            data: ["delta": "hello"],
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        let decoded = try JSONDecoder().decode(
+            WorkflowRunEventDTO.self,
+            from: JSONEncoder().encode(event)
+        )
+        #expect(decoded == event)
+    }
+}

@@ -3592,11 +3592,32 @@ public enum WorkflowNodeKind: String, Codable, Sendable, CaseIterable {
 }
 
 public enum WorkflowRunStatus: String, Codable, Sendable, CaseIterable {
-    case queued, running, waitingForApproval, succeeded, failed, cancelled, timedOut
+    case queued, running, waitingForApproval, paused, succeeded, failed, cancelled, timedOut
 }
 
 public enum WorkflowNodeRunStatus: String, Codable, Sendable, CaseIterable {
     case pending, running, waitingForApproval, succeeded, failed, skipped, cancelled
+}
+
+public enum WorkflowPauseReason: String, Codable, Sendable, CaseIterable {
+    case runSpendLimit
+    case dailySpendLimit
+    case monthlySpendLimit
+    case globalSpendLimit
+    case providerUnavailable
+}
+
+public enum WorkflowRunEventKind: String, Codable, Sendable, CaseIterable {
+    case runQueued
+    case runStarted
+    case nodeStarted
+    case nodeOutput
+    case nodeCompleted
+    case approvalRequired
+    case runPaused
+    case runCompleted
+    case runFailed
+    case runCancelled
 }
 
 /// A canvas node. `configuration` is intentionally string-valued in v1:
@@ -3630,14 +3651,28 @@ public struct WorkflowEdgeDTO: Codable, Sendable, Equatable, Identifiable {
 }
 
 public struct WorkflowDefinitionDTO: Codable, Sendable, Equatable {
+    public let schemaVersion: Int
     public let trigger: WorkflowTriggerKind
     public let triggerConfiguration: [String: String]
     public let nodes: [WorkflowNodeDTO]
     public let edges: [WorkflowEdgeDTO]
 
-    public init(trigger: WorkflowTriggerKind, triggerConfiguration: [String: String] = [:], nodes: [WorkflowNodeDTO], edges: [WorkflowEdgeDTO]) {
-        self.trigger = trigger; self.triggerConfiguration = triggerConfiguration
+    public init(schemaVersion: Int = 1, trigger: WorkflowTriggerKind, triggerConfiguration: [String: String] = [:], nodes: [WorkflowNodeDTO], edges: [WorkflowEdgeDTO]) {
+        self.schemaVersion = schemaVersion; self.trigger = trigger; self.triggerConfiguration = triggerConfiguration
         self.nodes = nodes; self.edges = edges
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, trigger, triggerConfiguration, nodes, edges
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        trigger = try container.decode(WorkflowTriggerKind.self, forKey: .trigger)
+        triggerConfiguration = try container.decodeIfPresent([String: String].self, forKey: .triggerConfiguration) ?? [:]
+        nodes = try container.decode([WorkflowNodeDTO].self, forKey: .nodes)
+        edges = try container.decode([WorkflowEdgeDTO].self, forKey: .edges)
     }
 }
 
@@ -3719,10 +3754,17 @@ public struct WorkflowNodeRunDTO: Codable, Sendable, Equatable, Identifiable {
     public let endedAt: Date?
     public let outputPreview: String?
     public let error: String?
-    public init(id: UUID, nodeID: UUID, nodeName: String, status: WorkflowNodeRunStatus, attempt: Int, startedAt: Date? = nil, endedAt: Date? = nil, outputPreview: String? = nil, error: String? = nil) {
+    public let provider: ProviderID?
+    public let model: String?
+    public let tokensIn: Int?
+    public let tokensOut: Int?
+    public let managedCostUsdMicros: Int64?
+    public init(id: UUID, nodeID: UUID, nodeName: String, status: WorkflowNodeRunStatus, attempt: Int, startedAt: Date? = nil, endedAt: Date? = nil, outputPreview: String? = nil, error: String? = nil, provider: ProviderID? = nil, model: String? = nil, tokensIn: Int? = nil, tokensOut: Int? = nil, managedCostUsdMicros: Int64? = nil) {
         self.id = id; self.nodeID = nodeID; self.nodeName = nodeName; self.status = status
         self.attempt = attempt; self.startedAt = startedAt; self.endedAt = endedAt
-        self.outputPreview = outputPreview; self.error = error
+        self.outputPreview = outputPreview; self.error = error; self.provider = provider
+        self.model = model; self.tokensIn = tokensIn; self.tokensOut = tokensOut
+        self.managedCostUsdMicros = managedCostUsdMicros
     }
 }
 
@@ -3737,12 +3779,18 @@ public struct WorkflowRunDTO: Codable, Sendable, Equatable, Identifiable {
     public let endedAt: Date?
     public let createdAt: Date
     public let error: String?
+    public let pauseReason: WorkflowPauseReason?
+    public let managedSpendUsdMicros: Int64?
+    public let managedSpendLimitUsdMicros: Int64?
     public let nodeRuns: [WorkflowNodeRunDTO]
-    public init(id: UUID, workflowID: UUID, workflowName: String, version: Int, status: WorkflowRunStatus, trigger: WorkflowTriggerKind, startedAt: Date? = nil, endedAt: Date? = nil, createdAt: Date, error: String? = nil, nodeRuns: [WorkflowNodeRunDTO] = []) {
+    public init(id: UUID, workflowID: UUID, workflowName: String, version: Int, status: WorkflowRunStatus, trigger: WorkflowTriggerKind, startedAt: Date? = nil, endedAt: Date? = nil, createdAt: Date, error: String? = nil, pauseReason: WorkflowPauseReason? = nil, managedSpendUsdMicros: Int64? = nil, managedSpendLimitUsdMicros: Int64? = nil, nodeRuns: [WorkflowNodeRunDTO] = []) {
         self.id = id; self.workflowID = workflowID; self.workflowName = workflowName
         self.version = version; self.status = status; self.trigger = trigger
         self.startedAt = startedAt; self.endedAt = endedAt; self.createdAt = createdAt
-        self.error = error; self.nodeRuns = nodeRuns
+        self.error = error; self.pauseReason = pauseReason
+        self.managedSpendUsdMicros = managedSpendUsdMicros
+        self.managedSpendLimitUsdMicros = managedSpendLimitUsdMicros
+        self.nodeRuns = nodeRuns
     }
 }
 
@@ -3780,8 +3828,113 @@ public struct WorkflowApprovalsResponse: Codable, Sendable {
 public struct WorkflowApprovalDecisionRequest: Codable, Sendable {
     public let approved: Bool
     public let note: String?
-    public init(approved: Bool, note: String? = nil) {
-        self.approved = approved; self.note = note
+    public let memoryIDs: [UUID]?
+    public init(approved: Bool, note: String? = nil, memoryIDs: [UUID]? = nil) {
+        self.approved = approved; self.note = note; self.memoryIDs = memoryIDs
+    }
+}
+
+public struct WorkflowRunEventDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: Int64
+    public let runID: UUID
+    public let kind: WorkflowRunEventKind
+    public let nodeID: UUID?
+    public let message: String?
+    public let data: [String: String]
+    public let createdAt: Date
+
+    public init(id: Int64, runID: UUID, kind: WorkflowRunEventKind, nodeID: UUID? = nil, message: String? = nil, data: [String: String] = [:], createdAt: Date) {
+        self.id = id; self.runID = runID; self.kind = kind; self.nodeID = nodeID
+        self.message = message; self.data = data; self.createdAt = createdAt
+    }
+}
+
+public struct WorkflowRunEventsResponse: Codable, Sendable, Equatable {
+    public let events: [WorkflowRunEventDTO]
+    public init(events: [WorkflowRunEventDTO]) { self.events = events }
+}
+
+public struct WorkflowVersionDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let workflowID: UUID
+    public let version: Int
+    public let definition: WorkflowDefinitionDTO
+    public let createdAt: Date
+
+    public init(id: UUID, workflowID: UUID, version: Int, definition: WorkflowDefinitionDTO, createdAt: Date) {
+        self.id = id; self.workflowID = workflowID; self.version = version
+        self.definition = definition; self.createdAt = createdAt
+    }
+}
+
+public struct WorkflowVersionsResponse: Codable, Sendable, Equatable {
+    public let versions: [WorkflowVersionDTO]
+    public init(versions: [WorkflowVersionDTO]) { self.versions = versions }
+}
+
+public struct WorkflowValidationIssueDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let code: String
+    public let message: String
+    public let nodeID: UUID?
+
+    public init(id: UUID = UUID(), code: String, message: String, nodeID: UUID? = nil) {
+        self.id = id; self.code = code; self.message = message; self.nodeID = nodeID
+    }
+}
+
+public struct WorkflowValidationResponse: Codable, Sendable, Equatable {
+    public let valid: Bool
+    public let issues: [WorkflowValidationIssueDTO]
+    public init(valid: Bool, issues: [WorkflowValidationIssueDTO] = []) {
+        self.valid = valid; self.issues = issues
+    }
+}
+
+public struct WorkflowTemplateDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let name: String
+    public let descriptionText: String
+    public let category: String
+    public let definition: WorkflowDefinitionDTO
+
+    public init(id: String, name: String, descriptionText: String, category: String, definition: WorkflowDefinitionDTO) {
+        self.id = id; self.name = name; self.descriptionText = descriptionText
+        self.category = category; self.definition = definition
+    }
+}
+
+public struct WorkflowTemplatesResponse: Codable, Sendable, Equatable {
+    public let templates: [WorkflowTemplateDTO]
+    public init(templates: [WorkflowTemplateDTO]) { self.templates = templates }
+}
+
+public struct WorkflowTemplateInstantiateRequest: Codable, Sendable, Equatable {
+    public let name: String?
+    public init(name: String? = nil) { self.name = name }
+}
+
+public struct WorkflowLimitsDTO: Codable, Sendable, Equatable {
+    public let tier: UserTier
+    public let canAuthor: Bool
+    public let activeRuns: Int
+    public let activeRunLimit: Int
+    public let minimumScheduleMinutes: Int
+    public let perRunLimitUsdMicros: Int64
+    public let dailyLimitUsdMicros: Int64
+    public let dailySpentUsdMicros: Int64
+    public let monthlyLimitUsdMicros: Int64
+    public let monthlySpentUsdMicros: Int64
+    public let managedInferenceAvailable: Bool
+    public let freeFallbackActive: Bool
+
+    public init(tier: UserTier, canAuthor: Bool, activeRuns: Int, activeRunLimit: Int, minimumScheduleMinutes: Int, perRunLimitUsdMicros: Int64, dailyLimitUsdMicros: Int64, dailySpentUsdMicros: Int64, monthlyLimitUsdMicros: Int64, monthlySpentUsdMicros: Int64, managedInferenceAvailable: Bool, freeFallbackActive: Bool) {
+        self.tier = tier; self.canAuthor = canAuthor; self.activeRuns = activeRuns
+        self.activeRunLimit = activeRunLimit; self.minimumScheduleMinutes = minimumScheduleMinutes
+        self.perRunLimitUsdMicros = perRunLimitUsdMicros; self.dailyLimitUsdMicros = dailyLimitUsdMicros
+        self.dailySpentUsdMicros = dailySpentUsdMicros; self.monthlyLimitUsdMicros = monthlyLimitUsdMicros
+        self.monthlySpentUsdMicros = monthlySpentUsdMicros
+        self.managedInferenceAvailable = managedInferenceAvailable; self.freeFallbackActive = freeFallbackActive
     }
 }
 
@@ -4702,6 +4855,7 @@ public enum RouterSurface: String, Codable, Sendable, CaseIterable {
     case query
     case knowledgeCompile
     case job
+    case workflow
     case skill
     case memo
     case system
@@ -5229,6 +5383,7 @@ public enum RouterBindingScope: String, Codable, Sendable, CaseIterable {
     case user
     case space
     case job
+    case workflow
 }
 
 public struct RouterBindingDTO: Codable, Sendable, Equatable, Identifiable {
