@@ -7392,6 +7392,9 @@ public struct HomeSummaryResponse: Codable, Sendable {
     public let powerXP: Int
     public let badgesEarned: Int
     public let streakDays: Int
+    /// Small brain-graph sample (top nodes by activity, capped server-side)
+    /// for the Home hero preview. Nil when no layout has been computed yet.
+    public let graphPreview: [GraphPreviewNodeDTO]?
 
     public init(
         skillsCount: Int,
@@ -7414,7 +7417,8 @@ public struct HomeSummaryResponse: Codable, Sendable {
         powerLevel: Int = 1,
         powerXP: Int = 0,
         badgesEarned: Int = 0,
-        streakDays: Int = 0
+        streakDays: Int = 0,
+        graphPreview: [GraphPreviewNodeDTO]? = nil
     ) {
         self.skillsCount = skillsCount
         self.jobsCount = jobsCount
@@ -7437,6 +7441,7 @@ public struct HomeSummaryResponse: Codable, Sendable {
         self.powerXP = powerXP
         self.badgesEarned = badgesEarned
         self.streakDays = streakDays
+        self.graphPreview = graphPreview
     }
 
     /// Decode-tolerant: older servers omit Command Center fields; fill defaults.
@@ -7463,6 +7468,94 @@ public struct HomeSummaryResponse: Codable, Sendable {
         powerXP = try c.decodeIfPresent(Int.self, forKey: .powerXP) ?? 0
         badgesEarned = try c.decodeIfPresent(Int.self, forKey: .badgesEarned) ?? 0
         streakDays = try c.decodeIfPresent(Int.self, forKey: .streakDays) ?? 0
+        graphPreview = try c.decodeIfPresent([GraphPreviewNodeDTO].self, forKey: .graphPreview)
+    }
+}
+
+/// One node of the Home brain-graph preview. Positions come from the
+/// precomputed layout (`GraphLayoutWorker`, M85), normalized to roughly [-1, 1].
+public struct GraphPreviewNodeDTO: Codable, Sendable, Equatable, Identifiable {
+    public enum Kind: String, Codable, Sendable {
+        case memory, concept
+    }
+
+    public let id: UUID
+    public let label: String
+    public let x: Double
+    public let y: Double
+    public let z: Double
+    /// Relative recall/activity weight in [0, 1]; drives node size/glow.
+    public let activity: Double
+    public let kind: Kind
+
+    public init(id: UUID, label: String, x: Double, y: Double, z: Double,
+                activity: Double, kind: Kind = .memory)
+    {
+        self.id = id; self.label = label
+        self.x = x; self.y = y; self.z = z
+        self.activity = activity; self.kind = kind
+    }
+}
+
+// ─── Home activity feed (HER-Home / Command Center) ───────────────────────
+// Unified recent-activity stream: conversations, memories, achievements,
+// skill runs. Read-only union; each item deep-links by kind client-side.
+
+public enum ActivityFeedItemKind: String, Codable, Sendable, CaseIterable {
+    case conversation
+    case memory
+    case achievement
+    case skillRun
+}
+
+public struct ActivityFeedItemDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let kind: ActivityFeedItemKind
+    public let title: String
+    public let subtitle: String?
+    public let occurredAt: Date
+
+    public init(id: UUID, kind: ActivityFeedItemKind, title: String,
+                subtitle: String? = nil, occurredAt: Date)
+    {
+        self.id = id; self.kind = kind; self.title = title
+        self.subtitle = subtitle; self.occurredAt = occurredAt
+    }
+}
+
+public struct ActivityFeedResponse: Codable, Sendable {
+    public let items: [ActivityFeedItemDTO]
+
+    public init(items: [ActivityFeedItemDTO]) {
+        self.items = items
+    }
+}
+
+// ─── Retrieval health (M107/M108 read surface) ────────────────────────────
+// Aggregate recall-quality stats for the dashboard "recall health" tile.
+
+public struct RetrievalHealthResponse: Codable, Sendable {
+    public enum Trend: String, Codable, Sendable {
+        case improving, steady, declining
+    }
+
+    /// Share of retrieval events (last 7 days) whose results were actually
+    /// used/grounded, in [0, 1]. Nil when no events were recorded.
+    public let hitRate: Double?
+    /// Mean cosine distance of the best hit per retrieval (lower = closer).
+    public let meanTopDistance: Double?
+    /// Events recorded over the window.
+    public let eventsCount: Int
+    /// Open leaks from the latest weekly leak report.
+    public let leakCount: Int
+    public let trend: Trend
+
+    public init(hitRate: Double? = nil, meanTopDistance: Double? = nil,
+                eventsCount: Int = 0, leakCount: Int = 0, trend: Trend = .steady)
+    {
+        self.hitRate = hitRate; self.meanTopDistance = meanTopDistance
+        self.eventsCount = eventsCount; self.leakCount = leakCount
+        self.trend = trend
     }
 }
 
