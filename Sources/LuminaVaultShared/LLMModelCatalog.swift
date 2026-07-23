@@ -71,6 +71,7 @@ public enum LLMModelCatalog {
         case .openRouter:
             return [
                 .init(id: "openrouter/auto", displayName: "OpenRouter Auto (provider)", tier: .balanced),
+                .init(id: "deepseek/deepseek-v4-flash", displayName: "DeepSeek V4 Flash", contextWindow: 1_000_000, tier: .fast),
                 .init(id: "deepseek/deepseek-chat", displayName: "DeepSeek Chat", contextWindow: 64_000, tier: .fast),
                 .init(id: "google/gemini-2.5-flash", displayName: "Gemini 2.5 Flash", contextWindow: 1_000_000, tier: .fast),
                 .init(id: "anthropic/claude-3.5-haiku", displayName: "Claude 3.5 Haiku", contextWindow: 200_000, tier: .fast),
