@@ -326,3 +326,50 @@ struct CerberusStudioContractTests {
         #expect(decoded == event)
     }
 }
+
+// MARK: - Auto (Smart) routing privacy + gating contracts
+
+@Suite("Router privacy + OpenRouter gating contracts")
+struct RouterPrivacyContractTests {
+    @Test func routingEventDecodesWithoutDisplayLabel() throws {
+        let legacyJSON = Data("""
+        {"executionID":"6F1C1C4A-2B7C-4B8E-9C6C-1A2B3C4D5E6F","phase":"selected","profileID":"6F1C1C4A-2B7C-4B8E-9C6C-1A2B3C4D5E6F","profileName":"Default","taskType":"coding","strategy":"sequential","activeRoutes":[]}
+        """.utf8)
+        let decoded = try JSONDecoder().decode(RouterRoutingEventDTO.self, from: legacyJSON)
+        #expect(decoded.displayLabel == nil)
+        #expect(decoded.activeRoutes.isEmpty)
+    }
+
+    @Test func routingEventDisplayLabelRoundTrip() throws {
+        let event = RouterRoutingEventDTO(
+            executionID: UUID(),
+            phase: .selected,
+            profileID: UUID(),
+            profileName: "Default",
+            taskType: .search,
+            strategy: .sequential,
+            activeRoutes: [],
+            displayLabel: "Auto · Search"
+        )
+        let decoded = try JSONDecoder().decode(
+            RouterRoutingEventDTO.self,
+            from: JSONEncoder().encode(event)
+        )
+        #expect(decoded == event)
+        #expect(decoded.displayLabel == "Auto · Search")
+    }
+
+    @Test func autoGateErrorCodeIsStable() {
+        #expect(LLMRoutingErrorCode.autoRequiresOpenRouter == "AUTO_REQUIRES_OPENROUTER")
+    }
+
+    @Test func openRouterCatalogCoversAutoTiers() {
+        let ids = LLMModelCatalog.models(for: .openRouter).map(\.id)
+        #expect(ids.contains("x-ai/grok-4"))
+        #expect(ids.contains("openai/gpt-5"))
+        #expect(ids.contains("anthropic/claude-opus-4.1"))
+        #expect(ids.contains("deepseek/deepseek-v4-flash"))
+        let tiers = Set(LLMModelCatalog.models(for: .openRouter).map(\.tier))
+        #expect(tiers.isSuperset(of: [.fast, .balanced, .max]))
+    }
+}

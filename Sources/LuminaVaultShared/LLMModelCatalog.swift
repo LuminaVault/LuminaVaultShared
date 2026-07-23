@@ -80,6 +80,9 @@ public enum LLMModelCatalog {
                 .init(id: "anthropic/claude-3.5-sonnet", displayName: "Claude 3.5 Sonnet", contextWindow: 200_000, tier: .balanced),
                 .init(id: "google/gemini-2.5-pro", displayName: "Gemini 2.5 Pro", contextWindow: 1_000_000, tier: .balanced),
                 .init(id: "anthropic/claude-opus-4", displayName: "Claude Opus 4", contextWindow: 200_000, tier: .max),
+                .init(id: "anthropic/claude-opus-4.1", displayName: "Claude Opus 4.1", contextWindow: 200_000, tier: .max),
+                .init(id: "openai/gpt-5", displayName: "GPT-5", contextWindow: 400_000, tier: .max),
+                .init(id: "x-ai/grok-4", displayName: "Grok 4", contextWindow: 256_000, tier: .max),
             ]
         case .xai:
             return [
