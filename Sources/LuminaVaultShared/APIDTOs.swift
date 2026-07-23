@@ -4749,7 +4749,14 @@ public enum LLMBrainMode: String, Codable, Sendable, CaseIterable {
     case byok
 }
 
-/// Task-aware routing policy. Orthogonal to `LLMBrainMode` (who pays / which keys).
+/// Task-aware routing policy.
+///
+/// `autoSmart` is only available when the active LLM provider is OpenRouter:
+/// either `LLMBrainMode.managed` (system OpenRouter key) or `byok` with a
+/// user-supplied OpenRouter credential. The Auto candidate pool is the
+/// OpenRouter catalog exclusively. Other BYOK providers must use a pinned
+/// model; the server rejects `autoSmart` saves with
+/// `LLMRoutingErrorCode.autoRequiresOpenRouter`.
 ///
 /// - `locked` — always the configured primary (or forced route)
 /// - `autoSmart` — complexity + task type pick the smallest sufficient model
@@ -4785,6 +4792,13 @@ public enum LLMRoutingPolicy: String, Codable, Sendable, CaseIterable {
         case .maxQuality: return "Max Quality"
         }
     }
+}
+
+/// Stable machine-readable error codes for routing-policy validation.
+public enum LLMRoutingErrorCode {
+    /// Returned (HTTP 400) when saving `routingPolicy == .autoSmart` while
+    /// `mode == .byok` without an OpenRouter credential.
+    public static let autoRequiresOpenRouter = "AUTO_REQUIRES_OPENROUTER"
 }
 
 // ─── Cerberus Router ───────────────────────────────────────
@@ -5509,6 +5523,10 @@ public struct RouterRoutingEventDTO: Codable, Sendable, Equatable {
     public let taskType: RouterTaskType
     public let strategy: RouterActionKind
     public let activeRoutes: [RouterModelRouteDTO]
+    /// Generic label for managed tenants, e.g. "Auto · Coding". When set and
+    /// `activeRoutes` is empty, clients must render this instead of any
+    /// provider/model identity.
+    public let displayLabel: String?
 
     public init(
         executionID: UUID,
@@ -5517,7 +5535,8 @@ public struct RouterRoutingEventDTO: Codable, Sendable, Equatable {
         profileName: String,
         taskType: RouterTaskType,
         strategy: RouterActionKind,
-        activeRoutes: [RouterModelRouteDTO]
+        activeRoutes: [RouterModelRouteDTO],
+        displayLabel: String? = nil
     ) {
         self.executionID = executionID
         self.phase = phase
@@ -5526,6 +5545,7 @@ public struct RouterRoutingEventDTO: Codable, Sendable, Equatable {
         self.taskType = taskType
         self.strategy = strategy
         self.activeRoutes = activeRoutes
+        self.displayLabel = displayLabel
     }
 }
 
