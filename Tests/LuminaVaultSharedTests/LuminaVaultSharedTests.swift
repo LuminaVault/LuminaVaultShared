@@ -365,7 +365,7 @@ struct RouterPrivacyContractTests {
 
     @Test func openRouterCatalogCoversAutoTiers() {
         let ids = LLMModelCatalog.models(for: .openRouter).map(\.id)
-        #expect(ids.contains("x-ai/grok-4"))
+        #expect(ids.contains("x-ai/grok-4.5"))
         #expect(ids.contains("openai/gpt-5"))
         #expect(ids.contains("anthropic/claude-opus-4.1"))
         #expect(ids.contains("deepseek/deepseek-v4-flash"))
