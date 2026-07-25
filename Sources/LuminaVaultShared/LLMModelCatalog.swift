@@ -74,15 +74,15 @@ public enum LLMModelCatalog {
                 .init(id: "deepseek/deepseek-v4-flash", displayName: "DeepSeek V4 Flash", contextWindow: 1_000_000, tier: .fast),
                 .init(id: "deepseek/deepseek-chat", displayName: "DeepSeek Chat", contextWindow: 64_000, tier: .fast),
                 .init(id: "google/gemini-2.5-flash", displayName: "Gemini 2.5 Flash", contextWindow: 1_000_000, tier: .fast),
-                .init(id: "anthropic/claude-3.5-haiku", displayName: "Claude 3.5 Haiku", contextWindow: 200_000, tier: .fast),
+                .init(id: "anthropic/claude-sonnet-5", displayName: "Claude Sonnet 5", contextWindow: 200_000, tier: .balanced),
                 .init(id: "qwen/qwen-2.5-72b-instruct", displayName: "Qwen 2.5 72B", contextWindow: 131_072, tier: .balanced),
                 .init(id: "openai/gpt-4o", displayName: "GPT-4o", contextWindow: 128_000, tier: .balanced),
-                .init(id: "anthropic/claude-3.5-sonnet", displayName: "Claude 3.5 Sonnet", contextWindow: 200_000, tier: .balanced),
+                .init(id: "anthropic/claude-opus-4.8", displayName: "Claude Opus 4.8", contextWindow: 200_000, tier: .balanced),
                 .init(id: "google/gemini-2.5-pro", displayName: "Gemini 2.5 Pro", contextWindow: 1_000_000, tier: .balanced),
                 .init(id: "anthropic/claude-opus-4", displayName: "Claude Opus 4", contextWindow: 200_000, tier: .max),
                 .init(id: "anthropic/claude-opus-4.1", displayName: "Claude Opus 4.1", contextWindow: 200_000, tier: .max),
                 .init(id: "openai/gpt-5", displayName: "GPT-5", contextWindow: 400_000, tier: .max),
-                .init(id: "x-ai/grok-4", displayName: "Grok 4", contextWindow: 256_000, tier: .max),
+                .init(id: "x-ai/grok-4.5", displayName: "Grok 4.5", contextWindow: 256_000, tier: .max),
             ]
         case .xai:
             return [
