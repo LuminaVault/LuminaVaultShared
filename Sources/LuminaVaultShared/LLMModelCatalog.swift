@@ -83,6 +83,7 @@ public enum LLMModelCatalog {
                 .init(id: "anthropic/claude-opus-4.1", displayName: "Claude Opus 4.1", contextWindow: 200_000, tier: .max),
                 .init(id: "openai/gpt-5", displayName: "GPT-5", contextWindow: 400_000, tier: .max),
                 .init(id: "x-ai/grok-4.5", displayName: "Grok 4.5", contextWindow: 256_000, tier: .max),
+                .init(id: "nvidia/nemotron-3-ultra:free", displayName: "Nemotron 3 Ultra (free)", contextWindow: 128_000, tier: .max),
             ]
         case .xai:
             return [
@@ -95,6 +96,8 @@ public enum LLMModelCatalog {
                 .init(id: "meta/llama-3.1-8b-instruct", displayName: "Llama 3.1 8B", contextWindow: 128_000, tier: .fast),
                 .init(id: "meta/llama-3.1-70b-instruct", displayName: "Llama 3.1 70B", contextWindow: 128_000, tier: .balanced),
                 .init(id: "meta/llama-3.3-70b-instruct", displayName: "Llama 3.3 70B", contextWindow: 128_000, tier: .balanced),
+                .init(id: "nvidia/nemotron-3-super-120b-a12b", displayName: "Nemotron 3 Super 120B", contextWindow: 128_000, tier: .balanced),
+                .init(id: "nvidia/nemotron-3-ultra", displayName: "Nemotron 3 Ultra", contextWindow: 128_000, tier: .max),
                 .init(id: "deepseek-ai/deepseek-r1", displayName: "DeepSeek R1 (reasoning)", contextWindow: 128_000, tier: .max),
             ]
         case .nous:
