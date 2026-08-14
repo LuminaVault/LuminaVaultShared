@@ -1290,14 +1290,79 @@ public struct QueryRequest: Codable, Sendable {
     }
 }
 
+/// Where a retrieval hit physically came from.
+///
+/// Present when the hit was produced by the chunk index, which is what makes an
+/// answer checkable: the client can open `path` and read `startLine...endLine`
+/// to confirm the model was not inventing. Absent on the document-level
+/// retrieval path, which has no line information to offer.
+///
+/// All fields are additive — a client that predates citations decodes the
+/// enclosing hit unchanged.
+public struct MemoryCitationDTO: Codable, Sendable, Equatable {
+    /// Stable while the chunk's text and position are unchanged.
+    public let chunkID: String
+    /// Stable across edits and reindexing — safe to persist in a saved answer.
+    public let documentID: String
+    /// Vault-relative source path. Nil for memories with no backing file.
+    public let path: String?
+    /// Heading ancestry, outermost first: `["Routing", "Fallbacks"]`.
+    public let headingPath: [String]
+    /// 1-based inclusive line range within `path`.
+    public let startLine: Int
+    public let endLine: Int
+
+    public init(
+        chunkID: String,
+        documentID: String,
+        path: String? = nil,
+        headingPath: [String] = [],
+        startLine: Int,
+        endLine: Int
+    ) {
+        self.chunkID = chunkID
+        self.documentID = documentID
+        self.path = path
+        self.headingPath = headingPath
+        self.startLine = startLine
+        self.endLine = endLine
+    }
+
+    /// `projects/hermes.md › Routing › Fallbacks (L40-58)` — the label a source
+    /// chip shows and the trail the grounding prompt cites.
+    public var displayTrail: String {
+        var parts: [String] = []
+        if let path { parts.append(path) }
+        parts.append(contentsOf: headingPath)
+        let trail = parts.joined(separator: " › ")
+        let lines = startLine == endLine ? "L\(startLine)" : "L\(startLine)-\(endLine)"
+        return trail.isEmpty ? lines : "\(trail) (\(lines))"
+    }
+}
+
 public struct QueryHitDTO: Codable, Sendable, Equatable {
     public let id: UUID
     public let content: String
     public let distance: Float
     public let createdAt: Date?
-    public init(id: UUID, content: String, distance: Float, createdAt: Date? = nil) {
+    /// Match-highlighted excerpt, `[` / `]` around matched terms. Nil when the
+    /// hit came from a path that produces no highlight.
+    public let snippet: String?
+    /// Nil on the document-level retrieval path. See `MemoryCitationDTO`.
+    public let citation: MemoryCitationDTO?
+
+    public init(
+        id: UUID,
+        content: String,
+        distance: Float,
+        createdAt: Date? = nil,
+        snippet: String? = nil,
+        citation: MemoryCitationDTO? = nil
+    ) {
         self.id = id; self.content = content; self.distance = distance
         self.createdAt = createdAt
+        self.snippet = snippet
+        self.citation = citation
     }
 }
 
@@ -7384,6 +7449,91 @@ public struct MemoryReviewResponse: Codable, Sendable {
 // One-shot payload for the Home Command Center: counts, active model, power
 // progress, skill names, and live active jobs. Avoids N round-trips.
 
+public enum DashboardPeriod: String, Codable, Sendable, CaseIterable {
+    case today
+    case yesterday
+    case week
+    case month
+}
+
+public struct DashboardPeriodStats: Codable, Sendable, Equatable {
+    public let done: Int
+    public let captures: Int
+    public let skillRuns: Int
+    public let tokens: Int
+    public let previousDone: Int
+    public let previousCaptures: Int
+    public let previousSkillRuns: Int
+    public let previousTokens: Int
+
+    public init(
+        done: Int = 0,
+        captures: Int = 0,
+        skillRuns: Int = 0,
+        tokens: Int = 0,
+        previousDone: Int = 0,
+        previousCaptures: Int = 0,
+        previousSkillRuns: Int = 0,
+        previousTokens: Int = 0
+    ) {
+        self.done = done
+        self.captures = captures
+        self.skillRuns = skillRuns
+        self.tokens = tokens
+        self.previousDone = previousDone
+        self.previousCaptures = previousCaptures
+        self.previousSkillRuns = previousSkillRuns
+        self.previousTokens = previousTokens
+    }
+}
+
+public struct DashboardSeriesPoint: Codable, Sendable, Equatable, Identifiable {
+    public var id: Date { at }
+    public let at: Date
+    public let value: Int
+
+    public init(at: Date, value: Int) {
+        self.at = at
+        self.value = value
+    }
+}
+
+public struct DashboardPeriodMix: Codable, Sendable, Equatable {
+    public let captures: Int
+    public let jobs: Int
+    public let skills: Int
+    public let chats: Int
+
+    public init(captures: Int = 0, jobs: Int = 0, skills: Int = 0, chats: Int = 0) {
+        self.captures = captures
+        self.jobs = jobs
+        self.skills = skills
+        self.chats = chats
+    }
+}
+
+public struct DashboardCronJobDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let name: String?
+    public let schedule: String?
+    public let lastRun: String?
+    public let status: String?
+
+    public init(
+        id: String,
+        name: String? = nil,
+        schedule: String? = nil,
+        lastRun: String? = nil,
+        status: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.schedule = schedule
+        self.lastRun = lastRun
+        self.status = status
+    }
+}
+
 public struct HomeSummaryResponse: Codable, Sendable {
     public let skillsCount: Int
     /// Lifetime skill-run count (historical). Prefer `activeJobsCount` for live work.
@@ -7415,6 +7565,14 @@ public struct HomeSummaryResponse: Codable, Sendable {
     /// Small brain-graph sample (top nodes by activity, capped server-side)
     /// for the Home hero preview. Nil when no layout has been computed yet.
     public let graphPreview: [GraphPreviewNodeDTO]?
+    public let cronJobsCount: Int
+    public let cronJobs: [DashboardCronJobDTO]
+    public let toolsCount: Int
+    public let tools: [String]
+    public let period: DashboardPeriod
+    public let periodStats: DashboardPeriodStats
+    public let periodSeries: [DashboardSeriesPoint]
+    public let periodMix: DashboardPeriodMix
 
     public init(
         skillsCount: Int,
@@ -7438,7 +7596,15 @@ public struct HomeSummaryResponse: Codable, Sendable {
         powerXP: Int = 0,
         badgesEarned: Int = 0,
         streakDays: Int = 0,
-        graphPreview: [GraphPreviewNodeDTO]? = nil
+        graphPreview: [GraphPreviewNodeDTO]? = nil,
+        cronJobsCount: Int = 0,
+        cronJobs: [DashboardCronJobDTO] = [],
+        toolsCount: Int = 0,
+        tools: [String] = [],
+        period: DashboardPeriod = .today,
+        periodStats: DashboardPeriodStats = DashboardPeriodStats(),
+        periodSeries: [DashboardSeriesPoint] = [],
+        periodMix: DashboardPeriodMix = DashboardPeriodMix()
     ) {
         self.skillsCount = skillsCount
         self.jobsCount = jobsCount
@@ -7462,6 +7628,14 @@ public struct HomeSummaryResponse: Codable, Sendable {
         self.badgesEarned = badgesEarned
         self.streakDays = streakDays
         self.graphPreview = graphPreview
+        self.cronJobsCount = cronJobsCount
+        self.cronJobs = cronJobs
+        self.toolsCount = toolsCount
+        self.tools = tools
+        self.period = period
+        self.periodStats = periodStats
+        self.periodSeries = periodSeries
+        self.periodMix = periodMix
     }
 
     /// Decode-tolerant: older servers omit Command Center fields; fill defaults.
@@ -7489,6 +7663,16 @@ public struct HomeSummaryResponse: Codable, Sendable {
         badgesEarned = try c.decodeIfPresent(Int.self, forKey: .badgesEarned) ?? 0
         streakDays = try c.decodeIfPresent(Int.self, forKey: .streakDays) ?? 0
         graphPreview = try c.decodeIfPresent([GraphPreviewNodeDTO].self, forKey: .graphPreview)
+        cronJobs = try c.decodeIfPresent([DashboardCronJobDTO].self, forKey: .cronJobs) ?? []
+        cronJobsCount = try c.decodeIfPresent(Int.self, forKey: .cronJobsCount) ?? cronJobs.count
+        tools = try c.decodeIfPresent([String].self, forKey: .tools) ?? []
+        toolsCount = try c.decodeIfPresent(Int.self, forKey: .toolsCount) ?? tools.count
+        period = try c.decodeIfPresent(DashboardPeriod.self, forKey: .period) ?? .today
+        periodStats = try c.decodeIfPresent(DashboardPeriodStats.self, forKey: .periodStats)
+            ?? DashboardPeriodStats()
+        periodSeries = try c.decodeIfPresent([DashboardSeriesPoint].self, forKey: .periodSeries) ?? []
+        periodMix = try c.decodeIfPresent(DashboardPeriodMix.self, forKey: .periodMix)
+            ?? DashboardPeriodMix()
     }
 }
 
