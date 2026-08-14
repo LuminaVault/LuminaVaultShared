@@ -83,7 +83,13 @@ public enum LLMModelCatalog {
                 .init(id: "anthropic/claude-opus-4.1", displayName: "Claude Opus 4.1", contextWindow: 200_000, tier: .max),
                 .init(id: "openai/gpt-5", displayName: "GPT-5", contextWindow: 400_000, tier: .max),
                 .init(id: "x-ai/grok-4.5", displayName: "Grok 4.5", contextWindow: 256_000, tier: .max),
-                .init(id: "nvidia/nemotron-3-ultra:free", displayName: "Nemotron 3 Ultra (free)", contextWindow: 128_000, tier: .max),
+                // Zero-cost slugs. Ids and context windows verified against the
+                // OpenRouter models API on 2026-08-08 — the previous
+                // `nvidia/nemotron-3-ultra:free` entry named a model that does
+                // not exist and guessed 128K.
+                .init(id: "nvidia/nemotron-3-ultra-550b-a55b:free", displayName: "Nemotron 3 Ultra (free)", contextWindow: 1_000_000, tier: .max),
+                .init(id: "nvidia/nemotron-3-super-120b-a12b:free", displayName: "Nemotron 3 Super (free)", contextWindow: 262_144, tier: .balanced),
+                .init(id: "nvidia/nemotron-3-nano-30b-a3b:free", displayName: "Nemotron 3 Nano (free)", contextWindow: 256_000, tier: .fast),
             ]
         case .xai:
             return [
@@ -92,19 +98,23 @@ public enum LLMModelCatalog {
                 .init(id: "grok-4", displayName: "Grok 4", contextWindow: 256_000, tier: .max),
             ]
         case .nvidia:
+            // NIM (`integrate.api.nvidia.com`) serves these weights under its own
+            // ids — never with a `:free` suffix, which is an OpenRouter routing
+            // directive. Context windows verified against the OpenRouter models
+            // API on 2026-08-08; the previous uniform 128K values were guesses.
             return [
-                .init(id: "meta/llama-3.1-8b-instruct", displayName: "Llama 3.1 8B", contextWindow: 128_000, tier: .fast),
-                .init(id: "meta/llama-3.1-70b-instruct", displayName: "Llama 3.1 70B", contextWindow: 128_000, tier: .balanced),
+                .init(id: "nvidia/nemotron-3-nano-30b-a3b", displayName: "Nemotron 3 Nano 30B", contextWindow: 262_144, tier: .fast),
                 .init(id: "meta/llama-3.3-70b-instruct", displayName: "Llama 3.3 70B", contextWindow: 128_000, tier: .balanced),
-                .init(id: "nvidia/nemotron-3-super-120b-a12b", displayName: "Nemotron 3 Super 120B", contextWindow: 128_000, tier: .balanced),
-                .init(id: "nvidia/nemotron-3-ultra", displayName: "Nemotron 3 Ultra", contextWindow: 128_000, tier: .max),
+                .init(id: "nvidia/nemotron-3-super-120b-a12b", displayName: "Nemotron 3 Super 120B", contextWindow: 1_000_000, tier: .balanced),
+                .init(id: "nvidia/nemotron-3-ultra-550b-a55b", displayName: "Nemotron 3 Ultra 550B", contextWindow: 512_288, tier: .max),
                 .init(id: "deepseek-ai/deepseek-r1", displayName: "DeepSeek R1 (reasoning)", contextWindow: 128_000, tier: .max),
             ]
         case .nous:
+            // Nous's portal does not serve NVIDIA slugs; the Nemotron entry that
+            // used to sit here was fabricated and would 404 for any BYOK user.
             return [
                 .init(id: "stepfun/step-3.7-flash:free", displayName: "StepFun Step 3.7 Flash (free)", tier: .fast),
                 .init(id: "stepfun/step-3.7-flash", displayName: "StepFun Step 3.7 Flash", tier: .fast),
-                .init(id: "nvidia/nemotron-3-ultra:free", displayName: "Nemotron 3 Ultra (free)", tier: .balanced),
             ]
         case .ollama:
             return []
