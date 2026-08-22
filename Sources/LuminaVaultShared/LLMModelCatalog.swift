@@ -86,7 +86,9 @@ public enum LLMModelCatalog {
                 // Zero-cost slugs. Ids and context windows verified against the
                 // OpenRouter models API on 2026-08-08 — the previous
                 // `nvidia/nemotron-3-ultra:free` entry named a model that does
-                // not exist and guessed 128K.
+                // not exist and guessed 128K. `z-ai/glm-5.2:free` added and
+                // re-verified 2026-08-21; it is the free lane's primary slug.
+                .init(id: "z-ai/glm-5.2:free", displayName: "GLM 5.2 (free)", contextWindow: 256_000, tier: .balanced),
                 .init(id: "nvidia/nemotron-3-ultra-550b-a55b:free", displayName: "Nemotron 3 Ultra (free)", contextWindow: 1_000_000, tier: .max),
                 .init(id: "nvidia/nemotron-3-super-120b-a12b:free", displayName: "Nemotron 3 Super (free)", contextWindow: 262_144, tier: .balanced),
                 .init(id: "nvidia/nemotron-3-nano-30b-a3b:free", displayName: "Nemotron 3 Nano (free)", contextWindow: 256_000, tier: .fast),

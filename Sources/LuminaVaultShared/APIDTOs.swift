@@ -2435,6 +2435,120 @@ public struct HermesConfigTestResponse: Codable, Sendable {
     }
 }
 
+// ─── Agent connections (inbound MCP) ─────────────────────────────────────
+// Per-user revocable bearer tokens so Claude Code, Codex, Hermes, or any
+// MCP client can call `POST /v1/mcp` as that user. The plaintext token is
+// returned only from the issue response; list/get never carry it.
+
+/// Which client the setup instructions were written for. Presentation
+/// only — a token issued for one client works in any of them.
+public enum AgentClientKind: String, Codable, Sendable, CaseIterable {
+    case claudeCode = "claude_code"
+    case codex
+    case hermes
+    case other
+}
+
+public struct AgentConnectionDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let name: String
+    public let clientKind: AgentClientKind
+    /// First characters of the token, enough to tell two connections
+    /// apart and far too little to guess the rest.
+    public let tokenPrefix: String
+    public let createdAt: Date
+    /// `nil` until the token authenticates a request.
+    public let lastUsedAt: Date?
+
+    public init(
+        id: UUID,
+        name: String,
+        clientKind: AgentClientKind,
+        tokenPrefix: String,
+        createdAt: Date,
+        lastUsedAt: Date? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.clientKind = clientKind
+        self.tokenPrefix = tokenPrefix
+        self.createdAt = createdAt
+        self.lastUsedAt = lastUsedAt
+    }
+}
+
+public struct AgentConnectionIssueRequest: Codable, Sendable {
+    public let name: String
+    public let clientKind: AgentClientKind
+    public init(name: String, clientKind: AgentClientKind) {
+        self.name = name
+        self.clientKind = clientKind
+    }
+}
+
+/// Config + prompt a user pastes into one agent. Built only for issue
+/// and preview responses — both carry a credential (or a placeholder).
+public struct AgentConnectionSetupDTO: Codable, Sendable, Equatable {
+    public let kind: AgentClientKind
+    public let url: String
+    public let token: String
+    public let configLabel: String
+    public let configLang: String
+    public let config: String
+    public let safeLabel: String?
+    public let safeLang: String?
+    public let safe: String?
+    public let export: String?
+    public let safeNote: String?
+    public let prompt: String
+
+    public init(
+        kind: AgentClientKind,
+        url: String,
+        token: String,
+        configLabel: String,
+        configLang: String,
+        config: String,
+        safeLabel: String? = nil,
+        safeLang: String? = nil,
+        safe: String? = nil,
+        export: String? = nil,
+        safeNote: String? = nil,
+        prompt: String
+    ) {
+        self.kind = kind
+        self.url = url
+        self.token = token
+        self.configLabel = configLabel
+        self.configLang = configLang
+        self.config = config
+        self.safeLabel = safeLabel
+        self.safeLang = safeLang
+        self.safe = safe
+        self.export = export
+        self.safeNote = safeNote
+        self.prompt = prompt
+    }
+}
+
+public struct AgentConnectionIssuedResponse: Codable, Sendable {
+    public let connection: AgentConnectionDTO
+    public let token: String
+    public let setup: AgentConnectionSetupDTO
+    public init(connection: AgentConnectionDTO, token: String, setup: AgentConnectionSetupDTO) {
+        self.connection = connection
+        self.token = token
+        self.setup = setup
+    }
+}
+
+public struct AgentConnectionsListResponse: Codable, Sendable {
+    public let connections: [AgentConnectionDTO]
+    public init(connections: [AgentConnectionDTO]) {
+        self.connections = connections
+    }
+}
+
 // ─── Nous Portal subscription (OAuth device-code) ───────────────────────
 // Lets a user connect their own Nous Portal subscription so their per-tenant
 // Hermes container runs on their credits. Nous auth is OAuth device-code
