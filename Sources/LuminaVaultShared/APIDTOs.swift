@@ -4327,6 +4327,10 @@ public enum APNSCategory: String, Codable, Sendable, CaseIterable {
     case chat
     case nudge
     case digest
+    /// Hermes run is waiting on a tool-call approval (actionable: approve / deny).
+    case approval
+    /// Hermes run finished.
+    case runCompleted
 }
 
 public struct APNSCategoryPrefsResponse: Codable, Sendable {
