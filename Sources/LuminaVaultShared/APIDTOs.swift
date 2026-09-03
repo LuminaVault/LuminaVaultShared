@@ -3262,6 +3262,9 @@ public struct DashboardProfileResponse: Codable, Sendable {
 public enum SkillSource: String, Codable, Sendable, CaseIterable {
     case builtin
     case vault
+    /// Mirrored from the tenant's own Hermes (`GET /v1/hermes/mirror/skills`).
+    /// Runs on Hermes, never through LuminaVault's `SkillRunner`.
+    case hermes
 }
 
 public enum SkillRunStatus: String, Codable, Sendable, CaseIterable {
@@ -4783,6 +4786,10 @@ public struct HermesCapabilities: Codable, Sendable {
     public let ingestionMaxSourceBytes: Int64?
     /// Whether the remote gateway can fetch a short-lived HTTPS source URL.
     public let ingestionRemoteSourceURL: Bool?
+    /// Hermes Mirror — what the tenant's Hermes *dashboard* (`web_server`)
+    /// exposes to LuminaVault. Nil when no dashboard URL is configured or the
+    /// probe has not run yet.
+    public let dashboard: HermesDashboardCapabilitiesDTO?
     public init(
         isUserOverride: Bool,
         remoteVersion: String? = nil,
@@ -4797,7 +4804,8 @@ public struct HermesCapabilities: Codable, Sendable {
         multimodalIngestion: HermesDomainAvailability? = nil,
         ingestionSupportedMimeTypes: [String]? = nil,
         ingestionMaxSourceBytes: Int64? = nil,
-        ingestionRemoteSourceURL: Bool? = nil
+        ingestionRemoteSourceURL: Bool? = nil,
+        dashboard: HermesDashboardCapabilitiesDTO? = nil
     ) {
         self.isUserOverride = isUserOverride
         self.remoteVersion = remoteVersion
@@ -4813,6 +4821,7 @@ public struct HermesCapabilities: Codable, Sendable {
         self.ingestionSupportedMimeTypes = ingestionSupportedMimeTypes
         self.ingestionMaxSourceBytes = ingestionMaxSourceBytes
         self.ingestionRemoteSourceURL = ingestionRemoteSourceURL
+        self.dashboard = dashboard
     }
 
     /// Every domain owned by the managed container — the default for tenants
@@ -4836,6 +4845,294 @@ public struct HermesCapabilitiesResponse: Codable, Sendable {
     public init(capabilities: HermesCapabilities, checkedAt: Date? = nil) {
         self.capabilities = capabilities
         self.checkedAt = checkedAt
+    }
+}
+
+/// Alias so call sites that speak "DTO" resolve to the one capabilities type.
+public typealias HermesCapabilitiesDTO = HermesCapabilities
+
+// ─── Hermes Mirror (skills / jobs / vault / sessions mirrored from the user's Hermes) ───
+
+/// How the tenant's Hermes dashboard authenticates LuminaVault.
+///
+/// The dashboard accepts a static bearer only when bound to loopback (behind
+/// the user's own TLS proxy or tunnel). A non-loopback bind switches to the
+/// OAuth/password gate, which has no bearer path — `oauthOnly` is surfaced as
+/// `hermes_dashboard_auth_mode_unsupported` with the loopback-behind-proxy fix.
+public enum HermesDashboardAuthMode: String, Codable, Sendable, CaseIterable {
+    case bearer
+    case oauthOnly = "oauth_only"
+    case unauthorized
+    case unreachable
+}
+
+/// Dashboard-side capability probe (`GET /api/status` + `GET /api/skills`).
+public struct HermesDashboardCapabilitiesDTO: Codable, Sendable, Equatable {
+    public let reachable: Bool
+    public let authMode: HermesDashboardAuthMode
+    public let skillsWrite: Bool
+    public let cron: Bool
+    public let fs: Bool
+    public let sessions: Bool
+    public let version: String?
+    public let kbVaultPath: String?
+    public init(
+        reachable: Bool,
+        authMode: HermesDashboardAuthMode,
+        skillsWrite: Bool,
+        cron: Bool,
+        fs: Bool,
+        sessions: Bool,
+        version: String? = nil,
+        kbVaultPath: String? = nil
+    ) {
+        self.reachable = reachable
+        self.authMode = authMode
+        self.skillsWrite = skillsWrite
+        self.cron = cron
+        self.fs = fs
+        self.sessions = sessions
+        self.version = version
+        self.kbVaultPath = kbVaultPath
+    }
+}
+
+public enum HermesMirrorSyncScope: String, Codable, Sendable, CaseIterable {
+    case skills
+    case jobs
+    case vault
+}
+
+/// `POST /v1/hermes/mirror/sync`. Empty/absent `scope` means every scope.
+public struct HermesMirrorSyncRequest: Codable, Sendable, Equatable {
+    public let scope: [HermesMirrorSyncScope]?
+    public init(scope: [HermesMirrorSyncScope]? = nil) {
+        self.scope = scope
+    }
+}
+
+public enum HermesMirrorSyncStatus: String, Codable, Sendable, CaseIterable {
+    case never
+    case ok
+    case partial
+    case failed
+}
+
+public enum HermesMirrorVaultState: String, Codable, Sendable, CaseIterable {
+    case absent
+    case detected
+    case created
+    case imported
+}
+
+/// Which side of the mirror serves this tenant.
+public enum HermesMirrorTransportKind: String, Codable, Sendable, CaseIterable {
+    /// Shared PVC of the managed Hermes.
+    case managed
+    /// The user's own Hermes over gateway + dashboard HTTP.
+    case remote
+    /// No Hermes reachable for this tenant.
+    case none
+}
+
+/// `GET /v1/hermes/mirror/status`.
+public struct HermesMirrorStatusDTO: Codable, Sendable, Equatable {
+    public let transport: HermesMirrorTransportKind
+    public let lastSyncAt: Date?
+    public let lastStatus: HermesMirrorSyncStatus
+    public let lastError: String?
+    public let skillsCount: Int
+    public let jobsCount: Int
+    public let vaultFilesCount: Int
+    public let vaultPath: String?
+    public let vaultState: HermesMirrorVaultState
+    public let sessionsImported: Int
+    public let compileJobID: String?
+    public let dashboard: HermesDashboardCapabilitiesDTO?
+    public init(
+        transport: HermesMirrorTransportKind,
+        lastSyncAt: Date? = nil,
+        lastStatus: HermesMirrorSyncStatus,
+        lastError: String? = nil,
+        skillsCount: Int,
+        jobsCount: Int,
+        vaultFilesCount: Int,
+        vaultPath: String? = nil,
+        vaultState: HermesMirrorVaultState,
+        sessionsImported: Int,
+        compileJobID: String? = nil,
+        dashboard: HermesDashboardCapabilitiesDTO? = nil
+    ) {
+        self.transport = transport
+        self.lastSyncAt = lastSyncAt
+        self.lastStatus = lastStatus
+        self.lastError = lastError
+        self.skillsCount = skillsCount
+        self.jobsCount = jobsCount
+        self.vaultFilesCount = vaultFilesCount
+        self.vaultPath = vaultPath
+        self.vaultState = vaultState
+        self.sessionsImported = sessionsImported
+        self.compileJobID = compileJobID
+        self.dashboard = dashboard
+    }
+}
+
+public enum HermesMirroredSkillSource: String, Codable, Sendable, CaseIterable {
+    case builtin
+    case hub
+    case custom
+}
+
+public struct HermesMirroredSkillDTO: Codable, Sendable, Identifiable, Equatable {
+    public var id: String { name }
+    public let name: String
+    public let description: String
+    public let enabled: Bool
+    public let source: HermesMirroredSkillSource
+    public let updatedAt: Date?
+    public init(name: String, description: String, enabled: Bool, source: HermesMirroredSkillSource, updatedAt: Date? = nil) {
+        self.name = name
+        self.description = description
+        self.enabled = enabled
+        self.source = source
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct HermesMirroredSkillsResponse: Codable, Sendable, Equatable {
+    public let skills: [HermesMirroredSkillDTO]
+    public init(skills: [HermesMirroredSkillDTO]) {
+        self.skills = skills
+    }
+}
+
+/// `PUT /v1/hermes/mirror/skills/{name}`.
+public struct HermesMirroredSkillToggleRequest: Codable, Sendable, Equatable {
+    public let enabled: Bool
+    public init(enabled: Bool) {
+        self.enabled = enabled
+    }
+}
+
+public struct HermesMirroredJobDTO: Codable, Sendable, Identifiable, Equatable {
+    public var id: String { hermesJobID }
+    public let hermesJobID: String
+    public let name: String?
+    public let schedule: String?
+    public let prompt: String?
+    public let paused: Bool
+    public let lastRunAt: Date?
+    public let nextRunAt: Date?
+    public let updatedAt: Date?
+    public init(
+        hermesJobID: String,
+        name: String? = nil,
+        schedule: String? = nil,
+        prompt: String? = nil,
+        paused: Bool,
+        lastRunAt: Date? = nil,
+        nextRunAt: Date? = nil,
+        updatedAt: Date? = nil
+    ) {
+        self.hermesJobID = hermesJobID
+        self.name = name
+        self.schedule = schedule
+        self.prompt = prompt
+        self.paused = paused
+        self.lastRunAt = lastRunAt
+        self.nextRunAt = nextRunAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public enum HermesMirroredJobsSource: String, Codable, Sendable, CaseIterable {
+    /// Fetched from Hermes for this request.
+    case live
+    /// Hermes was unreachable; rows come from the last mirror sync.
+    case snapshot
+}
+
+/// `GET /v1/hermes/mirror/jobs`.
+public struct HermesMirroredJobsResponse: Codable, Sendable, Equatable {
+    public let source: HermesMirroredJobsSource
+    public let jobs: [HermesMirroredJobDTO]
+    public init(source: HermesMirroredJobsSource, jobs: [HermesMirroredJobDTO]) {
+        self.source = source
+        self.jobs = jobs
+    }
+}
+
+/// `POST /v1/hermes/mirror/vault/import`. `vaultPath` overrides detection.
+public struct HermesVaultImportRequest: Codable, Sendable, Equatable {
+    public let vaultPath: String?
+    public init(vaultPath: String? = nil) {
+        self.vaultPath = vaultPath
+    }
+}
+
+public struct HermesVaultImportResultDTO: Codable, Sendable, Equatable {
+    public let vaultPath: String
+    public let scanned: Int
+    public let imported: Int
+    public let skipped: Int
+    public let failed: Int
+    /// True when a cap stopped the run early; call again to resume from `cursor`.
+    public let truncated: Bool
+    public let cursor: String?
+    public init(vaultPath: String, scanned: Int, imported: Int, skipped: Int, failed: Int, truncated: Bool, cursor: String? = nil) {
+        self.vaultPath = vaultPath
+        self.scanned = scanned
+        self.imported = imported
+        self.skipped = skipped
+        self.failed = failed
+        self.truncated = truncated
+        self.cursor = cursor
+    }
+}
+
+/// `POST /v1/hermes/mirror/vault/create`.
+public struct HermesVaultCreateResultDTO: Codable, Sendable, Equatable {
+    public let vaultPath: String
+    public let alreadyExisted: Bool
+    public let createdDirectories: [String]
+    public let installedSkills: [String]
+    public init(vaultPath: String, alreadyExisted: Bool, createdDirectories: [String], installedSkills: [String]) {
+        self.vaultPath = vaultPath
+        self.alreadyExisted = alreadyExisted
+        self.createdDirectories = createdDirectories
+        self.installedSkills = installedSkills
+    }
+}
+
+/// `POST /v1/hermes/mirror/vault/import-sessions`.
+public struct HermesSessionsImportResultDTO: Codable, Sendable, Equatable {
+    public let sessionsImported: Int
+    public let sessionsSkipped: Int
+    public let filesWritten: Int
+    public let truncated: Bool
+    public let cursor: String?
+    public let compileTriggered: Bool
+    public init(sessionsImported: Int, sessionsSkipped: Int, filesWritten: Int, truncated: Bool, cursor: String? = nil, compileTriggered: Bool) {
+        self.sessionsImported = sessionsImported
+        self.sessionsSkipped = sessionsSkipped
+        self.filesWritten = filesWritten
+        self.truncated = truncated
+        self.cursor = cursor
+        self.compileTriggered = compileTriggered
+    }
+}
+
+/// `POST /v1/hermes/mirror/jobs/install-compile`.
+public struct HermesCompileJobInstallResultDTO: Codable, Sendable, Equatable {
+    public let jobID: String
+    public let schedule: String
+    /// False when the job already existed (idempotent by name).
+    public let created: Bool
+    public init(jobID: String, schedule: String, created: Bool) {
+        self.jobID = jobID
+        self.schedule = schedule
+        self.created = created
     }
 }
 
