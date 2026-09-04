@@ -4337,10 +4337,24 @@ public struct APNSCategoryPrefsResponse: Codable, Sendable {
     public let chatEnabled: Bool
     public let nudgeEnabled: Bool
     public let digestEnabled: Bool
-    public init(chatEnabled: Bool, nudgeEnabled: Bool, digestEnabled: Bool) {
+    /// Phase 1 `approval` pushes — the actionable tool-call prompt.
+    public let approvalEnabled: Bool
+    /// Phase 1 `runCompleted` pushes — the terminal banner for a run.
+    public let runCompletedEnabled: Bool
+    /// The two Phase 1 flags default to `true` so a client built against an
+    /// older Shared keeps compiling and keeps the server's own default.
+    public init(
+        chatEnabled: Bool,
+        nudgeEnabled: Bool,
+        digestEnabled: Bool,
+        approvalEnabled: Bool = true,
+        runCompletedEnabled: Bool = true
+    ) {
         self.chatEnabled = chatEnabled
         self.nudgeEnabled = nudgeEnabled
         self.digestEnabled = digestEnabled
+        self.approvalEnabled = approvalEnabled
+        self.runCompletedEnabled = runCompletedEnabled
     }
 }
 
@@ -4348,10 +4362,20 @@ public struct APNSCategoryPrefsPutRequest: Codable, Sendable {
     public let chatEnabled: Bool?
     public let nudgeEnabled: Bool?
     public let digestEnabled: Bool?
-    public init(chatEnabled: Bool? = nil, nudgeEnabled: Bool? = nil, digestEnabled: Bool? = nil) {
+    public let approvalEnabled: Bool?
+    public let runCompletedEnabled: Bool?
+    public init(
+        chatEnabled: Bool? = nil,
+        nudgeEnabled: Bool? = nil,
+        digestEnabled: Bool? = nil,
+        approvalEnabled: Bool? = nil,
+        runCompletedEnabled: Bool? = nil
+    ) {
         self.chatEnabled = chatEnabled
         self.nudgeEnabled = nudgeEnabled
         self.digestEnabled = digestEnabled
+        self.approvalEnabled = approvalEnabled
+        self.runCompletedEnabled = runCompletedEnabled
     }
 }
 
