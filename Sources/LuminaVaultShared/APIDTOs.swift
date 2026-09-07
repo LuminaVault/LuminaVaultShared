@@ -4807,6 +4807,17 @@ public struct ProviderCredentialDTO: Codable, Sendable {
     public let verifiedAt: Date?
     public let lastFailureAt: Date?
     public let lastFailureCode: String?
+    /// Whether this endpoint was observed to honour tool calls.
+    ///
+    /// Three-valued, and `nil` must be read as permissive: it means unprobed
+    /// or no verdict reached, not "no tools". A credential that authenticates
+    /// is not the same as an endpoint that works — an OpenAI-compatible
+    /// gateway can accept a `tools` block, ignore it, and answer from the
+    /// model's own knowledge, which looks like success to everything upstream.
+    ///
+    /// Optional so an older server that never sends the key decodes to nil.
+    public let supportsTools: Bool?
+    public let toolsProbedAt: Date?
     public init(
         provider: ProviderID,
         kind: ProviderCredentialKind,
@@ -4815,7 +4826,9 @@ public struct ProviderCredentialDTO: Codable, Sendable {
         label: String? = nil,
         verifiedAt: Date? = nil,
         lastFailureAt: Date? = nil,
-        lastFailureCode: String? = nil
+        lastFailureCode: String? = nil,
+        supportsTools: Bool? = nil,
+        toolsProbedAt: Date? = nil
     ) {
         self.provider = provider
         self.kind = kind
@@ -4825,6 +4838,8 @@ public struct ProviderCredentialDTO: Codable, Sendable {
         self.verifiedAt = verifiedAt
         self.lastFailureAt = lastFailureAt
         self.lastFailureCode = lastFailureCode
+        self.supportsTools = supportsTools
+        self.toolsProbedAt = toolsProbedAt
     }
 }
 
