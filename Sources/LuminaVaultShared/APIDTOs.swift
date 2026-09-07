@@ -4735,6 +4735,69 @@ public enum ProviderCredentialKind: String, Codable, Sendable {
 /// Server's representation of a per-user provider credential.
 /// Plaintext is never echoed back — callers see `hasCredential` only.
 /// `verifiedAt` / `lastFailureAt` reflect the last `/test` outcome.
+/// Static, per-provider facts a client needs to render a BYO key form.
+///
+/// Everything here is deployment-independent and known to the server, but was
+/// previously hardcoded in each client: the display name, whether the provider
+/// needs a base URL as well as a key, what its keys look like, and where its
+/// keys are issued. Duplicating that in iOS and web meant adding a provider
+/// touched three repos and drifted between them.
+///
+/// Deliberately carries no tenant state — `ProviderCredentialDTO` holds what
+/// *this* user has stored. A client renders the two together: the catalog says
+/// what the form looks like, the credential says what is in it.
+public struct ProviderCatalogEntryDTO: Codable, Sendable, Equatable {
+    public let provider: ProviderID
+    /// Human display name, e.g. "OpenRouter".
+    public let displayName: String
+    /// The endpoint used when the user supplies no base URL of their own.
+    /// Nil for providers that have no default and must be told (`custom`).
+    public let defaultBaseURL: String?
+    /// Whether a base URL is required for this provider to work at all.
+    /// True for `custom` and `ollama`, which address a server the user runs.
+    public let requiresBaseURL: Bool
+    /// Whether an API key is required. False for `ollama` and `custom`, which
+    /// commonly front a server with no auth.
+    public let requiresAPIKey: Bool
+    /// A short example of the key format, e.g. "sk-..." — shown as
+    /// placeholder text so a user can tell they pasted the wrong credential
+    /// before spending a round trip on verification.
+    public let keyHint: String?
+    /// Where the user obtains a key. Rendered as a link next to the field.
+    public let keysURL: String?
+    /// Whether the provider is reachable through this deployment at all: a
+    /// provider with no registered adapter cannot spend a key, so a client
+    /// must not offer to collect one.
+    public let available: Bool
+
+    public init(
+        provider: ProviderID,
+        displayName: String,
+        defaultBaseURL: String? = nil,
+        requiresBaseURL: Bool = false,
+        requiresAPIKey: Bool = true,
+        keyHint: String? = nil,
+        keysURL: String? = nil,
+        available: Bool = true
+    ) {
+        self.provider = provider
+        self.displayName = displayName
+        self.defaultBaseURL = defaultBaseURL
+        self.requiresBaseURL = requiresBaseURL
+        self.requiresAPIKey = requiresAPIKey
+        self.keyHint = keyHint
+        self.keysURL = keysURL
+        self.available = available
+    }
+}
+
+public struct ProviderCatalogResponse: Codable, Sendable, Equatable {
+    public let providers: [ProviderCatalogEntryDTO]
+    public init(providers: [ProviderCatalogEntryDTO]) {
+        self.providers = providers
+    }
+}
+
 public struct ProviderCredentialDTO: Codable, Sendable {
     public let provider: ProviderID
     public let kind: ProviderCredentialKind
