@@ -369,7 +369,7 @@ struct RouterPrivacyContractTests {
         #expect(ids.contains("openai/gpt-5"))
         #expect(ids.contains("anthropic/claude-opus-4.1"))
         #expect(ids.contains("deepseek/deepseek-v4-flash"))
-        #expect(ids.contains("nvidia/nemotron-3-ultra:free"))
+        #expect(ids.contains("nvidia/nemotron-3-ultra-550b-a55b:free"))
         let tiers = Set(LLMModelCatalog.models(for: .openRouter).map(\.tier))
         #expect(tiers.isSuperset(of: [.fast, .balanced, .max]))
     }
@@ -377,7 +377,7 @@ struct RouterPrivacyContractTests {
     @Test func nvidiaCatalogIncludesNemotronOffline() {
         let ids = LLMModelCatalog.models(for: .nvidia).map(\.id)
         #expect(ids.contains("nvidia/nemotron-3-super-120b-a12b"))
-        #expect(ids.contains("nvidia/nemotron-3-ultra"))
-        #expect(LLMModelCatalog.tier(for: .nvidia, model: "nvidia/nemotron-3-ultra") == .max)
+        #expect(ids.contains("nvidia/nemotron-3-ultra-550b-a55b"))
+        #expect(LLMModelCatalog.tier(for: .nvidia, model: "nvidia/nemotron-3-ultra-550b-a55b") == .max)
     }
 }
