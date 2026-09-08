@@ -1542,6 +1542,74 @@ public struct ConversationDTO: Codable, Sendable, Identifiable {
 /// A single persisted turn within a Conversation. Distinct from the
 /// transient `ChatMessage` used on the Hermes upstream wire — this type
 /// is the durable, source-grounded record.
+/// What one routed call actually did.
+///
+/// The counterpart to `ConversationMessageDTO`'s summary fields: the message
+/// says "GPT-4o mini, 3 tools", the trace says which tools, whether the
+/// preferred provider failed and we fell over to this one, and what it cost.
+public struct AgentTurnTraceDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    /// Nil for routed calls that are not conversation turns — skill runs,
+    /// workflow nodes, one-shot classifiers.
+    public let conversationMessageId: UUID?
+    public let provider: ProviderID
+    public let model: String
+    /// Tool names in call order. Can be empty while `toolCallCount` is not:
+    /// the streaming chat path observes tool invocations without ever seeing
+    /// their names, so "3 tools, names unknown" is a real state.
+    public let toolNames: [String]
+    public let toolCallCount: Int
+    /// Candidates tried before this one succeeded. Greater than zero means the
+    /// user's preferred provider failed and we fell over — which until now
+    /// happened entirely silently.
+    public let failoverCount: Int
+    public let tokensIn: Int
+    public let tokensOut: Int
+    /// Micro-USD. Whose money depends on `credentialMode`: ours for
+    /// `managed`, the user's own provider balance for `byok`.
+    public let estimatedCostUsdMicros: Int
+    public let latencyMs: Int
+    public let credentialMode: LLMBrainMode?
+    public let occurredAt: Date
+
+    public init(
+        id: UUID,
+        conversationMessageId: UUID? = nil,
+        provider: ProviderID,
+        model: String,
+        toolNames: [String] = [],
+        toolCallCount: Int = 0,
+        failoverCount: Int = 0,
+        tokensIn: Int = 0,
+        tokensOut: Int = 0,
+        estimatedCostUsdMicros: Int = 0,
+        latencyMs: Int = 0,
+        credentialMode: LLMBrainMode? = nil,
+        occurredAt: Date
+    ) {
+        self.id = id
+        self.conversationMessageId = conversationMessageId
+        self.provider = provider
+        self.model = model
+        self.toolNames = toolNames
+        self.toolCallCount = toolCallCount
+        self.failoverCount = failoverCount
+        self.tokensIn = tokensIn
+        self.tokensOut = tokensOut
+        self.estimatedCostUsdMicros = estimatedCostUsdMicros
+        self.latencyMs = latencyMs
+        self.credentialMode = credentialMode
+        self.occurredAt = occurredAt
+    }
+}
+
+public struct AgentTurnTracesResponse: Codable, Sendable, Equatable {
+    public let traces: [AgentTurnTraceDTO]
+    public init(traces: [AgentTurnTraceDTO]) {
+        self.traces = traces
+    }
+}
+
 public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
     public let id: UUID
     public let conversationId: UUID
@@ -1553,6 +1621,17 @@ public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
     /// Present for assistant turns produced by multi-model execution. Clients
     /// fetch the potentially large comparison payload only when expanded.
     public let parallelExecutionID: UUID?
+    /// Which model produced this turn.
+    ///
+    /// Previously the wire carried neither of these, so a client could only
+    /// show a model badge for turns the current device produced and a thread
+    /// reopened elsewhere lost it. Recovering that from a local snapshot was a
+    /// workaround for a missing field; this is the field.
+    public let provider: ProviderID?
+    public let model: String?
+    /// How many tools the assistant invoked on this turn. Zero is a real
+    /// answer — it ran without tools — and nil means we do not know.
+    public let toolCallCount: Int?
     public let createdAt: Date
     public init(
         id: UUID,
@@ -1561,10 +1640,15 @@ public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
         content: String,
         sourceMemoryIDs: [UUID] = [],
         parallelExecutionID: UUID? = nil,
+        provider: ProviderID? = nil,
+        model: String? = nil,
+        toolCallCount: Int? = nil,
         createdAt: Date
     ) {
         self.id = id; self.conversationId = conversationId; self.role = role
         self.content = content; self.sourceMemoryIDs = sourceMemoryIDs
+        self.provider = provider; self.model = model
+        self.toolCallCount = toolCallCount
         self.parallelExecutionID = parallelExecutionID
         self.createdAt = createdAt
     }
