@@ -6424,6 +6424,10 @@ public struct ProviderFallbackNoticeDTO: Codable, Sendable, Equatable {
 /// both are available; the iOS `BillingService` reconciles them so the UI
 /// reads a single source.
 public enum UserTier: String, Codable, Sendable, CaseIterable {
+    /// Where a user lands when their 14-day trial ends, and the tier most
+    /// accounts sit in. Grants chat, memory and capture on the zero-cost free
+    /// lane (see `FreeLanePolicy`), never platform-funded inference.
+    case free
     case trial
     case pro
     case ultimate
@@ -6441,20 +6445,26 @@ public enum UserTier: String, Codable, Sendable, CaseIterable {
 /// server is currently returning 402 on tier-gated endpoints (a global
 /// kill-switch for safe rollout).
 public struct MeBillingResponse: Codable, Sendable, Equatable {
+    /// The *effective* tier — `tier_override` already folded in by
+    /// `EntitlementChecker.effectiveTier`. The server is the only place that
+    /// resolves the ladder, so the client never has to.
     public let tier: UserTier
     public let tierOverride: String?
+    public let tierExpiresAt: Date?
     public let inTrial: Bool
     public let daysRemaining: Int?
     public let enforcementEnabled: Bool
     public init(
         tier: UserTier,
         tierOverride: String? = nil,
+        tierExpiresAt: Date? = nil,
         inTrial: Bool,
         daysRemaining: Int? = nil,
         enforcementEnabled: Bool
     ) {
         self.tier = tier
         self.tierOverride = tierOverride
+        self.tierExpiresAt = tierExpiresAt
         self.inTrial = inTrial
         self.daysRemaining = daysRemaining
         self.enforcementEnabled = enforcementEnabled
