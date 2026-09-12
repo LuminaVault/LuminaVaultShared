@@ -7710,12 +7710,72 @@ public struct TodoPatchRequest: Codable, Sendable {
 // Aggregated per-tenant usage for the current billing period. Sourced from
 // the usage meter (LLM tokens) + embedding usage counters.
 
+/// Voice transcription usage for one channel over the period.
+///
+/// Minutes rather than seconds because that is the unit every speech provider
+/// prices in, and the unit a human reads without dividing.
+///
+/// Two cost figures, deliberately: `realCostCents` is money actually spent,
+/// which is zero while transcription runs on the cluster's own whisper.
+/// `imputedCostCents` is what the same audio would have cost at a hosted
+/// provider's published rate — the number that says what self-hosting saves.
+/// Never add them together.
+public struct VoiceChannelUsageDTO: Codable, Sendable, Equatable {
+    /// Platform the audio arrived on: `telegram`, `discord`, `app`, or
+    /// `unknown` when the client did not say.
+    public let channel: String
+    public let calls: Int
+    public let failedCalls: Int
+    public let audioMinutes: Double
+    public let realCostCents: Int
+    public let imputedCostCents: Int
+    public init(
+        channel: String,
+        calls: Int,
+        failedCalls: Int,
+        audioMinutes: Double,
+        realCostCents: Int,
+        imputedCostCents: Int
+    ) {
+        self.channel = channel; self.calls = calls; self.failedCalls = failedCalls
+        self.audioMinutes = audioMinutes
+        self.realCostCents = realCostCents; self.imputedCostCents = imputedCostCents
+    }
+}
+
+/// Voice usage for the period, split by channel.
+public struct VoiceUsageSummaryDTO: Codable, Sendable, Equatable {
+    public let calls: Int
+    public let failedCalls: Int
+    public let audioMinutes: Double
+    public let realCostCents: Int
+    public let imputedCostCents: Int
+    public let byChannel: [VoiceChannelUsageDTO]
+    public init(
+        calls: Int,
+        failedCalls: Int,
+        audioMinutes: Double,
+        realCostCents: Int,
+        imputedCostCents: Int,
+        byChannel: [VoiceChannelUsageDTO]
+    ) {
+        self.calls = calls; self.failedCalls = failedCalls
+        self.audioMinutes = audioMinutes
+        self.realCostCents = realCostCents; self.imputedCostCents = imputedCostCents
+        self.byChannel = byChannel
+    }
+}
+
 public struct UsageSummaryResponse: Codable, Sendable {
     public let llmTokensIn: Int
     public let llmTokensOut: Int
     public let embeddingTokens: Int
     public let sessionsCount: Int
     public let estimatedCostCents: Int
+    /// Absent on a server older than 5.11.0, and on any deployment where
+    /// transcription is not configured. Optional so an older client decodes a
+    /// newer server's response unchanged.
+    public let voice: VoiceUsageSummaryDTO?
     public let periodStart: Date
     public let periodEnd: Date
     public init(
@@ -7724,12 +7784,14 @@ public struct UsageSummaryResponse: Codable, Sendable {
         embeddingTokens: Int,
         sessionsCount: Int,
         estimatedCostCents: Int,
+        voice: VoiceUsageSummaryDTO? = nil,
         periodStart: Date,
         periodEnd: Date
     ) {
         self.llmTokensIn = llmTokensIn; self.llmTokensOut = llmTokensOut
         self.embeddingTokens = embeddingTokens; self.sessionsCount = sessionsCount
         self.estimatedCostCents = estimatedCostCents
+        self.voice = voice
         self.periodStart = periodStart; self.periodEnd = periodEnd
     }
 }
