@@ -1670,6 +1670,21 @@ public struct ConversationCreateRequest: Codable, Sendable {
         self.pinnedMemoryIDs = pinnedMemoryIDs
         self.routeOverride = routeOverride
     }
+
+    /// Hand-written so `pinnedMemoryIDs` may be omitted or null.
+    ///
+    /// The memberwise default above never reaches `Codable`: a synthesized
+    /// `init(from:)` treats a non-optional array as a required key, so
+    /// `{"title":"…"}` — which the OpenAPI schema declares valid, and which
+    /// every client that pins nothing sends — decoded as a 400. Pinning is the
+    /// exception, not the rule, so absent means "none pinned".
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+        spaceId = try container.decodeIfPresent(UUID.self, forKey: .spaceId)
+        pinnedMemoryIDs = try container.decodeIfPresent([UUID].self, forKey: .pinnedMemoryIDs) ?? []
+        routeOverride = try container.decodeIfPresent(RouterModelRouteDTO.self, forKey: .routeOverride)
+    }
 }
 
 /// Response body for `GET /v1/conversations`.
