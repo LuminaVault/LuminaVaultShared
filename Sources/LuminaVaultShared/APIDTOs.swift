@@ -1999,9 +1999,15 @@ public struct VaultNoteMetadataDTO: Codable, Sendable, Equatable {
     public let isTodo: Bool?
     public let done: Bool?
     public let dueAt: Date?
-    public init(title: String? = nil, tags: [String]? = nil, isTodo: Bool? = nil, done: Bool? = nil, dueAt: Date? = nil) {
+    /// `pending` / `done` / `failed` for a captured link, nil for anything
+    /// else. A link is written as a placeholder and rewritten once the server
+    /// has fetched the page, and without this a client cannot tell the two
+    /// apart — it can only guess from elapsed time and a changing file size.
+    public let enrichmentStatus: String?
+    public init(title: String? = nil, tags: [String]? = nil, isTodo: Bool? = nil, done: Bool? = nil, dueAt: Date? = nil, enrichmentStatus: String? = nil) {
         self.title = title; self.tags = tags; self.isTodo = isTodo
         self.done = done; self.dueAt = dueAt
+        self.enrichmentStatus = enrichmentStatus
     }
 }
 
