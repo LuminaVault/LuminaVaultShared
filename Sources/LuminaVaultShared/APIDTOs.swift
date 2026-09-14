@@ -5112,6 +5112,7 @@ public enum HermesMirrorSyncScope: String, Codable, Sendable, CaseIterable {
     case skills
     case jobs
     case vault
+    case artifacts
 }
 
 /// `POST /v1/hermes/mirror/sync`. Empty/absent `scope` means every scope.
@@ -9075,5 +9076,54 @@ public struct IngestionBatchListDTO: Codable, Sendable {
     public let batches: [IngestionBatchDTO]
     public init(batches: [IngestionBatchDTO]) {
         self.batches = batches
+    }
+}
+
+// ─── Hermes artifacts gallery ─────────────────────────────────────────────
+
+public enum HermesArtifactKind: String, Codable, Sendable, CaseIterable {
+    case image
+    case file
+    case link
+}
+
+/// One harvested image, file or link from a Hermes session.
+public struct HermesArtifactDTO: Codable, Sendable, Identifiable, Equatable {
+    public let id: UUID
+    public let kind: HermesArtifactKind
+    public let value: String
+    public let href: String
+    public let label: String
+    public let sessionID: String
+    public let sessionTitle: String
+    public let occurredAt: Date
+    public init(
+        id: UUID,
+        kind: HermesArtifactKind,
+        value: String,
+        href: String,
+        label: String,
+        sessionID: String,
+        sessionTitle: String,
+        occurredAt: Date
+    ) {
+        self.id = id
+        self.kind = kind
+        self.value = value
+        self.href = href
+        self.label = label
+        self.sessionID = sessionID
+        self.sessionTitle = sessionTitle
+        self.occurredAt = occurredAt
+    }
+}
+
+/// `GET /v1/hermes/artifacts`.
+public struct HermesArtifactListResponse: Codable, Sendable, Equatable {
+    public let artifacts: [HermesArtifactDTO]
+    public let nextCursor: String?
+    public init(artifacts: [HermesArtifactDTO], nextCursor: String? = nil) {
+        self.artifacts = artifacts
+        self.nextCursor = nextCursor
     }
 }
