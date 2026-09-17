@@ -9127,3 +9127,39 @@ public struct HermesArtifactListResponse: Codable, Sendable, Equatable {
         self.nextCursor = nextCursor
     }
 }
+
+// MARK: - News ticker (first-party `news-ticker` plugin)
+
+/// One breaking-news headline: title, source, time and a link out. Never a
+/// body — the ticker links to the publisher rather than republishing.
+public struct NewsTickerItemDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let title: String
+    public let url: String?
+    public let source: String
+    public let sourceUrl: String?
+    public let publishedAt: Date
+
+    public init(id: String, title: String, url: String?, source: String, sourceUrl: String?, publishedAt: Date) {
+        self.id = id
+        self.title = title
+        self.url = url
+        self.source = source
+        self.sourceUrl = sourceUrl
+        self.publishedAt = publishedAt
+    }
+}
+
+public struct NewsTickerResponse: Codable, Sendable, Equatable {
+    public let items: [NewsTickerItemDTO]
+    /// True when at least one feed is serving cached headlines after a failed
+    /// fetch upstream.
+    public let stale: Bool
+    public let generatedAt: Date
+
+    public init(items: [NewsTickerItemDTO], stale: Bool, generatedAt: Date) {
+        self.items = items
+        self.stale = stale
+        self.generatedAt = generatedAt
+    }
+}
