@@ -31,8 +31,14 @@ Card headline: **Get started with Hermie**. Progress reads `n of 3`.
 Completion line, with Hermie celebrating: **"That's the whole loop. Everything
 you save, I learn."** Skip label: **Skip**. Dismiss is an `×` on the card.
 
-The step ids are also the analytics `step` property and the `data-guide` target
-names, so a funnel in PostHog reads the same across platforms without mapping.
+The step id is also the analytics `step` property, so a funnel in PostHog reads
+the same across platforms without mapping.
+
+The spotlight target is a separate, smaller vocabulary — `composer`, `sync`,
+`chat` — because a target is a place in the UI and a step is a task, and the
+two are only one-to-one today. On the web these are the `data-guide` attribute
+values; on iOS they are the anchor keys. Two steps pointing at one target later
+should not require renaming either the step or the DOM.
 
 ## Completion is the server's word, never the client's
 
