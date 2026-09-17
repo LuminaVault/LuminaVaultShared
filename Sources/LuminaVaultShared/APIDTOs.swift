@@ -2107,6 +2107,10 @@ public struct OnboardingStateDTO: Codable, Sendable {
     /// HER-300 — true once user picks a default LLM brain (managed or BYOK).
     public let brainConfiguredCompleted: Bool
     public let brainConfiguredCompletedAt: Date?
+    /// Timestamp of the user dismissing the guided-start card, `nil` when it is
+    /// not dismissed. Unlike the latches above this is two-way: Settings ›
+    /// "Show me around" clears it back to `nil`. See `docs/guided-start.md`.
+    public let guidedStartDismissedAt: Date?
     public init(
         signupCompleted: Bool,
         signupCompletedAt: Date?,
@@ -2121,7 +2125,8 @@ public struct OnboardingStateDTO: Codable, Sendable {
         firstQueryCompleted: Bool,
         firstQueryCompletedAt: Date?,
         brainConfiguredCompleted: Bool = false,
-        brainConfiguredCompletedAt: Date? = nil
+        brainConfiguredCompletedAt: Date? = nil,
+        guidedStartDismissedAt: Date? = nil
     ) {
         self.signupCompleted = signupCompleted; self.signupCompletedAt = signupCompletedAt
         self.emailVerifiedCompleted = emailVerifiedCompleted; self.emailVerifiedCompletedAt = emailVerifiedCompletedAt
@@ -2131,6 +2136,7 @@ public struct OnboardingStateDTO: Codable, Sendable {
         self.firstQueryCompleted = firstQueryCompleted; self.firstQueryCompletedAt = firstQueryCompletedAt
         self.brainConfiguredCompleted = brainConfiguredCompleted
         self.brainConfiguredCompletedAt = brainConfiguredCompletedAt
+        self.guidedStartDismissedAt = guidedStartDismissedAt
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -2141,6 +2147,7 @@ public struct OnboardingStateDTO: Codable, Sendable {
         case firstKBCompileCompleted, firstKBCompileCompletedAt
         case firstQueryCompleted, firstQueryCompletedAt
         case brainConfiguredCompleted, brainConfiguredCompletedAt
+        case guidedStartDismissedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -2159,13 +2166,16 @@ public struct OnboardingStateDTO: Codable, Sendable {
         firstQueryCompletedAt = try c.decodeIfPresent(Date.self, forKey: .firstQueryCompletedAt)
         brainConfiguredCompleted = try c.decodeIfPresent(Bool.self, forKey: .brainConfiguredCompleted) ?? false
         brainConfiguredCompletedAt = try c.decodeIfPresent(Date.self, forKey: .brainConfiguredCompletedAt)
+        guidedStartDismissedAt = try c.decodeIfPresent(Date.self, forKey: .guidedStartDismissedAt)
     }
 }
 
-/// PATCH `/v1/onboarding` body. All flags optional; only `true` accepted —
-/// `false` is rejected by the server because each flag is a one-way latch.
-/// Omitted fields are left untouched. Server stamps an `*At` timestamp on
-/// the first transition to `true` and ignores subsequent re-PATCHes.
+/// PATCH `/v1/onboarding` body. All fields optional; omitted fields are left
+/// untouched. The seven completion flags accept only `true` — `false` is
+/// rejected by the server because each flag is a one-way latch. The server
+/// stamps an `*At` timestamp on the first transition to `true` and ignores
+/// subsequent re-PATCHes. `guidedStartDismissed` is the one exception; see
+/// its own note.
 public struct OnboardingPatchRequest: Codable, Sendable {
     public let signupCompleted: Bool?
     public let emailVerifiedCompleted: Bool?
@@ -2174,6 +2184,10 @@ public struct OnboardingPatchRequest: Codable, Sendable {
     public let firstKBCompileCompleted: Bool?
     public let firstQueryCompleted: Bool?
     public let brainConfiguredCompleted: Bool?
+    /// The only two-way field on this request: `true` stamps
+    /// `guidedStartDismissedAt`, `false` clears it back to `nil`. The seven
+    /// latches above still reject `false`. See `docs/guided-start.md`.
+    public let guidedStartDismissed: Bool?
     public init(
         signupCompleted: Bool? = nil,
         emailVerifiedCompleted: Bool? = nil,
@@ -2181,7 +2195,8 @@ public struct OnboardingPatchRequest: Codable, Sendable {
         firstCaptureCompleted: Bool? = nil,
         firstKBCompileCompleted: Bool? = nil,
         firstQueryCompleted: Bool? = nil,
-        brainConfiguredCompleted: Bool? = nil
+        brainConfiguredCompleted: Bool? = nil,
+        guidedStartDismissed: Bool? = nil
     ) {
         self.signupCompleted = signupCompleted
         self.emailVerifiedCompleted = emailVerifiedCompleted
@@ -2190,6 +2205,7 @@ public struct OnboardingPatchRequest: Codable, Sendable {
         self.firstKBCompileCompleted = firstKBCompileCompleted
         self.firstQueryCompleted = firstQueryCompleted
         self.brainConfiguredCompleted = brainConfiguredCompleted
+        self.guidedStartDismissed = guidedStartDismissed
     }
 }
 
