@@ -138,11 +138,51 @@ guided_start_reopened
 guided_start_completed
 ```
 
-Properties: `step` (one of the three ids), `source` (`auto` or `settings`),
-`elapsed_ms`, and `completed_elsewhere` on completions.
+Which properties go on which event:
 
-`guided_start_card_shown` fires once per app session, the first time the card
-renders — not once per render.
+| Event | Properties |
+|---|---|
+| `card_shown` | none |
+| `step_started` | `step`, `source` |
+| `step_completed` | `step`, `elapsed_ms`, `completed_elsewhere` |
+| `step_skipped` | `step`, `elapsed_ms` |
+| `step_timed_out` | `step`, `elapsed_ms` |
+| `dismissed` | none |
+| `reopened` | none |
+| `completed` | none |
+
+`step` is one of the three step ids. `source` is `auto` when the user tapped a
+row on the card and `settings` when they arrived through "Show me around".
+`elapsed_ms` is measured from when the step opened. `completed_elsewhere` is
+true when the latch flipped while the step was open without a local action —
+the user did it on another device.
+
+`card_shown` fires once per app session, the first time the card renders, not
+once per render. `completed` fires once, after the final celebration finishes,
+not at the moment the last latch flips — the celebration is part of the step,
+and firing early makes the funnel's last stage look instant.
+
+## Two things that will bite an implementer
+
+**The pending count for step 2 must be fresh.** The guard reads how many
+captures are waiting to be compiled. If it is handed a cached number from a
+screen that loaded minutes ago, the step can start when nothing is pending,
+and then poll a latch that cannot possibly flip until the five-minute timeout
+expires — a silent dead end with a spotlight sitting on screen. Re-read the
+count when the step starts rather than trusting whatever the surrounding view
+already had.
+
+**Anchoring a spotlight has platform limits worth knowing before you design
+around them.** On iOS, measured: anchor preferences do travel from a row inside
+a `List` inside a per-tab `NavigationStack` up to a single overlay on the
+`TabView`, accurately. But an unvisited tab reports nothing (its content is
+built lazily), the previous tab's anchors linger in the preference and report
+stale geometry unless the overlay filters by active tab, the overlay must
+ignore safe areas or its dim stops short of the nav and tab bars, and anchors
+inside a presented sheet never reach an overlay outside it — a sheet needs its
+own. Named coordinate spaces are not a substitute: across a tab or sheet
+boundary they silently resolve to window coordinates instead of failing, which
+is a large offset and no error. Use anchors.
 
 ## Accessibility and motion
 
