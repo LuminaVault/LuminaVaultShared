@@ -1417,6 +1417,15 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
     /// have streamed, BEFORE the `.done` terminator. Multiple events
     /// per turn possible when the user pastes several links.
     case linkSaved(LinkSavedDTO)
+    /// A `type` this build does not know. The server may add event types
+    /// ahead of a client release, and a strict decode here would throw —
+    /// which `BaseHTTPClient.executeStream` turns into a dead stream,
+    /// killing the whole chat turn rather than skipping one frame.
+    /// Carrying the unknown tag instead lets callers ignore it and keep
+    /// reading. Callers MUST treat this as "skip", never as an error.
+    /// Re-encoding is deliberately lossy: the tag survives, the payload
+    /// does not, because this build has no type to decode it into.
+    case unrecognized(String)
 
     private enum CodingKeys: String, CodingKey { case type, payload }
     private enum EventType: String, Codable {
@@ -1428,7 +1437,11 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
 
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        let type = try c.decode(EventType.self, forKey: .type)
+        let rawType = try c.decode(String.self, forKey: .type)
+        guard let type = EventType(rawValue: rawType) else {
+            self = .unrecognized(rawType)
+            return
+        }
         switch type {
         case .source: self = try .source(c.decode(QueryHitDTO.self, forKey: .payload))
         case .token: self = try .token(c.decode(String.self, forKey: .payload))
@@ -1479,6 +1492,8 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case let .linkSaved(payload):
             try c.encode(EventType.linkSaved, forKey: .type)
             try c.encode(payload, forKey: .payload)
+        case let .unrecognized(rawType):
+            try c.encode(rawType, forKey: .type)
         }
     }
 }
@@ -9125,5 +9140,41 @@ public struct HermesArtifactListResponse: Codable, Sendable, Equatable {
     public init(artifacts: [HermesArtifactDTO], nextCursor: String? = nil) {
         self.artifacts = artifacts
         self.nextCursor = nextCursor
+    }
+}
+
+// MARK: - News ticker (first-party `news-ticker` plugin)
+
+/// One breaking-news headline: title, source, time and a link out. Never a
+/// body — the ticker links to the publisher rather than republishing.
+public struct NewsTickerItemDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let title: String
+    public let url: String?
+    public let source: String
+    public let sourceUrl: String?
+    public let publishedAt: Date
+
+    public init(id: String, title: String, url: String?, source: String, sourceUrl: String?, publishedAt: Date) {
+        self.id = id
+        self.title = title
+        self.url = url
+        self.source = source
+        self.sourceUrl = sourceUrl
+        self.publishedAt = publishedAt
+    }
+}
+
+public struct NewsTickerResponse: Codable, Sendable, Equatable {
+    public let items: [NewsTickerItemDTO]
+    /// True when at least one feed is serving cached headlines after a failed
+    /// fetch upstream.
+    public let stale: Bool
+    public let generatedAt: Date
+
+    public init(items: [NewsTickerItemDTO], stale: Bool, generatedAt: Date) {
+        self.items = items
+        self.stale = stale
+        self.generatedAt = generatedAt
     }
 }
