@@ -1383,6 +1383,37 @@ public struct QueryResponse: Codable, Sendable {
 /// Wire shape: each SSE `data:` line carries a JSON object of form
 /// `{ "type": "<case>", "payload": <case-specific> }`. Cases without a
 /// payload (`done`) omit the `payload` key.
+/// Points a chat client at the Hermes agent run that is answering this turn.
+///
+/// The chat stream emits this and then closes. The client follows the run on
+/// `GET /v1/hermes/runs/{runID}/events?after=`, which is where the tool trail
+/// and the assistant text both come from.
+///
+/// A pointer rather than the events themselves, because the run feed is the
+/// only one with a durable cursor: its events are persisted with a monotonic
+/// `seq`, replayed on reconnect, keepalived, and it carries approvals and
+/// stop. The chat stream has neither cursor nor keepalive, so re-emitting run
+/// events onto it would put an unreplayable copy of a durable log on a
+/// connection that cannot resume — and every reconnect would drop or
+/// duplicate tool rows.
+public struct ChatHermesRunRefDTO: Codable, Sendable, Equatable {
+    public let runID: UUID
+    /// The Hermes session backing the run. Artifacts are keyed by session, so
+    /// this is how a chat surface scopes the artifact strip to this turn.
+    public let sessionID: String?
+    /// Where to start reading. Normally 0; non-zero when the server has
+    /// already replayed part of the feed.
+    public let afterSeq: Int
+    public let startedAt: Date
+
+    public init(runID: UUID, sessionID: String? = nil, afterSeq: Int = 0, startedAt: Date) {
+        self.runID = runID
+        self.sessionID = sessionID
+        self.afterSeq = afterSeq
+        self.startedAt = startedAt
+    }
+}
+
 public enum QueryStreamEvent: Codable, Sendable, Equatable {
     /// Retrieved memory hit. Emitted up-front, once per top-N source.
     case source(QueryHitDTO)
@@ -1417,6 +1448,15 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
     /// have streamed, BEFORE the `.done` terminator. Multiple events
     /// per turn possible when the user pastes several links.
     case linkSaved(LinkSavedDTO)
+    /// This turn escalated to a Hermes agent run. The stream emits this and
+    /// then `.done`; the answer and the tool trail arrive on the run's own
+    /// event feed. `.done` therefore does NOT mean the turn finished — a
+    /// client that finalizes on it will commit an empty assistant bubble.
+    ///
+    /// The server only emits this to clients that declared
+    /// `chat.hermes_run` in `X-LV-Client-Caps`, because builds older than
+    /// 5.16.0 abort the whole stream on an event type they do not know.
+    case hermesRun(ChatHermesRunRefDTO)
     /// A `type` this build does not know. The server may add event types
     /// ahead of a client release, and a strict decode here would throw —
     /// which `BaseHTTPClient.executeStream` turns into a dead stream,
@@ -1433,6 +1473,7 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case followUps = "follow_ups"
         case done, error, fallback, routing, usage, parallel
         case linkSaved = "link_saved"
+        case hermesRun = "hermes_run"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -1454,6 +1495,7 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case .usage: self = try .usage(c.decode(RouterUsageDTO.self, forKey: .payload))
         case .parallel: self = try .parallel(c.decode(ParallelStreamEventDTO.self, forKey: .payload))
         case .linkSaved: self = try .linkSaved(c.decode(LinkSavedDTO.self, forKey: .payload))
+        case .hermesRun: self = try .hermesRun(c.decode(ChatHermesRunRefDTO.self, forKey: .payload))
         }
     }
 
@@ -1492,6 +1534,9 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case let .linkSaved(payload):
             try c.encode(EventType.linkSaved, forKey: .type)
             try c.encode(payload, forKey: .payload)
+        case let .hermesRun(ref):
+            try c.encode(EventType.hermesRun, forKey: .type)
+            try c.encode(ref, forKey: .payload)
         case let .unrecognized(rawType):
             try c.encode(rawType, forKey: .type)
         }
@@ -1722,12 +1767,79 @@ public struct ConversationDetailResponse: Codable, Sendable {
 
 /// Request body for `POST /v1/conversations/:id/messages/stream`. The
 /// response is an SSE stream of `QueryStreamEvent`.
+/// How a chat turn may be answered.
+///
+/// The server decides whether a turn escalates to a Hermes agent run; this is
+/// the user's standing preference, not an instruction to start one. Clients
+/// never call the runs API from the composer — two ways to begin a turn would
+/// mean two places to enforce entitlements and rate limits.
+public enum ChatAgentModeDTO: String, Codable, Sendable, CaseIterable {
+    /// Never escalate. The user has opted out of agent turns.
+    case off
+    /// Let the server's classifier decide. The default when absent.
+    case auto
+    /// Escalate whenever Hermes is reachable.
+    case force
+}
+
+/// Something the user attached to a turn.
+///
+/// Flattened into the prompt **server-side** so web and iOS cannot drift into
+/// two different prompt shapes for the same attachment.
+///
+/// Text and vault references only. There is no chat blob-upload endpoint;
+/// images reach a conversation through the existing capture and ingestion
+/// path and arrive here as a `vaultFile`.
+public struct ChatAttachmentDTO: Codable, Sendable, Equatable {
+    public enum Kind: String, Codable, Sendable, CaseIterable {
+        /// Literal text, already extracted client-side.
+        case text
+        /// A tenant-relative path into the user's vault.
+        case vaultFile = "vault_file"
+        /// An external link the user wants considered.
+        case link
+    }
+
+    public let kind: Kind
+    /// What to call it in the prompt and on the chip.
+    public let name: String
+    public let text: String?
+    public let vaultPath: String?
+    public let url: String?
+
+    public init(
+        kind: Kind,
+        name: String,
+        text: String? = nil,
+        vaultPath: String? = nil,
+        url: String? = nil
+    ) {
+        self.kind = kind
+        self.name = name
+        self.text = text
+        self.vaultPath = vaultPath
+        self.url = url
+    }
+}
+
 public struct MessageStreamRequest: Codable, Sendable {
     public let content: String
     public let multiModel: ChatMultiModelOptionsDTO?
-    public init(content: String, multiModel: ChatMultiModelOptionsDTO? = nil) {
+    /// Absent means `auto`. Older clients that never send it keep today's
+    /// behaviour exactly.
+    public let agentMode: ChatAgentModeDTO?
+    public let attachments: [ChatAttachmentDTO]?
+
+    public init(
+        content: String,
+        multiModel: ChatMultiModelOptionsDTO? = nil,
+        agentMode: ChatAgentModeDTO? = nil,
+        attachments: [ChatAttachmentDTO]? = nil
+    ) {
         self.content = content
         self.multiModel = multiModel
+        self.agentMode = agentMode
+        self.attachments = attachments
     }
 }
 
@@ -6246,6 +6358,28 @@ public struct RouterRoutingEventDTO: Codable, Sendable, Equatable {
     /// `activeRoutes` is empty, clients must render this instead of any
     /// provider/model identity.
     public let displayLabel: String?
+    /// Size of the assembled prompt, in tokens.
+    ///
+    /// This is what makes a context gauge possible at all: `routing` is the
+    /// only event that fires BEFORE tokens stream, so it is the only place a
+    /// live numerator can come from. `usage` arrives when the answer is
+    /// already finished.
+    ///
+    /// Absent means the server could not count it. Clients must then show the
+    /// receipt and no gauge — never a percentage inferred from the previous
+    /// turn, which would move for reasons the user cannot see.
+    public let promptTokens: Int?
+    /// The routed model's context window. Clients can look this up from
+    /// `LLMModelCatalog`, so this exists for the case the catalogue has not
+    /// caught up with a model yet.
+    ///
+    /// A model fingerprint: `ModelDisclosurePolicy` must strip it under
+    /// hidden disclosure, exactly as it strips provider and model.
+    public let contextWindowTokens: Int?
+    /// How many earlier turns were dropped to fit the window. Makes silent
+    /// history trimming visible rather than leaving the user wondering why
+    /// the assistant forgot something.
+    public let droppedHistoryTurns: Int?
 
     public init(
         executionID: UUID,
@@ -6255,7 +6389,10 @@ public struct RouterRoutingEventDTO: Codable, Sendable, Equatable {
         taskType: RouterTaskType,
         strategy: RouterActionKind,
         activeRoutes: [RouterModelRouteDTO],
-        displayLabel: String? = nil
+        displayLabel: String? = nil,
+        promptTokens: Int? = nil,
+        contextWindowTokens: Int? = nil,
+        droppedHistoryTurns: Int? = nil
     ) {
         self.executionID = executionID
         self.phase = phase
@@ -6265,6 +6402,9 @@ public struct RouterRoutingEventDTO: Codable, Sendable, Equatable {
         self.strategy = strategy
         self.activeRoutes = activeRoutes
         self.displayLabel = displayLabel
+        self.promptTokens = promptTokens
+        self.contextWindowTokens = contextWindowTokens
+        self.droppedHistoryTurns = droppedHistoryTurns
     }
 }
 
@@ -6277,6 +6417,13 @@ public struct RouterUsageDTO: Codable, Sendable, Equatable {
     public let estimatedCostUsdMicros: Int64
     public let latencyMs: Int
     public let usageEstimated: Bool
+    /// The routed model's context window, so the end-of-turn receipt can show
+    /// the same denominator the live gauge used. Stripped under hidden
+    /// disclosure for the same reason as on the routing event.
+    public let contextWindowTokens: Int?
+    /// Tools the turn actually ran. Lets the turn receipt show a real count
+    /// instead of one recovered from persisted messages after a reload.
+    public let toolCallCount: Int?
 
     public init(
         executionID: UUID,
@@ -6286,7 +6433,9 @@ public struct RouterUsageDTO: Codable, Sendable, Equatable {
         tokensOut: Int,
         estimatedCostUsdMicros: Int64,
         latencyMs: Int,
-        usageEstimated: Bool
+        usageEstimated: Bool,
+        contextWindowTokens: Int? = nil,
+        toolCallCount: Int? = nil
     ) {
         self.executionID = executionID
         self.provider = provider
@@ -6296,6 +6445,8 @@ public struct RouterUsageDTO: Codable, Sendable, Equatable {
         self.estimatedCostUsdMicros = estimatedCostUsdMicros
         self.latencyMs = latencyMs
         self.usageEstimated = usageEstimated
+        self.contextWindowTokens = contextWindowTokens
+        self.toolCallCount = toolCallCount
     }
 }
 

@@ -12,10 +12,14 @@ struct QueryStreamEventToleranceTests {
         try JSONDecoder().decode(QueryStreamEvent.self, from: Data(json.utf8))
     }
 
+    /// Uses a tag that is deliberately not a real event. An earlier version
+    /// of this test used `hermes_run`, which stopped being unknown the moment
+    /// 5.17.0 added it — a test asserting "unknown" must not name something
+    /// the codebase is about to implement.
     @Test("An unknown event type decodes as unrecognized instead of throwing")
     func unknownTypeDoesNotThrow() throws {
-        let decoded = try Self.decode(#"{"type":"hermes_run","payload":{"runID":"x","afterSeq":0}}"#)
-        #expect(decoded == .unrecognized("hermes_run"))
+        let decoded = try Self.decode(#"{"type":"not_a_real_event","payload":{"anything":1}}"#)
+        #expect(decoded == .unrecognized("not_a_real_event"))
     }
 
     @Test("An unknown event type with no payload key also decodes")
@@ -35,13 +39,16 @@ struct QueryStreamEventToleranceTests {
 
     @Test("Re-encoding an unrecognized event keeps the tag and drops the payload")
     func unrecognizedReencodesLossily() throws {
-        let data = try JSONEncoder().encode(QueryStreamEvent.unrecognized("hermes_run"))
+        let data = try JSONEncoder().encode(QueryStreamEvent.unrecognized("not_a_real_event"))
         let object = try #require(
             try JSONSerialization.jsonObject(with: data) as? [String: Any]
         )
-        #expect(object["type"] as? String == "hermes_run")
+        #expect(object["type"] as? String == "not_a_real_event")
         #expect(object["payload"] == nil)
-        #expect(try JSONDecoder().decode(QueryStreamEvent.self, from: data) == .unrecognized("hermes_run"))
+        #expect(
+            try JSONDecoder().decode(QueryStreamEvent.self, from: data)
+                == .unrecognized("not_a_real_event")
+        )
     }
 
     @Test("Every existing case still round-trips unchanged")
