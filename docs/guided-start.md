@@ -117,16 +117,52 @@ card is not visible.
 ## Hermie
 
 Hermie reacts, because a guide that does not respond to what you just did is a
-tooltip wearing a costume. States used: `idle` on the resting card, `thinking`
-while a step is open, `happy` on a step completing, `celebrating` on the last
-one, with confetti.
+tooltip wearing a costume. The state vocabulary is shared, spelled identically
+on every platform: `idle`, `thinking`, `happy`, `sad`, `sleeping`, `learning`,
+`celebrating`.
 
-The shipped `lumina_anims.riv` artboard is idle-only, so the state inputs are
-currently no-ops and every reaction is driven by the host UI (scale, bounce,
-speech bubble). Clients should still send the states. When someone authors the
-real state machine on that artboard, the character starts animating with no
-code change on any platform. See the Rive follow-up in the iOS repo's asset
-notes.
+What the wizard drives:
+
+| Situation | State |
+|---|---|
+| Resting card, nothing open | `idle` |
+| Step 1 or step 3 open | `thinking` |
+| Step 2 (Sync & Learn) open | `learning` |
+| A step just completed | `happy` |
+| All three done | `celebrating`, with confetti |
+| A save failed, or step 2 refused for nothing pending | `sad` |
+
+Step 2 is `learning` rather than `thinking` because it is literally handing
+Hermie something to read, and `learning` already means the absorb pulse for a
+compile job. `sleeping` is deliberately unreachable from the wizard: a
+first-time user who has not started yet should be invited, not asleep. Both
+platforms carry a test asserting no wizard input produces it, so nobody wires
+one up by accident.
+
+Precedence, highest first, because these overlap constantly: `celebrating`
+beats everything (the last latch raises both), then `sad`, then `happy`, then
+an open step. `happy` must outrank `thinking` — a step completes while its own
+spotlight is still open, which is the normal path, so a reward that lost to the
+step it rewards would never be seen.
+
+### There is no Rive artboard
+
+`lumina_anims.riv` does not exist in any repository. It never did. Earlier
+notes describing it as "idle-only" were wrong in a load-bearing way: they read
+as "there is an artboard, it just is not worth wiring", which stopped anyone
+from making the states real for months.
+
+So the reactions are host-side by deliberate choice — SwiftUI on iOS, CSS on
+web — and that is the shipped behaviour, not a placeholder to rip out in a
+hurry. If an artboard is ever authored, the state vocabulary and the
+motion-off gate are already the shape Rive wants, so it swaps in behind the
+same seven names.
+
+Web should probably decline it regardless: the canvas runtime is roughly
+60–90 KB gzipped plus WASM instantiation before the first frame, for a small
+mascot on a page under a hard size budget. iOS pays no download for a bundled
+file and can reasonably decide differently. That asymmetry is fine — the
+character is defined by this document, not by the renderer.
 
 ## Analytics
 
