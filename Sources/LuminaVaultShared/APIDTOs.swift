@@ -9345,3 +9345,134 @@ public struct NewsTickerResponse: Codable, Sendable, Equatable {
         self.generatedAt = generatedAt
     }
 }
+
+// ─── Hermes workspace (read-only) ───────────────────────────────────────
+
+/// What the agent's checkout looks like right now, and what has changed in it.
+///
+/// Read-only by design. Staging, committing, pushing and opening pull requests
+/// all exist on the same upstream API and are deliberately absent here: they
+/// need an auth scope, an audit trail and a confirmation model of their own
+/// before a browser session can reach them.
+public struct HermesWorkspaceRepoDTO: Codable, Sendable, Equatable {
+    public let root: String
+    /// Nil on a detached HEAD or mid-rebase. Clients should say so rather than
+    /// showing an empty branch name.
+    public let branch: String?
+    public let isDetached: Bool
+
+    public init(root: String, branch: String? = nil, isDetached: Bool = false) {
+        self.root = root
+        self.branch = branch
+        self.isDetached = isDetached
+    }
+}
+
+public struct HermesWorkspaceBranchDTO: Codable, Sendable, Equatable {
+    public let name: String
+    public let isCurrent: Bool
+
+    public init(name: String, isCurrent: Bool = false) {
+        self.name = name
+        self.isCurrent = isCurrent
+    }
+}
+
+public struct HermesWorkspaceWorktreeDTO: Codable, Sendable, Equatable {
+    public let path: String
+    public let branch: String?
+    public let isPrimary: Bool
+
+    public init(path: String, branch: String? = nil, isPrimary: Bool = false) {
+        self.path = path
+        self.branch = branch
+        self.isPrimary = isPrimary
+    }
+}
+
+public struct HermesWorkspaceChangeDTO: Codable, Sendable, Equatable {
+    public let path: String
+    public let added: Int
+    public let removed: Int
+    /// Upstream's own word: `modified`, `added`, `deleted`, `renamed`,
+    /// `untracked`. A string rather than an enum so a state this build has
+    /// never heard of shows as itself instead of collapsing into "modified".
+    public let status: String
+
+    public init(path: String, added: Int, removed: Int, status: String) {
+        self.path = path
+        self.added = added
+        self.removed = removed
+        self.status = status
+    }
+}
+
+/// A unified diff for one file, as text. Not parsed into hunks on the server:
+/// the client renders it, and parsing here would mean inventing a hunk model
+/// every consumer then has to agree with.
+public struct HermesWorkspaceDiffDTO: Codable, Sendable, Equatable {
+    public let path: String
+    public let diff: String
+    /// The diff was cut short by a size cap. Clients must say so rather than
+    /// presenting a truncated patch as the whole change.
+    public let truncated: Bool
+
+    public init(path: String, diff: String, truncated: Bool = false) {
+        self.path = path
+        self.diff = diff
+        self.truncated = truncated
+    }
+}
+
+public struct HermesWorkspaceFileEntryDTO: Codable, Sendable, Equatable {
+    public let name: String
+    public let path: String
+    public let isDirectory: Bool
+
+    public init(name: String, path: String, isDirectory: Bool) {
+        self.name = name
+        self.path = path
+        self.isDirectory = isDirectory
+    }
+}
+
+public struct HermesWorkspaceListingDTO: Codable, Sendable, Equatable {
+    public let path: String
+    public let entries: [HermesWorkspaceFileEntryDTO]
+
+    public init(path: String, entries: [HermesWorkspaceFileEntryDTO]) {
+        self.path = path
+        self.entries = entries
+    }
+}
+
+public struct HermesWorkspaceStatusDTO: Codable, Sendable, Equatable {
+    public let repo: HermesWorkspaceRepoDTO
+    public let branches: [HermesWorkspaceBranchDTO]
+    public let worktrees: [HermesWorkspaceWorktreeDTO]
+    public let changes: [HermesWorkspaceChangeDTO]
+
+    public init(
+        repo: HermesWorkspaceRepoDTO,
+        branches: [HermesWorkspaceBranchDTO],
+        worktrees: [HermesWorkspaceWorktreeDTO],
+        changes: [HermesWorkspaceChangeDTO]
+    ) {
+        self.repo = repo
+        self.branches = branches
+        self.worktrees = worktrees
+        self.changes = changes
+    }
+}
+
+public struct HermesWorkspaceFileDTO: Codable, Sendable, Equatable {
+    public let path: String
+    public let content: String
+    public let truncated: Bool
+
+    public init(path: String, content: String, truncated: Bool = false) {
+        self.path = path
+        self.content = content
+        self.truncated = truncated
+    }
+}
