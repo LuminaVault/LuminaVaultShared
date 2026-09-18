@@ -1,5 +1,9 @@
 # Guided first capture ("Get started with Hermie")
 
+> How this was actually built on iOS and web — the architecture, the traps,
+> and the defects worth remembering — is in
+> [`guided-start-implementation.md`](./guided-start-implementation.md).
+
 The canonical contract for the onboarding wizard on iOS, web, and later Android.
 Every platform implements the same three steps, the same completion signals, and
 the same visibility rule. When the platforms disagree, this file wins.
