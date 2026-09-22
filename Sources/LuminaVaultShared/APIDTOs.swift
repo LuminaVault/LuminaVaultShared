@@ -9658,3 +9658,183 @@ public struct AgentSessionMessagesResponse: Codable, Sendable, Equatable {
         self.messages = messages
     }
 }
+
+// MARK: - Agent rooms (`/v1/agents/rooms`)
+
+/// When an agent in a room speaks without being named.
+public enum AgentRoomRespondMode: String, Codable, Sendable {
+    /// Only when someone writes its `@handle`.
+    case mention
+    /// On every message the user posts, plus when named.
+    case everyHumanMessage = "every_human_message"
+}
+
+public enum AgentRoomAuthorKind: String, Codable, Sendable {
+    case human
+    case agent
+    /// The room itself: a turn cap reached, a stop, an agent that failed.
+    case system
+}
+
+public struct AgentRoomMemberDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let instanceID: String
+    /// LuminaVault persona slug for `central`; `nil` for `byo`.
+    public let profile: String?
+    /// Written as `@handle` to hand a turn to this agent.
+    public let handle: String
+    public let displayName: String
+    public let respondMode: AgentRoomRespondMode
+
+    public init(id: UUID, instanceID: String, profile: String?, handle: String, displayName: String, respondMode: AgentRoomRespondMode) {
+        self.id = id
+        self.instanceID = instanceID
+        self.profile = profile
+        self.handle = handle
+        self.displayName = displayName
+        self.respondMode = respondMode
+    }
+}
+
+public struct AgentRoomMessageDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let authorKind: AgentRoomAuthorKind
+    /// Set when `authorKind == .agent`.
+    public let memberID: UUID?
+    public let body: String
+    public let tokens: Int?
+    public let createdAt: Date?
+
+    public init(id: UUID, authorKind: AgentRoomAuthorKind, memberID: UUID?, body: String, tokens: Int?, createdAt: Date?) {
+        self.id = id
+        self.authorKind = authorKind
+        self.memberID = memberID
+        self.body = body
+        self.tokens = tokens
+        self.createdAt = createdAt
+    }
+}
+
+public struct AgentRoomDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let title: String
+    public let tokenBudget: Int
+    public let spentTokens: Int
+    public let members: [AgentRoomMemberDTO]
+    public let createdAt: Date?
+    public let updatedAt: Date?
+
+    public init(id: UUID, title: String, tokenBudget: Int, spentTokens: Int, members: [AgentRoomMemberDTO], createdAt: Date?, updatedAt: Date?) {
+        self.id = id
+        self.title = title
+        self.tokenBudget = tokenBudget
+        self.spentTokens = spentTokens
+        self.members = members
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct AgentRoomsResponse: Codable, Sendable, Equatable {
+    public let rooms: [AgentRoomDTO]
+    public init(rooms: [AgentRoomDTO]) {
+        self.rooms = rooms
+    }
+}
+
+public struct AgentRoomDetailResponse: Codable, Sendable, Equatable {
+    public let room: AgentRoomDTO
+    /// Oldest first, the most recent 200.
+    public let messages: [AgentRoomMessageDTO]
+    public init(room: AgentRoomDTO, messages: [AgentRoomMessageDTO]) {
+        self.room = room
+        self.messages = messages
+    }
+}
+
+/// An agent the user can put in a room.
+public struct AgentRoomCandidateDTO: Codable, Sendable, Equatable {
+    public let instanceID: String
+    public let profile: String?
+    public let displayName: String
+    public let suggestedHandle: String
+    public init(instanceID: String, profile: String?, displayName: String, suggestedHandle: String) {
+        self.instanceID = instanceID
+        self.profile = profile
+        self.displayName = displayName
+        self.suggestedHandle = suggestedHandle
+    }
+}
+
+public struct AgentRoomCandidatesResponse: Codable, Sendable, Equatable {
+    public let candidates: [AgentRoomCandidateDTO]
+    public init(candidates: [AgentRoomCandidateDTO]) {
+        self.candidates = candidates
+    }
+}
+
+public struct AgentRoomMemberRequest: Codable, Sendable, Equatable {
+    public let instanceID: String
+    public let profile: String?
+    /// Defaults to the candidate's suggested handle.
+    public let handle: String?
+    public let displayName: String?
+    /// Defaults to `.mention`.
+    public let respondMode: AgentRoomRespondMode?
+    public init(instanceID: String, profile: String?, handle: String? = nil, displayName: String? = nil, respondMode: AgentRoomRespondMode? = nil) {
+        self.instanceID = instanceID
+        self.profile = profile
+        self.handle = handle
+        self.displayName = displayName
+        self.respondMode = respondMode
+    }
+}
+
+public struct AgentRoomCreateRequest: Codable, Sendable, Equatable {
+    public let title: String
+    public let members: [AgentRoomMemberRequest]
+    public init(title: String, members: [AgentRoomMemberRequest]) {
+        self.title = title
+        self.members = members
+    }
+}
+
+public struct AgentRoomPostRequest: Codable, Sendable, Equatable {
+    public let body: String
+    public init(body: String) {
+        self.body = body
+    }
+}
+
+public enum AgentRoomChainEnd: String, Codable, Sendable {
+    /// Nobody left to answer.
+    case idle
+    /// Hit the per-message agent-turn cap.
+    case turnCap = "turn_cap"
+    /// The room's token budget is spent.
+    case budget
+    /// The user pressed Stop.
+    case stopped
+}
+
+/// One frame on the `POST /v1/agents/rooms/{id}/messages` stream.
+public struct AgentRoomStreamEvent: Codable, Sendable, Equatable {
+    public enum Kind: String, Codable, Sendable {
+        case message
+        /// An agent has been asked and is working.
+        case thinking
+        case done
+    }
+
+    public let kind: Kind
+    public let message: AgentRoomMessageDTO?
+    public let memberID: UUID?
+    public let reason: AgentRoomChainEnd?
+
+    public init(kind: Kind, message: AgentRoomMessageDTO? = nil, memberID: UUID? = nil, reason: AgentRoomChainEnd? = nil) {
+        self.kind = kind
+        self.message = message
+        self.memberID = memberID
+        self.reason = reason
+    }
+}

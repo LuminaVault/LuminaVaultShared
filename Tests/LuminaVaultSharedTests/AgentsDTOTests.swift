@@ -70,3 +70,39 @@ struct AgentsDTOTests {
         #expect(AgentInstanceStatus(rawValue: "unreachable") == .unreachable)
     }
 }
+
+@Suite("Agent room contracts")
+struct AgentRoomDTOTests {
+    @Test("respond modes and chain ends keep their snake_case wire values")
+    func wireValues() {
+        #expect(AgentRoomRespondMode.everyHumanMessage.rawValue == "every_human_message")
+        #expect(AgentRoomChainEnd.turnCap.rawValue == "turn_cap")
+        #expect(AgentRoomAuthorKind(rawValue: "system") == .system)
+    }
+
+    @Test("a stream frame round-trips with only the fields its kind uses")
+    func streamEventRoundTrip() throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let frames = [
+            AgentRoomStreamEvent(kind: .thinking, memberID: UUID()),
+            AgentRoomStreamEvent(kind: .message, message: AgentRoomMessageDTO(
+                id: UUID(), authorKind: .agent, memberID: UUID(), body: "over to @ops", tokens: 42,
+                createdAt: Date(timeIntervalSince1970: 1_790_000_000),
+            )),
+            AgentRoomStreamEvent(kind: .done, reason: .turnCap),
+        ]
+        for frame in frames {
+            #expect(try decoder.decode(AgentRoomStreamEvent.self, from: encoder.encode(frame)) == frame)
+        }
+    }
+
+    @Test("a member request without optional fields sends only what it has")
+    func memberRequestOmitsNils() throws {
+        let data = try JSONEncoder().encode(AgentRoomMemberRequest(instanceID: "central", profile: "research"))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(Set(object.keys) == ["instanceID", "profile"])
+    }
+}
