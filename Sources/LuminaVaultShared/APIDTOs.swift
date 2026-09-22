@@ -2707,6 +2707,9 @@ public struct AgentConnectionDTO: Codable, Sendable, Identifiable, Equatable {
     public let createdAt: Date
     /// `nil` until the token authenticates a request.
     public let lastUsedAt: Date?
+    /// May reach Health, Calendar and Reminders over MCP. Off by default;
+    /// decodes as `false` from a server that predates the field.
+    public let allowPersonalData: Bool
 
     public init(
         id: UUID,
@@ -2714,7 +2717,8 @@ public struct AgentConnectionDTO: Codable, Sendable, Identifiable, Equatable {
         clientKind: AgentClientKind,
         tokenPrefix: String,
         createdAt: Date,
-        lastUsedAt: Date? = nil
+        lastUsedAt: Date? = nil,
+        allowPersonalData: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -2722,15 +2726,43 @@ public struct AgentConnectionDTO: Codable, Sendable, Identifiable, Equatable {
         self.tokenPrefix = tokenPrefix
         self.createdAt = createdAt
         self.lastUsedAt = lastUsedAt
+        self.allowPersonalData = allowPersonalData
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, clientKind, tokenPrefix, createdAt, lastUsedAt, allowPersonalData
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        clientKind = try c.decode(AgentClientKind.self, forKey: .clientKind)
+        tokenPrefix = try c.decode(String.self, forKey: .tokenPrefix)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        lastUsedAt = try c.decodeIfPresent(Date.self, forKey: .lastUsedAt)
+        allowPersonalData = try c.decodeIfPresent(Bool.self, forKey: .allowPersonalData) ?? false
     }
 }
 
 public struct AgentConnectionIssueRequest: Codable, Sendable {
     public let name: String
     public let clientKind: AgentClientKind
-    public init(name: String, clientKind: AgentClientKind) {
+    /// `nil` sends nothing, and the server keeps the safe default: off.
+    public let allowPersonalData: Bool?
+    public init(name: String, clientKind: AgentClientKind, allowPersonalData: Bool? = nil) {
         self.name = name
         self.clientKind = clientKind
+        self.allowPersonalData = allowPersonalData
+    }
+}
+
+/// `PATCH /v1/me/agent-connections/{id}` — turn a key's personal-data
+/// grant on or off.
+public struct AgentConnectionUpdateRequest: Codable, Sendable {
+    public let allowPersonalData: Bool
+    public init(allowPersonalData: Bool) {
+        self.allowPersonalData = allowPersonalData
     }
 }
 
@@ -9474,5 +9506,155 @@ public struct HermesWorkspaceFileDTO: Codable, Sendable, Equatable {
         self.path = path
         self.content = content
         self.truncated = truncated
+    }
+}
+
+// MARK: - Agents page (`/v1/agents`)
+
+/// Where an agent runs, as the Agents page groups it.
+public enum AgentInstanceKind: String, Codable, Sendable {
+    /// LuminaVault's own agent: the app and web chat.
+    case central
+    /// The user's own Hermes gateway (a VPS, a Mac, …).
+    case byo
+}
+
+public enum AgentInstanceStatus: String, Codable, Sendable {
+    case ok
+    /// Reachable, but a Hermes too old to list profiles.
+    case outdated
+    case unreachable
+}
+
+public struct AgentInstanceDTO: Codable, Sendable, Equatable, Identifiable {
+    /// Stable id used in every `/v1/agents/instances/{id}` path.
+    public let id: String
+    public let kind: AgentInstanceKind
+    public let name: String
+    public let status: AgentInstanceStatus
+    public let hostname: String?
+    public let version: String?
+    /// Profile names on that instance. Empty for `central`.
+    public let profiles: [String]
+    /// Connected chat platforms (telegram, discord, …), when reported.
+    public let platforms: [String]
+
+    public init(
+        id: String,
+        kind: AgentInstanceKind,
+        name: String,
+        status: AgentInstanceStatus,
+        hostname: String? = nil,
+        version: String? = nil,
+        profiles: [String] = [],
+        platforms: [String] = []
+    ) {
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.status = status
+        self.hostname = hostname
+        self.version = version
+        self.profiles = profiles
+        self.platforms = platforms
+    }
+}
+
+public struct AgentInstancesResponse: Codable, Sendable, Equatable {
+    public let instances: [AgentInstanceDTO]
+    public init(instances: [AgentInstanceDTO]) {
+        self.instances = instances
+    }
+}
+
+public struct AgentSessionDTO: Codable, Sendable, Equatable {
+    public let instanceID: String
+    /// Hermes profile; `nil` for `central` and for Hermes versions that do
+    /// not report profiles.
+    public let profile: String?
+    public let id: String
+    public let title: String?
+    /// Where the conversation happened: `app`, `telegram`, `discord`, `cron`, …
+    public let source: String
+    public let startedAt: Date?
+    public let lastActiveAt: Date?
+    public let messageCount: Int?
+    /// Open, with activity in the last five minutes.
+    public let isActive: Bool
+    public let costUSD: Double?
+
+    public init(
+        instanceID: String,
+        profile: String?,
+        id: String,
+        title: String?,
+        source: String,
+        startedAt: Date?,
+        lastActiveAt: Date?,
+        messageCount: Int?,
+        isActive: Bool,
+        costUSD: Double?
+    ) {
+        self.instanceID = instanceID
+        self.profile = profile
+        self.id = id
+        self.title = title
+        self.source = source
+        self.startedAt = startedAt
+        self.lastActiveAt = lastActiveAt
+        self.messageCount = messageCount
+        self.isActive = isActive
+        self.costUSD = costUSD
+    }
+}
+
+/// An instance that could not be read. The rest of the list still returns.
+public struct AgentInstanceErrorDTO: Codable, Sendable, Equatable {
+    public let instanceID: String
+    public let message: String
+    public init(instanceID: String, message: String) {
+        self.instanceID = instanceID
+        self.message = message
+    }
+}
+
+public struct AgentSessionsResponse: Codable, Sendable, Equatable {
+    public let sessions: [AgentSessionDTO]
+    public let errors: [AgentInstanceErrorDTO]
+    public init(sessions: [AgentSessionDTO], errors: [AgentInstanceErrorDTO]) {
+        self.sessions = sessions
+        self.errors = errors
+    }
+}
+
+public struct AgentMessageDTO: Codable, Sendable, Equatable {
+    public let role: String
+    public let content: String?
+    /// Set on `tool` messages: which tool produced this result.
+    public let toolName: String?
+    /// The tool-call list an assistant message made, as JSON text.
+    public let toolCalls: String?
+    public let createdAt: Date?
+
+    public init(role: String, content: String?, toolName: String?, toolCalls: String?, createdAt: Date?) {
+        self.role = role
+        self.content = content
+        self.toolName = toolName
+        self.toolCalls = toolCalls
+        self.createdAt = createdAt
+    }
+}
+
+public struct AgentSessionMessagesResponse: Codable, Sendable, Equatable {
+    public let instanceID: String
+    public let profile: String?
+    public let sessionID: String
+    public let messages: [AgentMessageDTO]
+
+    public init(instanceID: String, profile: String?, sessionID: String, messages: [AgentMessageDTO]) {
+        self.instanceID = instanceID
+        self.profile = profile
+        self.sessionID = sessionID
+        self.messages = messages
     }
 }
