@@ -3764,6 +3764,16 @@ public struct DeviceCommandResult: Codable, Sendable, Identifiable {
     }
 }
 
+/// `GET /v1/devices/commands/pending` — phone writes queued while the app was
+/// closed, oldest first. The app runs each once and posts its result to
+/// `POST /v1/devices/command/{id}/result`, which removes it from this list.
+public struct PendingDeviceCommandsResponse: Codable, Sendable {
+    public let commands: [DeviceCommand]
+    public init(commands: [DeviceCommand]) {
+        self.commands = commands
+    }
+}
+
 // ─── Apple Selective-Sync Tier — derived data synced server-side ──────────
 //
 // Promotes Calendar / Reminders / Photos from on-demand device-RPC into a
