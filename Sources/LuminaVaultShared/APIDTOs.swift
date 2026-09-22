@@ -2707,6 +2707,9 @@ public struct AgentConnectionDTO: Codable, Sendable, Identifiable, Equatable {
     public let createdAt: Date
     /// `nil` until the token authenticates a request.
     public let lastUsedAt: Date?
+    /// May reach Health, Calendar and Reminders over MCP. Off by default;
+    /// decodes as `false` from a server that predates the field.
+    public let allowPersonalData: Bool
 
     public init(
         id: UUID,
@@ -2714,7 +2717,8 @@ public struct AgentConnectionDTO: Codable, Sendable, Identifiable, Equatable {
         clientKind: AgentClientKind,
         tokenPrefix: String,
         createdAt: Date,
-        lastUsedAt: Date? = nil
+        lastUsedAt: Date? = nil,
+        allowPersonalData: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -2722,15 +2726,43 @@ public struct AgentConnectionDTO: Codable, Sendable, Identifiable, Equatable {
         self.tokenPrefix = tokenPrefix
         self.createdAt = createdAt
         self.lastUsedAt = lastUsedAt
+        self.allowPersonalData = allowPersonalData
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, clientKind, tokenPrefix, createdAt, lastUsedAt, allowPersonalData
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        clientKind = try c.decode(AgentClientKind.self, forKey: .clientKind)
+        tokenPrefix = try c.decode(String.self, forKey: .tokenPrefix)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        lastUsedAt = try c.decodeIfPresent(Date.self, forKey: .lastUsedAt)
+        allowPersonalData = try c.decodeIfPresent(Bool.self, forKey: .allowPersonalData) ?? false
     }
 }
 
 public struct AgentConnectionIssueRequest: Codable, Sendable {
     public let name: String
     public let clientKind: AgentClientKind
-    public init(name: String, clientKind: AgentClientKind) {
+    /// `nil` sends nothing, and the server keeps the safe default: off.
+    public let allowPersonalData: Bool?
+    public init(name: String, clientKind: AgentClientKind, allowPersonalData: Bool? = nil) {
         self.name = name
         self.clientKind = clientKind
+        self.allowPersonalData = allowPersonalData
+    }
+}
+
+/// `PATCH /v1/me/agent-connections/{id}` — turn a key's personal-data
+/// grant on or off.
+public struct AgentConnectionUpdateRequest: Codable, Sendable {
+    public let allowPersonalData: Bool
+    public init(allowPersonalData: Bool) {
+        self.allowPersonalData = allowPersonalData
     }
 }
 
@@ -9474,5 +9506,335 @@ public struct HermesWorkspaceFileDTO: Codable, Sendable, Equatable {
         self.path = path
         self.content = content
         self.truncated = truncated
+    }
+}
+
+// MARK: - Agents page (`/v1/agents`)
+
+/// Where an agent runs, as the Agents page groups it.
+public enum AgentInstanceKind: String, Codable, Sendable {
+    /// LuminaVault's own agent: the app and web chat.
+    case central
+    /// The user's own Hermes gateway (a VPS, a Mac, …).
+    case byo
+}
+
+public enum AgentInstanceStatus: String, Codable, Sendable {
+    case ok
+    /// Reachable, but a Hermes too old to list profiles.
+    case outdated
+    case unreachable
+}
+
+public struct AgentInstanceDTO: Codable, Sendable, Equatable, Identifiable {
+    /// Stable id used in every `/v1/agents/instances/{id}` path.
+    public let id: String
+    public let kind: AgentInstanceKind
+    public let name: String
+    public let status: AgentInstanceStatus
+    public let hostname: String?
+    public let version: String?
+    /// Profile names on that instance. Empty for `central`.
+    public let profiles: [String]
+    /// Connected chat platforms (telegram, discord, …), when reported.
+    public let platforms: [String]
+
+    public init(
+        id: String,
+        kind: AgentInstanceKind,
+        name: String,
+        status: AgentInstanceStatus,
+        hostname: String? = nil,
+        version: String? = nil,
+        profiles: [String] = [],
+        platforms: [String] = []
+    ) {
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.status = status
+        self.hostname = hostname
+        self.version = version
+        self.profiles = profiles
+        self.platforms = platforms
+    }
+}
+
+public struct AgentInstancesResponse: Codable, Sendable, Equatable {
+    public let instances: [AgentInstanceDTO]
+    public init(instances: [AgentInstanceDTO]) {
+        self.instances = instances
+    }
+}
+
+public struct AgentSessionDTO: Codable, Sendable, Equatable {
+    public let instanceID: String
+    /// Hermes profile; `nil` for `central` and for Hermes versions that do
+    /// not report profiles.
+    public let profile: String?
+    public let id: String
+    public let title: String?
+    /// Where the conversation happened: `app`, `telegram`, `discord`, `cron`, …
+    public let source: String
+    public let startedAt: Date?
+    public let lastActiveAt: Date?
+    public let messageCount: Int?
+    /// Open, with activity in the last five minutes.
+    public let isActive: Bool
+    public let costUSD: Double?
+
+    public init(
+        instanceID: String,
+        profile: String?,
+        id: String,
+        title: String?,
+        source: String,
+        startedAt: Date?,
+        lastActiveAt: Date?,
+        messageCount: Int?,
+        isActive: Bool,
+        costUSD: Double?
+    ) {
+        self.instanceID = instanceID
+        self.profile = profile
+        self.id = id
+        self.title = title
+        self.source = source
+        self.startedAt = startedAt
+        self.lastActiveAt = lastActiveAt
+        self.messageCount = messageCount
+        self.isActive = isActive
+        self.costUSD = costUSD
+    }
+}
+
+/// An instance that could not be read. The rest of the list still returns.
+public struct AgentInstanceErrorDTO: Codable, Sendable, Equatable {
+    public let instanceID: String
+    public let message: String
+    public init(instanceID: String, message: String) {
+        self.instanceID = instanceID
+        self.message = message
+    }
+}
+
+public struct AgentSessionsResponse: Codable, Sendable, Equatable {
+    public let sessions: [AgentSessionDTO]
+    public let errors: [AgentInstanceErrorDTO]
+    public init(sessions: [AgentSessionDTO], errors: [AgentInstanceErrorDTO]) {
+        self.sessions = sessions
+        self.errors = errors
+    }
+}
+
+public struct AgentMessageDTO: Codable, Sendable, Equatable {
+    public let role: String
+    public let content: String?
+    /// Set on `tool` messages: which tool produced this result.
+    public let toolName: String?
+    /// The tool-call list an assistant message made, as JSON text.
+    public let toolCalls: String?
+    public let createdAt: Date?
+
+    public init(role: String, content: String?, toolName: String?, toolCalls: String?, createdAt: Date?) {
+        self.role = role
+        self.content = content
+        self.toolName = toolName
+        self.toolCalls = toolCalls
+        self.createdAt = createdAt
+    }
+}
+
+public struct AgentSessionMessagesResponse: Codable, Sendable, Equatable {
+    public let instanceID: String
+    public let profile: String?
+    public let sessionID: String
+    public let messages: [AgentMessageDTO]
+
+    public init(instanceID: String, profile: String?, sessionID: String, messages: [AgentMessageDTO]) {
+        self.instanceID = instanceID
+        self.profile = profile
+        self.sessionID = sessionID
+        self.messages = messages
+    }
+}
+
+// MARK: - Agent rooms (`/v1/agents/rooms`)
+
+/// When an agent in a room speaks without being named.
+public enum AgentRoomRespondMode: String, Codable, Sendable {
+    /// Only when someone writes its `@handle`.
+    case mention
+    /// On every message the user posts, plus when named.
+    case everyHumanMessage = "every_human_message"
+}
+
+public enum AgentRoomAuthorKind: String, Codable, Sendable {
+    case human
+    case agent
+    /// The room itself: a turn cap reached, a stop, an agent that failed.
+    case system
+}
+
+public struct AgentRoomMemberDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let instanceID: String
+    /// LuminaVault persona slug for `central`; `nil` for `byo`.
+    public let profile: String?
+    /// Written as `@handle` to hand a turn to this agent.
+    public let handle: String
+    public let displayName: String
+    public let respondMode: AgentRoomRespondMode
+
+    public init(id: UUID, instanceID: String, profile: String?, handle: String, displayName: String, respondMode: AgentRoomRespondMode) {
+        self.id = id
+        self.instanceID = instanceID
+        self.profile = profile
+        self.handle = handle
+        self.displayName = displayName
+        self.respondMode = respondMode
+    }
+}
+
+public struct AgentRoomMessageDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let authorKind: AgentRoomAuthorKind
+    /// Set when `authorKind == .agent`.
+    public let memberID: UUID?
+    public let body: String
+    public let tokens: Int?
+    public let createdAt: Date?
+
+    public init(id: UUID, authorKind: AgentRoomAuthorKind, memberID: UUID?, body: String, tokens: Int?, createdAt: Date?) {
+        self.id = id
+        self.authorKind = authorKind
+        self.memberID = memberID
+        self.body = body
+        self.tokens = tokens
+        self.createdAt = createdAt
+    }
+}
+
+public struct AgentRoomDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let title: String
+    public let tokenBudget: Int
+    public let spentTokens: Int
+    public let members: [AgentRoomMemberDTO]
+    public let createdAt: Date?
+    public let updatedAt: Date?
+
+    public init(id: UUID, title: String, tokenBudget: Int, spentTokens: Int, members: [AgentRoomMemberDTO], createdAt: Date?, updatedAt: Date?) {
+        self.id = id
+        self.title = title
+        self.tokenBudget = tokenBudget
+        self.spentTokens = spentTokens
+        self.members = members
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct AgentRoomsResponse: Codable, Sendable, Equatable {
+    public let rooms: [AgentRoomDTO]
+    public init(rooms: [AgentRoomDTO]) {
+        self.rooms = rooms
+    }
+}
+
+public struct AgentRoomDetailResponse: Codable, Sendable, Equatable {
+    public let room: AgentRoomDTO
+    /// Oldest first, the most recent 200.
+    public let messages: [AgentRoomMessageDTO]
+    public init(room: AgentRoomDTO, messages: [AgentRoomMessageDTO]) {
+        self.room = room
+        self.messages = messages
+    }
+}
+
+/// An agent the user can put in a room.
+public struct AgentRoomCandidateDTO: Codable, Sendable, Equatable {
+    public let instanceID: String
+    public let profile: String?
+    public let displayName: String
+    public let suggestedHandle: String
+    public init(instanceID: String, profile: String?, displayName: String, suggestedHandle: String) {
+        self.instanceID = instanceID
+        self.profile = profile
+        self.displayName = displayName
+        self.suggestedHandle = suggestedHandle
+    }
+}
+
+public struct AgentRoomCandidatesResponse: Codable, Sendable, Equatable {
+    public let candidates: [AgentRoomCandidateDTO]
+    public init(candidates: [AgentRoomCandidateDTO]) {
+        self.candidates = candidates
+    }
+}
+
+public struct AgentRoomMemberRequest: Codable, Sendable, Equatable {
+    public let instanceID: String
+    public let profile: String?
+    /// Defaults to the candidate's suggested handle.
+    public let handle: String?
+    public let displayName: String?
+    /// Defaults to `.mention`.
+    public let respondMode: AgentRoomRespondMode?
+    public init(instanceID: String, profile: String?, handle: String? = nil, displayName: String? = nil, respondMode: AgentRoomRespondMode? = nil) {
+        self.instanceID = instanceID
+        self.profile = profile
+        self.handle = handle
+        self.displayName = displayName
+        self.respondMode = respondMode
+    }
+}
+
+public struct AgentRoomCreateRequest: Codable, Sendable, Equatable {
+    public let title: String
+    public let members: [AgentRoomMemberRequest]
+    public init(title: String, members: [AgentRoomMemberRequest]) {
+        self.title = title
+        self.members = members
+    }
+}
+
+public struct AgentRoomPostRequest: Codable, Sendable, Equatable {
+    public let body: String
+    public init(body: String) {
+        self.body = body
+    }
+}
+
+public enum AgentRoomChainEnd: String, Codable, Sendable {
+    /// Nobody left to answer.
+    case idle
+    /// Hit the per-message agent-turn cap.
+    case turnCap = "turn_cap"
+    /// The room's token budget is spent.
+    case budget
+    /// The user pressed Stop.
+    case stopped
+}
+
+/// One frame on the `POST /v1/agents/rooms/{id}/messages` stream.
+public struct AgentRoomStreamEvent: Codable, Sendable, Equatable {
+    public enum Kind: String, Codable, Sendable {
+        case message
+        /// An agent has been asked and is working.
+        case thinking
+        case done
+    }
+
+    public let kind: Kind
+    public let message: AgentRoomMessageDTO?
+    public let memberID: UUID?
+    public let reason: AgentRoomChainEnd?
+
+    public init(kind: Kind, message: AgentRoomMessageDTO? = nil, memberID: UUID? = nil, reason: AgentRoomChainEnd? = nil) {
+        self.kind = kind
+        self.message = message
+        self.memberID = memberID
+        self.reason = reason
     }
 }
