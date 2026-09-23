@@ -1626,6 +1626,18 @@ public enum ConversationMessageRole: String, Codable, Sendable, CaseIterable {
     case system
 }
 
+/// Why a message exists in the thread.
+///
+/// `reply` is the ordinary case: somebody asked, the assistant answered.
+/// `proactive` is a message nobody asked for in that moment — a morning
+/// briefing, a skill's output, a standing task firing — appended by the
+/// server without a user turn. Clients render it as the same agent bubble
+/// with a small caption built from `sourceLabel`.
+public enum ConversationMessageOrigin: String, Codable, Sendable, CaseIterable {
+    case reply
+    case proactive
+}
+
 /// A persisted multi-turn chat thread. Backs the "thinking workspace"
 /// continuity surface on the Think tab.
 public struct ConversationDTO: Codable, Sendable, Identifiable {
@@ -1746,6 +1758,13 @@ public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
     /// How many tools the assistant invoked on this turn. Zero is a real
     /// answer — it ran without tools — and nil means we do not know.
     public let toolCallCount: Int?
+    /// `reply` unless the server appended this message on its own. Absent on
+    /// the wire from servers older than 5.20.0, which decodes as `reply` —
+    /// every message those servers stored was one.
+    public let origin: ConversationMessageOrigin
+    /// Who sent a proactive message, for the caption above the bubble
+    /// ("From daily-brief", "Standing task"). Nil for ordinary replies.
+    public let sourceLabel: String?
     public let createdAt: Date
     public init(
         id: UUID,
@@ -1757,6 +1776,8 @@ public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
         provider: ProviderID? = nil,
         model: String? = nil,
         toolCallCount: Int? = nil,
+        origin: ConversationMessageOrigin = .reply,
+        sourceLabel: String? = nil,
         createdAt: Date
     ) {
         self.id = id; self.conversationId = conversationId; self.role = role
@@ -1764,7 +1785,32 @@ public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
         self.provider = provider; self.model = model
         self.toolCallCount = toolCallCount
         self.parallelExecutionID = parallelExecutionID
+        self.origin = origin
+        self.sourceLabel = sourceLabel
         self.createdAt = createdAt
+    }
+
+    /// Hand-written so the 5.20.0 fields stay optional on the wire.
+    ///
+    /// A synthesized decoder would treat `origin` as required and fail every
+    /// message from an older server. An unknown origin string (a value a newer
+    /// server adds later) also decodes as `reply` rather than failing the whole
+    /// transcript: the worst case is a missing caption, not an empty thread.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        conversationId = try c.decode(UUID.self, forKey: .conversationId)
+        role = try c.decode(ConversationMessageRole.self, forKey: .role)
+        content = try c.decode(String.self, forKey: .content)
+        sourceMemoryIDs = try c.decode([UUID].self, forKey: .sourceMemoryIDs)
+        parallelExecutionID = try c.decodeIfPresent(UUID.self, forKey: .parallelExecutionID)
+        provider = try c.decodeIfPresent(ProviderID.self, forKey: .provider)
+        model = try c.decodeIfPresent(String.self, forKey: .model)
+        toolCallCount = try c.decodeIfPresent(Int.self, forKey: .toolCallCount)
+        let rawOrigin = try c.decodeIfPresent(String.self, forKey: .origin)
+        origin = rawOrigin.flatMap(ConversationMessageOrigin.init(rawValue:)) ?? .reply
+        sourceLabel = try c.decodeIfPresent(String.self, forKey: .sourceLabel)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
     }
 }
 
