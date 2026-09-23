@@ -1428,6 +1428,17 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
     case done
     /// Stream-level error. Client should surface and abort.
     case error(String)
+    /// A stream-level error that knows how the user can get out of it: a
+    /// machine `code` and the same `cta` tokens (`upgrade`, `add_key`,
+    /// `switch_to_managed`) an HTTP `{error:{code,message,cta}}` envelope
+    /// carries. Surface and abort exactly as for `.error`, and render the
+    /// tokens as the same buttons.
+    ///
+    /// On the wire this is still `type: "error"` with a string `payload`;
+    /// `code` and `cta` ride beside them. A build older than 5.20.0 reads
+    /// only `type` and `payload`, so it decodes this as `.error(message)`
+    /// and loses the buttons, never the turn.
+    case errorDetail(StreamErrorDTO)
     /// HER-252 — emitted when `RoutedLLMTransport` failed over from one
     /// provider to another (e.g. xAI credit exhaustion → Qwen2.5 via
     /// OpenRouter). The payload carries the original + fallback route
@@ -1467,7 +1478,7 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
     /// does not, because this build has no type to decode it into.
     case unrecognized(String)
 
-    private enum CodingKeys: String, CodingKey { case type, payload }
+    private enum CodingKeys: String, CodingKey { case type, payload, code, cta }
     private enum EventType: String, Codable {
         case source, token, summary
         case followUps = "follow_ups"
@@ -1489,7 +1500,14 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case .summary: self = try .summary(c.decode(String.self, forKey: .payload))
         case .followUps: self = try .followUps(c.decode([String].self, forKey: .payload))
         case .done: self = .done
-        case .error: self = try .error(c.decode(String.self, forKey: .payload))
+        case .error:
+            let message = try c.decode(String.self, forKey: .payload)
+            if let code = try c.decodeIfPresent(String.self, forKey: .code) {
+                let cta = try c.decodeIfPresent([String].self, forKey: .cta) ?? []
+                self = .errorDetail(StreamErrorDTO(message: message, code: code, cta: cta))
+            } else {
+                self = .error(message)
+            }
         case .fallback: self = try .fallback(c.decode(ProviderFallbackNoticeDTO.self, forKey: .payload))
         case .routing: self = try .routing(c.decode(RouterRoutingEventDTO.self, forKey: .payload))
         case .usage: self = try .usage(c.decode(RouterUsageDTO.self, forKey: .payload))
@@ -1519,6 +1537,11 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case let .error(s):
             try c.encode(EventType.error, forKey: .type)
             try c.encode(s, forKey: .payload)
+        case let .errorDetail(detail):
+            try c.encode(EventType.error, forKey: .type)
+            try c.encode(detail.message, forKey: .payload)
+            try c.encode(detail.code, forKey: .code)
+            try c.encode(detail.cta, forKey: .cta)
         case let .fallback(notice):
             try c.encode(EventType.fallback, forKey: .type)
             try c.encode(notice, forKey: .payload)
@@ -1540,6 +1563,37 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case let .unrecognized(rawType):
             try c.encode(rawType, forKey: .type)
         }
+    }
+}
+
+public extension QueryStreamEvent {
+    /// The message to show when this event ends the stream in failure, for
+    /// either kind of error; `nil` for every other event.
+    var errorMessage: String? {
+        switch self {
+        case let .error(message): message
+        case let .errorDetail(detail): detail.message
+        default: nil
+        }
+    }
+}
+
+/// The detail of a stream error a user can act on. See
+/// `QueryStreamEvent.errorDetail` for the wire shape.
+public struct StreamErrorDTO: Codable, Sendable, Equatable {
+    /// User-facing copy, safe to show verbatim.
+    public let message: String
+    /// Machine reason, the same code the HTTP envelope would carry
+    /// (e.g. `free_lane_exhausted`).
+    public let code: String
+    /// Recovery actions: `upgrade`, `add_key`, `switch_to_managed`. Render
+    /// the ones a client knows and ignore the rest.
+    public let cta: [String]
+
+    public init(message: String, code: String, cta: [String] = []) {
+        self.message = message
+        self.code = code
+        self.cta = cta
     }
 }
 
