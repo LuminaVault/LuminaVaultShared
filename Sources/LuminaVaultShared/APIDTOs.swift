@@ -3999,6 +3999,47 @@ public struct CalendarConnectStartResponse: Codable, Sendable {
     }
 }
 
+/// `GET /v1/mail/gmail/status` — Gmail read access for the Settings row.
+///
+/// Gmail rides on the same Google grant as Calendar (an incremental
+/// `gmail.readonly` scope on one OAuth client), so `calendarConnected` tells
+/// the client whether disconnecting Gmail leaves Calendar in place. The
+/// connect call reuses `CalendarConnectStartResponse` — it is only a URL.
+public struct GmailStatusResponse: Codable, Sendable, Equatable {
+    /// The Google grant is live and includes `gmail.readonly`.
+    public let connected: Bool
+    /// Google rejected the refresh token — the row should offer a reconnect.
+    public let needsReauth: Bool
+    public let accountEmail: String?
+    /// The same Google account also grants Calendar.
+    public let calendarConnected: Bool
+    public init(connected: Bool, needsReauth: Bool, accountEmail: String? = nil, calendarConnected: Bool = false) {
+        self.connected = connected
+        self.needsReauth = needsReauth
+        self.accountEmail = accountEmail
+        self.calendarConnected = calendarConnected
+    }
+}
+
+/// `GET /v1/me/location` — the last device location fix the server kept so a
+/// scheduled job (the 07:00 weather check) works while the phone is offline.
+/// All fields but `cached` are nil when nothing is stored.
+/// `DELETE /v1/me/location` forgets it.
+public struct LastKnownLocationResponse: Codable, Sendable, Equatable {
+    public let cached: Bool
+    public let place: String?
+    public let latitude: Double?
+    public let longitude: Double?
+    public let capturedAt: Date?
+    public init(cached: Bool, place: String? = nil, latitude: Double? = nil, longitude: Double? = nil, capturedAt: Date? = nil) {
+        self.cached = cached
+        self.place = place
+        self.latitude = latitude
+        self.longitude = longitude
+        self.capturedAt = capturedAt
+    }
+}
+
 /// Read shape for a cached calendar event (source-agnostic).
 public struct CalendarEventDTO: Codable, Sendable {
     public let id: String
