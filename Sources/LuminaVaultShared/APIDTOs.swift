@@ -1626,6 +1626,18 @@ public enum ConversationMessageRole: String, Codable, Sendable, CaseIterable {
     case system
 }
 
+/// Why a message exists in the thread.
+///
+/// `reply` is the ordinary case: somebody asked, the assistant answered.
+/// `proactive` is a message nobody asked for in that moment — a morning
+/// briefing, a skill's output, a standing task firing — appended by the
+/// server without a user turn. Clients render it as the same agent bubble
+/// with a small caption built from `sourceLabel`.
+public enum ConversationMessageOrigin: String, Codable, Sendable, CaseIterable {
+    case reply
+    case proactive
+}
+
 /// A persisted multi-turn chat thread. Backs the "thinking workspace"
 /// continuity surface on the Think tab.
 public struct ConversationDTO: Codable, Sendable, Identifiable {
@@ -1746,6 +1758,13 @@ public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
     /// How many tools the assistant invoked on this turn. Zero is a real
     /// answer — it ran without tools — and nil means we do not know.
     public let toolCallCount: Int?
+    /// `reply` unless the server appended this message on its own. Absent on
+    /// the wire from servers older than 5.20.0, which decodes as `reply` —
+    /// every message those servers stored was one.
+    public let origin: ConversationMessageOrigin
+    /// Who sent a proactive message, for the caption above the bubble
+    /// ("From daily-brief", "Standing task"). Nil for ordinary replies.
+    public let sourceLabel: String?
     public let createdAt: Date
     public init(
         id: UUID,
@@ -1757,6 +1776,8 @@ public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
         provider: ProviderID? = nil,
         model: String? = nil,
         toolCallCount: Int? = nil,
+        origin: ConversationMessageOrigin = .reply,
+        sourceLabel: String? = nil,
         createdAt: Date
     ) {
         self.id = id; self.conversationId = conversationId; self.role = role
@@ -1764,7 +1785,32 @@ public struct ConversationMessageDTO: Codable, Sendable, Identifiable {
         self.provider = provider; self.model = model
         self.toolCallCount = toolCallCount
         self.parallelExecutionID = parallelExecutionID
+        self.origin = origin
+        self.sourceLabel = sourceLabel
         self.createdAt = createdAt
+    }
+
+    /// Hand-written so the 5.20.0 fields stay optional on the wire.
+    ///
+    /// A synthesized decoder would treat `origin` as required and fail every
+    /// message from an older server. An unknown origin string (a value a newer
+    /// server adds later) also decodes as `reply` rather than failing the whole
+    /// transcript: the worst case is a missing caption, not an empty thread.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        conversationId = try c.decode(UUID.self, forKey: .conversationId)
+        role = try c.decode(ConversationMessageRole.self, forKey: .role)
+        content = try c.decode(String.self, forKey: .content)
+        sourceMemoryIDs = try c.decode([UUID].self, forKey: .sourceMemoryIDs)
+        parallelExecutionID = try c.decodeIfPresent(UUID.self, forKey: .parallelExecutionID)
+        provider = try c.decodeIfPresent(ProviderID.self, forKey: .provider)
+        model = try c.decodeIfPresent(String.self, forKey: .model)
+        toolCallCount = try c.decodeIfPresent(Int.self, forKey: .toolCallCount)
+        let rawOrigin = try c.decodeIfPresent(String.self, forKey: .origin)
+        origin = rawOrigin.flatMap(ConversationMessageOrigin.init(rawValue:)) ?? .reply
+        sourceLabel = try c.decodeIfPresent(String.self, forKey: .sourceLabel)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
     }
 }
 
@@ -3950,6 +3996,47 @@ public struct CalendarConnectStartResponse: Codable, Sendable {
     public let authorizeURL: String
     public init(authorizeURL: String) {
         self.authorizeURL = authorizeURL
+    }
+}
+
+/// `GET /v1/mail/gmail/status` — Gmail read access for the Settings row.
+///
+/// Gmail rides on the same Google grant as Calendar (an incremental
+/// `gmail.readonly` scope on one OAuth client), so `calendarConnected` tells
+/// the client whether disconnecting Gmail leaves Calendar in place. The
+/// connect call reuses `CalendarConnectStartResponse` — it is only a URL.
+public struct GmailStatusResponse: Codable, Sendable, Equatable {
+    /// The Google grant is live and includes `gmail.readonly`.
+    public let connected: Bool
+    /// Google rejected the refresh token — the row should offer a reconnect.
+    public let needsReauth: Bool
+    public let accountEmail: String?
+    /// The same Google account also grants Calendar.
+    public let calendarConnected: Bool
+    public init(connected: Bool, needsReauth: Bool, accountEmail: String? = nil, calendarConnected: Bool = false) {
+        self.connected = connected
+        self.needsReauth = needsReauth
+        self.accountEmail = accountEmail
+        self.calendarConnected = calendarConnected
+    }
+}
+
+/// `GET /v1/me/location` — the last device location fix the server kept so a
+/// scheduled job (the 07:00 weather check) works while the phone is offline.
+/// All fields but `cached` are nil when nothing is stored.
+/// `DELETE /v1/me/location` forgets it.
+public struct LastKnownLocationResponse: Codable, Sendable, Equatable {
+    public let cached: Bool
+    public let place: String?
+    public let latitude: Double?
+    public let longitude: Double?
+    public let capturedAt: Date?
+    public init(cached: Bool, place: String? = nil, latitude: Double? = nil, longitude: Double? = nil, capturedAt: Date? = nil) {
+        self.cached = cached
+        self.place = place
+        self.latitude = latitude
+        self.longitude = longitude
+        self.capturedAt = capturedAt
     }
 }
 
