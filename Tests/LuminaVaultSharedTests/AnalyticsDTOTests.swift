@@ -11,7 +11,7 @@ struct AnalyticsDTOTests {
             scope: .personal,
             vaultId: UUID(),
             range: .month,
-            periodStart: now.addingTimeInterval(-29 * 86_400),
+            periodStart: now.addingTimeInterval(-29 * 86400),
             periodEnd: now,
             summary: .init(aiRequests: 3, tokensIn: 100, tokensOut: 50),
             daily: [.init(date: now, aiRequests: 3, tokens: 150)],

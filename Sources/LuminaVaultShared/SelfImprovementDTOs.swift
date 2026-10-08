@@ -276,7 +276,10 @@ public struct ImprovementDecisionResponse: Codable, Sendable {
 }
 
 public struct ImprovementSkillDTO: Codable, Sendable, Identifiable {
-    public var id: String { "\(kind.rawValue):\(name)" }
+    public var id: String {
+        "\(kind.rawValue):\(name)"
+    }
+
     public let name: String
     public let title: String
     public let kind: ImprovementResourceKind

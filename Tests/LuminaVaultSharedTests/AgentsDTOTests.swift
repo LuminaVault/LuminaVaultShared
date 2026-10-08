@@ -90,7 +90,7 @@ struct AgentRoomDTOTests {
             AgentRoomStreamEvent(kind: .thinking, memberID: UUID()),
             AgentRoomStreamEvent(kind: .message, message: AgentRoomMessageDTO(
                 id: UUID(), authorKind: .agent, memberID: UUID(), body: "over to @ops", tokens: 42,
-                createdAt: Date(timeIntervalSince1970: 1_790_000_000),
+                createdAt: Date(timeIntervalSince1970: 1_790_000_000)
             )),
             AgentRoomStreamEvent(kind: .done, reason: .turnCap),
         ]

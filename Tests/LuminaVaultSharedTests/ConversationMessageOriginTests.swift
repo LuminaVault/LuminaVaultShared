@@ -65,7 +65,12 @@ struct MuseDataSourceSettingsTests {
     func gmailStatus() throws {
         let json = #"{"connected":true,"needsReauth":false,"accountEmail":"a@b.c","calendarConnected":true}"#
         let s = try JSONDecoder().decode(GmailStatusResponse.self, from: Data(json.utf8))
-        #expect(s == GmailStatusResponse(connected: true, needsReauth: false, accountEmail: "a@b.c", calendarConnected: true))
+        #expect(s == GmailStatusResponse(
+            connected: true,
+            needsReauth: false,
+            accountEmail: "a@b.c",
+            calendarConnected: true
+        ))
     }
 
     @Test("an empty location cache decodes with only `cached`")

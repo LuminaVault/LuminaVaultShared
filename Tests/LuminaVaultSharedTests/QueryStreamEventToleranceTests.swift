@@ -68,7 +68,7 @@ struct QueryStreamEventToleranceTests {
                 LinkSavedDTO(
                     url: "https://example.com",
                     vaultPath: "captures/example.md",
-                    capturedAt: Date(timeIntervalSince1970: 1_000),
+                    capturedAt: Date(timeIntervalSince1970: 1000),
                     fromUserMessage: true
                 )
             ),
@@ -85,7 +85,7 @@ struct QueryStreamEventToleranceTests {
         // follow_ups and link_saved are snake_case on the wire; a regression
         // here would silently break every shipped client.
         let followUps = try JSONSerialization.jsonObject(
-            with: try JSONEncoder().encode(QueryStreamEvent.followUps(["a"]))
+            with: JSONEncoder().encode(QueryStreamEvent.followUps(["a"]))
         ) as? [String: Any]
         #expect(followUps?["type"] as? String == "follow_ups")
     }

@@ -34,7 +34,7 @@ struct OnboardingGuidedStartDTOTests {
         #expect(decoded.guidedStartDismissedAt == nil)
     }
 
-    // New client, old server: the key is simply absent from the payload.
+    /// New client, old server: the key is simply absent from the payload.
     @Test("state decodes with the dismissal key absent")
     func stateDecodesWithKeyAbsent() throws {
         let json = """
@@ -52,7 +52,7 @@ struct OnboardingGuidedStartDTOTests {
         #expect(decoded.brainConfiguredCompleted == true)
     }
 
-    // An explicit null is the same thing as the key being missing.
+    /// An explicit null is the same thing as the key being missing.
     @Test("an explicit null dismissal decodes as nil")
     func explicitNullDecodesAsNil() throws {
         let json = """
@@ -69,7 +69,7 @@ struct OnboardingGuidedStartDTOTests {
         #expect(try JSONDecoder().decode(OnboardingStateDTO.self, from: json).guidedStartDismissedAt == nil)
     }
 
-    // Old client, new server: keys this build has never heard of must be ignored.
+    /// Old client, new server: keys this build has never heard of must be ignored.
     @Test("state decodes with unknown extra keys present")
     func stateDecodesWithUnknownKeys() throws {
         let json = """
@@ -106,7 +106,7 @@ struct OnboardingGuidedStartDTOTests {
         #expect(dict?.keys.contains("guidedStartDismissed") == false)
     }
 
-    // Existing positional call sites must keep compiling without the new field.
+    /// Existing positional call sites must keep compiling without the new field.
     @Test("existing positional initialisers still compile and default to nil")
     func positionalInitialiserDefaultsToNil() {
         let legacy = OnboardingStateDTO(

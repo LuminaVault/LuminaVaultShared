@@ -155,7 +155,7 @@ struct ChatAgentTurnContractTests {
             attachments: [
                 ChatAttachmentDTO(kind: .text, name: "notes.txt", text: "hello"),
                 ChatAttachmentDTO(kind: .vaultFile, name: "plan.md", vaultPath: "notes/plan.md"),
-                ChatAttachmentDTO(kind: .link, name: "spec", url: "https://example.com")
+                ChatAttachmentDTO(kind: .link, name: "spec", url: "https://example.com"),
             ]
         )
         let decoded = try Self.decoder.decode(

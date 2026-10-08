@@ -1,3 +1,6 @@
+// swiftlint:disable file_length
+// One file is the single source of truth for every wire DTO; see CLAUDE.md.
+
 import Foundation
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -47,7 +50,16 @@ public struct AuthResponse: Codable {
     /// True once the tenant has run `POST /v1/vault/create`. Clients gate the
     /// "Create My Vault" screen on this value being false.
     public let vaultInitialized: Bool
-    public init(userId: UUID, email: String, accessToken: String, refreshToken: String, expiresIn: Int, mfaRequired: Bool?, mfaChallengeId: UUID?, vaultInitialized: Bool = false) {
+    public init(
+        userId: UUID,
+        email: String,
+        accessToken: String,
+        refreshToken: String,
+        expiresIn: Int,
+        mfaRequired: Bool?,
+        mfaChallengeId: UUID?,
+        vaultInitialized: Bool = false
+    ) {
         self.userId = userId; self.email = email; self.accessToken = accessToken
         self.refreshToken = refreshToken; self.expiresIn = expiresIn
         self.mfaRequired = mfaRequired; self.mfaChallengeId = mfaChallengeId
@@ -523,7 +535,14 @@ public struct HermesUpstreamResponse: Codable, Sendable {
     public let model: String
     public let choices: [HermesUpstreamChoice]
     public let usage: HermesUpstreamUsage?
-    public init(id: String, object: String? = nil, created: Int? = nil, model: String, choices: [HermesUpstreamChoice], usage: HermesUpstreamUsage? = nil) {
+    public init(
+        id: String,
+        object: String? = nil,
+        created: Int? = nil,
+        model: String,
+        choices: [HermesUpstreamChoice],
+        usage: HermesUpstreamUsage? = nil
+    ) {
         self.id = id; self.object = object; self.created = created; self.model = model
         self.choices = choices; self.usage = usage
     }
@@ -1332,7 +1351,9 @@ public struct MemoryCitationDTO: Codable, Sendable, Equatable {
     /// chip shows and the trail the grounding prompt cites.
     public var displayTrail: String {
         var parts: [String] = []
-        if let path { parts.append(path) }
+        if let path {
+            parts.append(path)
+        }
         parts.append(contentsOf: headingPath)
         let trail = parts.joined(separator: " › ")
         let lines = startLine == endLine ? "L\(startLine)" : "L\(startLine)-\(endLine)"
@@ -2143,7 +2164,19 @@ public struct SpaceDTO: Codable, Sendable {
     public let lastCompiledAt: Date?
     public let createdAt: Date?
     public let updatedAt: Date?
-    public init(id: UUID, name: String, slug: String, description: String? = nil, color: String? = nil, icon: String? = nil, category: String? = nil, noteCount: Int = 0, lastCompiledAt: Date? = nil, createdAt: Date? = nil, updatedAt: Date? = nil) {
+    public init(
+        id: UUID,
+        name: String,
+        slug: String,
+        description: String? = nil,
+        color: String? = nil,
+        icon: String? = nil,
+        category: String? = nil,
+        noteCount: Int = 0,
+        lastCompiledAt: Date? = nil,
+        createdAt: Date? = nil,
+        updatedAt: Date? = nil
+    ) {
         self.id = id; self.name = name; self.slug = slug; self.description = description
         self.color = color; self.icon = icon; self.category = category
         self.noteCount = noteCount; self.lastCompiledAt = lastCompiledAt
@@ -2165,7 +2198,14 @@ public struct CreateSpaceRequest: Codable, Sendable {
     public let color: String?
     public let icon: String?
     public let category: String?
-    public init(name: String, slug: String, description: String? = nil, color: String? = nil, icon: String? = nil, category: String? = nil) {
+    public init(
+        name: String,
+        slug: String,
+        description: String? = nil,
+        color: String? = nil,
+        icon: String? = nil,
+        category: String? = nil
+    ) {
         self.name = name; self.slug = slug; self.description = description
         self.color = color; self.icon = icon; self.category = category
     }
@@ -2177,7 +2217,13 @@ public struct UpdateSpaceRequest: Codable, Sendable {
     public let color: String?
     public let icon: String?
     public let category: String?
-    public init(name: String? = nil, description: String? = nil, color: String? = nil, icon: String? = nil, category: String? = nil) {
+    public init(
+        name: String? = nil,
+        description: String? = nil,
+        color: String? = nil,
+        icon: String? = nil,
+        category: String? = nil
+    ) {
         self.name = name; self.description = description; self.color = color
         self.icon = icon; self.category = category
     }
@@ -2231,7 +2277,14 @@ public struct VaultNoteMetadataDTO: Codable, Sendable, Equatable {
     /// has fetched the page, and without this a client cannot tell the two
     /// apart — it can only guess from elapsed time and a changing file size.
     public let enrichmentStatus: String?
-    public init(title: String? = nil, tags: [String]? = nil, isTodo: Bool? = nil, done: Bool? = nil, dueAt: Date? = nil, enrichmentStatus: String? = nil) {
+    public init(
+        title: String? = nil,
+        tags: [String]? = nil,
+        isTodo: Bool? = nil,
+        done: Bool? = nil,
+        dueAt: Date? = nil,
+        enrichmentStatus: String? = nil
+    ) {
         self.title = title; self.tags = tags; self.isTodo = isTodo
         self.done = done; self.dueAt = dueAt
         self.enrichmentStatus = enrichmentStatus
@@ -2251,7 +2304,19 @@ public struct VaultFileDTO: Codable, Sendable {
     public let metadata: VaultNoteMetadataDTO?
     public let createdByUserId: UUID?
     public let updatedByUserId: UUID?
-    public init(id: UUID, path: String, contentType: String, sizeBytes: Int64, sha256: String, spaceId: UUID? = nil, createdAt: Date? = nil, updatedAt: Date? = nil, metadata: VaultNoteMetadataDTO? = nil, createdByUserId: UUID? = nil, updatedByUserId: UUID? = nil) {
+    public init(
+        id: UUID,
+        path: String,
+        contentType: String,
+        sizeBytes: Int64,
+        sha256: String,
+        spaceId: UUID? = nil,
+        createdAt: Date? = nil,
+        updatedAt: Date? = nil,
+        metadata: VaultNoteMetadataDTO? = nil,
+        createdByUserId: UUID? = nil,
+        updatedByUserId: UUID? = nil
+    ) {
         self.id = id; self.path = path; self.contentType = contentType
         self.sizeBytes = sizeBytes; self.sha256 = sha256; self.spaceId = spaceId
         self.createdAt = createdAt; self.updatedAt = updatedAt
@@ -2342,9 +2407,11 @@ public struct OnboardingStateDTO: Codable, Sendable {
     ) {
         self.signupCompleted = signupCompleted; self.signupCompletedAt = signupCompletedAt
         self.emailVerifiedCompleted = emailVerifiedCompleted; self.emailVerifiedCompletedAt = emailVerifiedCompletedAt
-        self.soulConfiguredCompleted = soulConfiguredCompleted; self.soulConfiguredCompletedAt = soulConfiguredCompletedAt
+        self.soulConfiguredCompleted = soulConfiguredCompleted; self
+            .soulConfiguredCompletedAt = soulConfiguredCompletedAt
         self.firstCaptureCompleted = firstCaptureCompleted; self.firstCaptureCompletedAt = firstCaptureCompletedAt
-        self.firstKBCompileCompleted = firstKBCompileCompleted; self.firstKBCompileCompletedAt = firstKBCompileCompletedAt
+        self.firstKBCompileCompleted = firstKBCompileCompleted; self
+            .firstKBCompileCompletedAt = firstKBCompileCompletedAt
         self.firstQueryCompleted = firstQueryCompleted; self.firstQueryCompletedAt = firstQueryCompletedAt
         self.brainConfiguredCompleted = brainConfiguredCompleted
         self.brainConfiguredCompletedAt = brainConfiguredCompletedAt
@@ -2642,7 +2709,15 @@ public struct HealthEventInput: Codable, Sendable {
     public let unit: String?
     public let source: String?
     public let metadata: [String: String]?
-    public init(type: String, recordedAt: Date, valueNumeric: Double? = nil, valueText: String? = nil, unit: String? = nil, source: String? = nil, metadata: [String: String]? = nil) {
+    public init(
+        type: String,
+        recordedAt: Date,
+        valueNumeric: Double? = nil,
+        valueText: String? = nil,
+        unit: String? = nil,
+        source: String? = nil,
+        metadata: [String: String]? = nil
+    ) {
         self.type = type; self.recordedAt = recordedAt; self.valueNumeric = valueNumeric
         self.valueText = valueText; self.unit = unit; self.source = source
         self.metadata = metadata
@@ -3871,7 +3946,12 @@ public struct DeviceCommand: Codable, Sendable, Identifiable {
     /// a JSON string value). e.g. {"title":"Call mom","due":"2026-06-02T18:00"}.
     public let payload: [String: String]
 
-    public init(id: UUID = UUID(), kind: DeviceCommandKind, domain: AppleDataDomain? = nil, payload: [String: String] = [:]) {
+    public init(
+        id: UUID = UUID(),
+        kind: DeviceCommandKind,
+        domain: AppleDataDomain? = nil,
+        payload: [String: String] = [:]
+    ) {
         self.id = id; self.kind = kind; self.domain = domain; self.payload = payload
     }
 }
@@ -3948,7 +4028,19 @@ public struct AppleCalendarEventInput: Codable, Sendable {
     public let organizer: String?
     /// EventKit `lastModifiedDate`; drives last-writer-wins on upsert.
     public let remoteUpdatedAt: Date?
-    public init(externalID: String, calendarID: String? = nil, title: String, notes: String? = nil, location: String? = nil, startsAt: Date, endsAt: Date, allDay: Bool = false, status: String? = nil, organizer: String? = nil, remoteUpdatedAt: Date? = nil) {
+    public init(
+        externalID: String,
+        calendarID: String? = nil,
+        title: String,
+        notes: String? = nil,
+        location: String? = nil,
+        startsAt: Date,
+        endsAt: Date,
+        allDay: Bool = false,
+        status: String? = nil,
+        organizer: String? = nil,
+        remoteUpdatedAt: Date? = nil
+    ) {
         self.externalID = externalID; self.calendarID = calendarID; self.title = title
         self.notes = notes; self.location = location; self.startsAt = startsAt
         self.endsAt = endsAt; self.allDay = allDay; self.status = status
@@ -4031,7 +4123,13 @@ public struct LastKnownLocationResponse: Codable, Sendable, Equatable {
     public let latitude: Double?
     public let longitude: Double?
     public let capturedAt: Date?
-    public init(cached: Bool, place: String? = nil, latitude: Double? = nil, longitude: Double? = nil, capturedAt: Date? = nil) {
+    public init(
+        cached: Bool,
+        place: String? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil,
+        capturedAt: Date? = nil
+    ) {
         self.cached = cached
         self.place = place
         self.latitude = latitude
@@ -4055,7 +4153,20 @@ public struct CalendarEventDTO: Codable, Sendable {
     public let status: String
     public let organizer: String?
     public let htmlLink: String?
-    public init(id: String, source: String, externalID: String, title: String, notes: String? = nil, location: String? = nil, startsAt: Date, endsAt: Date, allDay: Bool, status: String, organizer: String? = nil, htmlLink: String? = nil) {
+    public init(
+        id: String,
+        source: String,
+        externalID: String,
+        title: String,
+        notes: String? = nil,
+        location: String? = nil,
+        startsAt: Date,
+        endsAt: Date,
+        allDay: Bool,
+        status: String,
+        organizer: String? = nil,
+        htmlLink: String? = nil
+    ) {
         self.id = id; self.source = source; self.externalID = externalID
         self.title = title; self.notes = notes; self.location = location
         self.startsAt = startsAt; self.endsAt = endsAt; self.allDay = allDay
@@ -4081,7 +4192,14 @@ public struct CalendarCreateEventRequest: Codable, Sendable {
     public let location: String?
     public let notes: String?
     public let attendees: [String]?
-    public init(title: String, startsAt: Date, endsAt: Date, location: String? = nil, notes: String? = nil, attendees: [String]? = nil) {
+    public init(
+        title: String,
+        startsAt: Date,
+        endsAt: Date,
+        location: String? = nil,
+        notes: String? = nil,
+        attendees: [String]? = nil
+    ) {
         self.title = title
         self.startsAt = startsAt
         self.endsAt = endsAt
@@ -4105,7 +4223,17 @@ public struct AppleReminderInput: Codable, Sendable {
     /// EventKit priority 0–9 (0 = none).
     public let priority: Int?
     public let remoteUpdatedAt: Date?
-    public init(externalID: String, title: String, notes: String? = nil, dueAt: Date? = nil, completed: Bool = false, completedAt: Date? = nil, listName: String? = nil, priority: Int? = nil, remoteUpdatedAt: Date? = nil) {
+    public init(
+        externalID: String,
+        title: String,
+        notes: String? = nil,
+        dueAt: Date? = nil,
+        completed: Bool = false,
+        completedAt: Date? = nil,
+        listName: String? = nil,
+        priority: Int? = nil,
+        remoteUpdatedAt: Date? = nil
+    ) {
         self.externalID = externalID; self.title = title; self.notes = notes
         self.dueAt = dueAt; self.completed = completed; self.completedAt = completedAt
         self.listName = listName; self.priority = priority; self.remoteUpdatedAt = remoteUpdatedAt
@@ -4135,7 +4263,13 @@ public struct PhotoIndexInput: Codable, Sendable {
     public let ocrText: String?
     /// On-device `VNClassifyImageRequest` labels (e.g. ["document","receipt"]).
     public let sceneTags: [String]?
-    public init(assetLocalID: String, takenAt: Date? = nil, isScreenshot: Bool = false, ocrText: String? = nil, sceneTags: [String]? = nil) {
+    public init(
+        assetLocalID: String,
+        takenAt: Date? = nil,
+        isScreenshot: Bool = false,
+        ocrText: String? = nil,
+        sceneTags: [String]? = nil
+    ) {
         self.assetLocalID = assetLocalID; self.takenAt = takenAt
         self.isScreenshot = isScreenshot; self.ocrText = ocrText; self.sceneTags = sceneTags
     }
@@ -4201,7 +4335,8 @@ public enum WorkflowTriggerKind: String, Codable, Sendable, CaseIterable {
 }
 
 public enum WorkflowNodeKind: String, Codable, Sendable, CaseIterable {
-    case trigger, llm, skill, memorySearch, memoryWrite, template, condition, approval, parallel, forEach, whileLoop, output
+    case trigger, llm, skill, memorySearch, memoryWrite, template, condition, approval, parallel, forEach, whileLoop,
+         output
 }
 
 public enum WorkflowRunStatus: String, Codable, Sendable, CaseIterable {
@@ -4244,7 +4379,14 @@ public struct WorkflowNodeDTO: Codable, Sendable, Equatable, Identifiable {
     public let y: Double
     public let configuration: [String: String]
 
-    public init(id: UUID = UUID(), kind: WorkflowNodeKind, name: String, x: Double, y: Double, configuration: [String: String] = [:]) {
+    public init(
+        id: UUID = UUID(),
+        kind: WorkflowNodeKind,
+        name: String,
+        x: Double,
+        y: Double,
+        configuration: [String: String] = [:]
+    ) {
         self.id = id; self.kind = kind; self.name = name
         self.x = x; self.y = y; self.configuration = configuration
     }
@@ -4257,7 +4399,13 @@ public struct WorkflowEdgeDTO: Codable, Sendable, Equatable, Identifiable {
     public let targetNodeID: UUID
     public let targetPort: String
 
-    public init(id: UUID = UUID(), sourceNodeID: UUID, sourcePort: String = "output", targetNodeID: UUID, targetPort: String = "input") {
+    public init(
+        id: UUID = UUID(),
+        sourceNodeID: UUID,
+        sourcePort: String = "output",
+        targetNodeID: UUID,
+        targetPort: String = "input"
+    ) {
         self.id = id; self.sourceNodeID = sourceNodeID; self.sourcePort = sourcePort
         self.targetNodeID = targetNodeID; self.targetPort = targetPort
     }
@@ -4270,7 +4418,13 @@ public struct WorkflowDefinitionDTO: Codable, Sendable, Equatable {
     public let nodes: [WorkflowNodeDTO]
     public let edges: [WorkflowEdgeDTO]
 
-    public init(schemaVersion: Int = 1, trigger: WorkflowTriggerKind, triggerConfiguration: [String: String] = [:], nodes: [WorkflowNodeDTO], edges: [WorkflowEdgeDTO]) {
+    public init(
+        schemaVersion: Int = 1,
+        trigger: WorkflowTriggerKind,
+        triggerConfiguration: [String: String] = [:],
+        nodes: [WorkflowNodeDTO],
+        edges: [WorkflowEdgeDTO]
+    ) {
         self.schemaVersion = schemaVersion; self.trigger = trigger; self.triggerConfiguration = triggerConfiguration
         self.nodes = nodes; self.edges = edges
     }
@@ -4283,7 +4437,8 @@ public struct WorkflowDefinitionDTO: Codable, Sendable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
         trigger = try container.decode(WorkflowTriggerKind.self, forKey: .trigger)
-        triggerConfiguration = try container.decodeIfPresent([String: String].self, forKey: .triggerConfiguration) ?? [:]
+        triggerConfiguration = try container
+            .decodeIfPresent([String: String].self, forKey: .triggerConfiguration) ?? [:]
         nodes = try container.decode([WorkflowNodeDTO].self, forKey: .nodes)
         edges = try container.decode([WorkflowEdgeDTO].self, forKey: .edges)
     }
@@ -4304,7 +4459,21 @@ public struct WorkflowSummaryDTO: Codable, Sendable, Equatable, Identifiable {
     public let createdAt: Date
     public let updatedAt: Date
 
-    public init(id: UUID, name: String, descriptionText: String? = nil, enabled: Bool, trigger: WorkflowTriggerKind, draftRevision: Int, publishedVersion: Int? = nil, lastRunStatus: WorkflowRunStatus? = nil, lastRunAt: Date? = nil, pendingApprovalCount: Int = 0, isLegacyJob: Bool = false, createdAt: Date, updatedAt: Date) {
+    public init(
+        id: UUID,
+        name: String,
+        descriptionText: String? = nil,
+        enabled: Bool,
+        trigger: WorkflowTriggerKind,
+        draftRevision: Int,
+        publishedVersion: Int? = nil,
+        lastRunStatus: WorkflowRunStatus? = nil,
+        lastRunAt: Date? = nil,
+        pendingApprovalCount: Int = 0,
+        isLegacyJob: Bool = false,
+        createdAt: Date,
+        updatedAt: Date
+    ) {
         self.id = id; self.name = name; self.descriptionText = descriptionText
         self.enabled = enabled; self.trigger = trigger; self.draftRevision = draftRevision
         self.publishedVersion = publishedVersion; self.lastRunStatus = lastRunStatus
@@ -4343,7 +4512,13 @@ public struct WorkflowDraftUpdateRequest: Codable, Sendable {
     public let enabled: Bool?
     public let expectedRevision: Int
     public let definition: WorkflowDefinitionDTO
-    public init(name: String? = nil, descriptionText: String? = nil, enabled: Bool? = nil, expectedRevision: Int, definition: WorkflowDefinitionDTO) {
+    public init(
+        name: String? = nil,
+        descriptionText: String? = nil,
+        enabled: Bool? = nil,
+        expectedRevision: Int,
+        definition: WorkflowDefinitionDTO
+    ) {
         self.name = name; self.descriptionText = descriptionText; self.enabled = enabled
         self.expectedRevision = expectedRevision; self.definition = definition
     }
@@ -4372,7 +4547,22 @@ public struct WorkflowNodeRunDTO: Codable, Sendable, Equatable, Identifiable {
     public let tokensIn: Int?
     public let tokensOut: Int?
     public let managedCostUsdMicros: Int64?
-    public init(id: UUID, nodeID: UUID, nodeName: String, status: WorkflowNodeRunStatus, attempt: Int, startedAt: Date? = nil, endedAt: Date? = nil, outputPreview: String? = nil, error: String? = nil, provider: ProviderID? = nil, model: String? = nil, tokensIn: Int? = nil, tokensOut: Int? = nil, managedCostUsdMicros: Int64? = nil) {
+    public init(
+        id: UUID,
+        nodeID: UUID,
+        nodeName: String,
+        status: WorkflowNodeRunStatus,
+        attempt: Int,
+        startedAt: Date? = nil,
+        endedAt: Date? = nil,
+        outputPreview: String? = nil,
+        error: String? = nil,
+        provider: ProviderID? = nil,
+        model: String? = nil,
+        tokensIn: Int? = nil,
+        tokensOut: Int? = nil,
+        managedCostUsdMicros: Int64? = nil
+    ) {
         self.id = id; self.nodeID = nodeID; self.nodeName = nodeName; self.status = status
         self.attempt = attempt; self.startedAt = startedAt; self.endedAt = endedAt
         self.outputPreview = outputPreview; self.error = error; self.provider = provider
@@ -4396,7 +4586,22 @@ public struct WorkflowRunDTO: Codable, Sendable, Equatable, Identifiable {
     public let managedSpendUsdMicros: Int64?
     public let managedSpendLimitUsdMicros: Int64?
     public let nodeRuns: [WorkflowNodeRunDTO]
-    public init(id: UUID, workflowID: UUID, workflowName: String, version: Int, status: WorkflowRunStatus, trigger: WorkflowTriggerKind, startedAt: Date? = nil, endedAt: Date? = nil, createdAt: Date, error: String? = nil, pauseReason: WorkflowPauseReason? = nil, managedSpendUsdMicros: Int64? = nil, managedSpendLimitUsdMicros: Int64? = nil, nodeRuns: [WorkflowNodeRunDTO] = []) {
+    public init(
+        id: UUID,
+        workflowID: UUID,
+        workflowName: String,
+        version: Int,
+        status: WorkflowRunStatus,
+        trigger: WorkflowTriggerKind,
+        startedAt: Date? = nil,
+        endedAt: Date? = nil,
+        createdAt: Date,
+        error: String? = nil,
+        pauseReason: WorkflowPauseReason? = nil,
+        managedSpendUsdMicros: Int64? = nil,
+        managedSpendLimitUsdMicros: Int64? = nil,
+        nodeRuns: [WorkflowNodeRunDTO] = []
+    ) {
         self.id = id; self.workflowID = workflowID; self.workflowName = workflowName
         self.version = version; self.status = status; self.trigger = trigger
         self.startedAt = startedAt; self.endedAt = endedAt; self.createdAt = createdAt
@@ -4424,7 +4629,17 @@ public struct WorkflowApprovalDTO: Codable, Sendable, Equatable, Identifiable {
     public let message: String?
     public let expiresAt: Date
     public let createdAt: Date
-    public init(id: UUID, runID: UUID, workflowID: UUID, workflowName: String, nodeID: UUID, title: String, message: String? = nil, expiresAt: Date, createdAt: Date) {
+    public init(
+        id: UUID,
+        runID: UUID,
+        workflowID: UUID,
+        workflowName: String,
+        nodeID: UUID,
+        title: String,
+        message: String? = nil,
+        expiresAt: Date,
+        createdAt: Date
+    ) {
         self.id = id; self.runID = runID; self.workflowID = workflowID
         self.workflowName = workflowName; self.nodeID = nodeID; self.title = title
         self.message = message; self.expiresAt = expiresAt; self.createdAt = createdAt
@@ -4456,7 +4671,15 @@ public struct WorkflowRunEventDTO: Codable, Sendable, Equatable, Identifiable {
     public let data: [String: String]
     public let createdAt: Date
 
-    public init(id: Int64, runID: UUID, kind: WorkflowRunEventKind, nodeID: UUID? = nil, message: String? = nil, data: [String: String] = [:], createdAt: Date) {
+    public init(
+        id: Int64,
+        runID: UUID,
+        kind: WorkflowRunEventKind,
+        nodeID: UUID? = nil,
+        message: String? = nil,
+        data: [String: String] = [:],
+        createdAt: Date
+    ) {
         self.id = id; self.runID = runID; self.kind = kind; self.nodeID = nodeID
         self.message = message; self.data = data; self.createdAt = createdAt
     }
@@ -4464,7 +4687,9 @@ public struct WorkflowRunEventDTO: Codable, Sendable, Equatable, Identifiable {
 
 public struct WorkflowRunEventsResponse: Codable, Sendable, Equatable {
     public let events: [WorkflowRunEventDTO]
-    public init(events: [WorkflowRunEventDTO]) { self.events = events }
+    public init(events: [WorkflowRunEventDTO]) {
+        self.events = events
+    }
 }
 
 public struct WorkflowVersionDTO: Codable, Sendable, Equatable, Identifiable {
@@ -4482,7 +4707,9 @@ public struct WorkflowVersionDTO: Codable, Sendable, Equatable, Identifiable {
 
 public struct WorkflowVersionsResponse: Codable, Sendable, Equatable {
     public let versions: [WorkflowVersionDTO]
-    public init(versions: [WorkflowVersionDTO]) { self.versions = versions }
+    public init(versions: [WorkflowVersionDTO]) {
+        self.versions = versions
+    }
 }
 
 public struct WorkflowValidationIssueDTO: Codable, Sendable, Equatable, Identifiable {
@@ -4511,7 +4738,13 @@ public struct WorkflowTemplateDTO: Codable, Sendable, Equatable, Identifiable {
     public let category: String
     public let definition: WorkflowDefinitionDTO
 
-    public init(id: String, name: String, descriptionText: String, category: String, definition: WorkflowDefinitionDTO) {
+    public init(
+        id: String,
+        name: String,
+        descriptionText: String,
+        category: String,
+        definition: WorkflowDefinitionDTO
+    ) {
         self.id = id; self.name = name; self.descriptionText = descriptionText
         self.category = category; self.definition = definition
     }
@@ -4519,12 +4752,16 @@ public struct WorkflowTemplateDTO: Codable, Sendable, Equatable, Identifiable {
 
 public struct WorkflowTemplatesResponse: Codable, Sendable, Equatable {
     public let templates: [WorkflowTemplateDTO]
-    public init(templates: [WorkflowTemplateDTO]) { self.templates = templates }
+    public init(templates: [WorkflowTemplateDTO]) {
+        self.templates = templates
+    }
 }
 
 public struct WorkflowTemplateInstantiateRequest: Codable, Sendable, Equatable {
     public let name: String?
-    public init(name: String? = nil) { self.name = name }
+    public init(name: String? = nil) {
+        self.name = name
+    }
 }
 
 public struct WorkflowLimitsDTO: Codable, Sendable, Equatable {
@@ -4541,7 +4778,20 @@ public struct WorkflowLimitsDTO: Codable, Sendable, Equatable {
     public let managedInferenceAvailable: Bool
     public let freeFallbackActive: Bool
 
-    public init(tier: UserTier, canAuthor: Bool, activeRuns: Int, activeRunLimit: Int, minimumScheduleMinutes: Int, perRunLimitUsdMicros: Int64, dailyLimitUsdMicros: Int64, dailySpentUsdMicros: Int64, monthlyLimitUsdMicros: Int64, monthlySpentUsdMicros: Int64, managedInferenceAvailable: Bool, freeFallbackActive: Bool) {
+    public init(
+        tier: UserTier,
+        canAuthor: Bool,
+        activeRuns: Int,
+        activeRunLimit: Int,
+        minimumScheduleMinutes: Int,
+        perRunLimitUsdMicros: Int64,
+        dailyLimitUsdMicros: Int64,
+        dailySpentUsdMicros: Int64,
+        monthlyLimitUsdMicros: Int64,
+        monthlySpentUsdMicros: Int64,
+        managedInferenceAvailable: Bool,
+        freeFallbackActive: Bool
+    ) {
         self.tier = tier; self.canAuthor = canAuthor; self.activeRuns = activeRuns
         self.activeRunLimit = activeRunLimit; self.minimumScheduleMinutes = minimumScheduleMinutes
         self.perRunLimitUsdMicros = perRunLimitUsdMicros; self.dailyLimitUsdMicros = dailyLimitUsdMicros
@@ -5523,13 +5773,22 @@ public enum HermesMirroredSkillSource: String, Codable, Sendable, CaseIterable {
 }
 
 public struct HermesMirroredSkillDTO: Codable, Sendable, Identifiable, Equatable {
-    public var id: String { name }
+    public var id: String {
+        name
+    }
+
     public let name: String
     public let description: String
     public let enabled: Bool
     public let source: HermesMirroredSkillSource
     public let updatedAt: Date?
-    public init(name: String, description: String, enabled: Bool, source: HermesMirroredSkillSource, updatedAt: Date? = nil) {
+    public init(
+        name: String,
+        description: String,
+        enabled: Bool,
+        source: HermesMirroredSkillSource,
+        updatedAt: Date? = nil
+    ) {
         self.name = name
         self.description = description
         self.enabled = enabled
@@ -5554,7 +5813,10 @@ public struct HermesMirroredSkillToggleRequest: Codable, Sendable, Equatable {
 }
 
 public struct HermesMirroredJobDTO: Codable, Sendable, Identifiable, Equatable {
-    public var id: String { hermesJobID }
+    public var id: String {
+        hermesJobID
+    }
+
     public let hermesJobID: String
     public let name: String?
     public let schedule: String?
@@ -5618,7 +5880,15 @@ public struct HermesVaultImportResultDTO: Codable, Sendable, Equatable {
     /// True when a cap stopped the run early; call again to resume from `cursor`.
     public let truncated: Bool
     public let cursor: String?
-    public init(vaultPath: String, scanned: Int, imported: Int, skipped: Int, failed: Int, truncated: Bool, cursor: String? = nil) {
+    public init(
+        vaultPath: String,
+        scanned: Int,
+        imported: Int,
+        skipped: Int,
+        failed: Int,
+        truncated: Bool,
+        cursor: String? = nil
+    ) {
         self.vaultPath = vaultPath
         self.scanned = scanned
         self.imported = imported
@@ -5651,7 +5921,14 @@ public struct HermesSessionsImportResultDTO: Codable, Sendable, Equatable {
     public let truncated: Bool
     public let cursor: String?
     public let compileTriggered: Bool
-    public init(sessionsImported: Int, sessionsSkipped: Int, filesWritten: Int, truncated: Bool, cursor: String? = nil, compileTriggered: Bool) {
+    public init(
+        sessionsImported: Int,
+        sessionsSkipped: Int,
+        filesWritten: Int,
+        truncated: Bool,
+        cursor: String? = nil,
+        compileTriggered: Bool
+    ) {
         self.sessionsImported = sessionsImported
         self.sessionsSkipped = sessionsSkipped
         self.filesWritten = filesWritten
@@ -7632,7 +7909,15 @@ public struct MarketplacePublisherDTO: Codable, Sendable, Identifiable, Equatabl
     public let verified: Bool
     public let status: String?
 
-    public init(id: UUID, handle: String, displayName: String, bio: String? = nil, websiteURL: String? = nil, verified: Bool, status: String? = nil) {
+    public init(
+        id: UUID,
+        handle: String,
+        displayName: String,
+        bio: String? = nil,
+        websiteURL: String? = nil,
+        verified: Bool,
+        status: String? = nil
+    ) {
         self.id = id
         self.handle = handle
         self.displayName = displayName
@@ -7683,7 +7968,17 @@ public struct MarketplaceVersionDTO: Codable, Sendable, Identifiable, Equatable 
     public let publishedAt: Date?
     public let tools: [MarketplaceToolManifest]?
 
-    public init(id: UUID, version: String, status: MarketplaceVersionStatus, runtimeKind: MarketplaceRuntimeKind, permissions: [PluginPermission], networkHosts: [String] = [], changelog: String? = nil, publishedAt: Date? = nil, tools: [MarketplaceToolManifest]? = nil) {
+    public init(
+        id: UUID,
+        version: String,
+        status: MarketplaceVersionStatus,
+        runtimeKind: MarketplaceRuntimeKind,
+        permissions: [PluginPermission],
+        networkHosts: [String] = [],
+        changelog: String? = nil,
+        publishedAt: Date? = nil,
+        tools: [MarketplaceToolManifest]? = nil
+    ) {
         self.id = id
         self.version = version
         self.status = status
@@ -7723,7 +8018,22 @@ public struct MarketplacePluginDTO: Codable, Sendable, Identifiable, Equatable {
     public let installCount: Int
     public let configFields: [PluginConfigField]
 
-    public init(slug: String, name: String, summary: String, description: String, category: PluginCategory, iconURL: String? = nil, screenshots: [String] = [], publisher: MarketplacePublisherDTO, latestVersion: MarketplaceVersionDTO, featured: Bool = false, ratingAverage: Double = 0, ratingCount: Int = 0, installCount: Int = 0, configFields: [PluginConfigField] = []) {
+    public init(
+        slug: String,
+        name: String,
+        summary: String,
+        description: String,
+        category: PluginCategory,
+        iconURL: String? = nil,
+        screenshots: [String] = [],
+        publisher: MarketplacePublisherDTO,
+        latestVersion: MarketplaceVersionDTO,
+        featured: Bool = false,
+        ratingAverage: Double = 0,
+        ratingCount: Int = 0,
+        installCount: Int = 0,
+        configFields: [PluginConfigField] = []
+    ) {
         self.slug = slug
         self.name = name
         self.summary = summary
@@ -7759,7 +8069,15 @@ public struct MarketplaceReviewDTO: Codable, Sendable, Identifiable, Equatable {
     public let createdAt: Date?
     public let updatedAt: Date?
 
-    public init(id: UUID, rating: Int, body: String? = nil, authorUsername: String, verifiedInstall: Bool, createdAt: Date? = nil, updatedAt: Date? = nil) {
+    public init(
+        id: UUID,
+        rating: Int,
+        body: String? = nil,
+        authorUsername: String,
+        verifiedInstall: Bool,
+        createdAt: Date? = nil,
+        updatedAt: Date? = nil
+    ) {
         self.id = id
         self.rating = rating
         self.body = body
@@ -7839,7 +8157,16 @@ public struct MarketplaceSubmissionDTO: Codable, Sendable, Identifiable, Equatab
     public let submittedAt: Date?
     public let reviewedAt: Date?
 
-    public init(id: UUID, pluginSlug: String, versionId: UUID, status: MarketplaceVersionStatus, validationErrors: [String] = [], reviewNote: String? = nil, submittedAt: Date? = nil, reviewedAt: Date? = nil) {
+    public init(
+        id: UUID,
+        pluginSlug: String,
+        versionId: UUID,
+        status: MarketplaceVersionStatus,
+        validationErrors: [String] = [],
+        reviewNote: String? = nil,
+        submittedAt: Date? = nil,
+        reviewedAt: Date? = nil
+    ) {
         self.id = id
         self.pluginSlug = pluginSlug
         self.versionId = versionId
@@ -8213,9 +8540,15 @@ public struct AnalyticsDailyPointDTO: Codable, Sendable, Equatable {
     public let retrievals: Int
     public let estimatedCostUsdMicros: Int64
 
-    public init(date: Date, sessions: Int = 0, aiRequests: Int = 0, tokens: Int = 0,
-                captures: Int = 0, retrievals: Int = 0, estimatedCostUsdMicros: Int64 = 0)
-    {
+    public init(
+        date: Date,
+        sessions: Int = 0,
+        aiRequests: Int = 0,
+        tokens: Int = 0,
+        captures: Int = 0,
+        retrievals: Int = 0,
+        estimatedCostUsdMicros: Int64 = 0
+    ) {
         self.date = date
         self.sessions = sessions
         self.aiRequests = aiRequests
@@ -8235,9 +8568,15 @@ public struct AnalyticsSummaryDTO: Codable, Sendable, Equatable {
     public let retrievals: Int
     public let estimatedCostUsdMicros: Int64
 
-    public init(sessions: Int = 0, aiRequests: Int = 0, tokensIn: Int = 0, tokensOut: Int = 0,
-                captures: Int = 0, retrievals: Int = 0, estimatedCostUsdMicros: Int64 = 0)
-    {
+    public init(
+        sessions: Int = 0,
+        aiRequests: Int = 0,
+        tokensIn: Int = 0,
+        tokensOut: Int = 0,
+        captures: Int = 0,
+        retrievals: Int = 0,
+        estimatedCostUsdMicros: Int64 = 0
+    ) {
         self.sessions = sessions
         self.aiRequests = aiRequests
         self.tokensIn = tokensIn
@@ -8271,10 +8610,15 @@ public struct MemoryHealthDTO: Codable, Sendable, Equatable {
     public let pendingReviewCount: Int
     public let components: [MemoryHealthComponentDTO]
 
-    public init(score: Int, totalMemories: Int, staleCount: Int, neverRetrievedCount: Int,
-                unorganizedCount: Int, pendingReviewCount: Int,
-                components: [MemoryHealthComponentDTO])
-    {
+    public init(
+        score: Int,
+        totalMemories: Int,
+        staleCount: Int,
+        neverRetrievedCount: Int,
+        unorganizedCount: Int,
+        pendingReviewCount: Int,
+        components: [MemoryHealthComponentDTO]
+    ) {
         self.score = score
         self.totalMemories = totalMemories
         self.staleCount = staleCount
@@ -8297,9 +8641,14 @@ public struct AnalyticsRecommendationDTO: Codable, Sendable, Equatable, Identifi
     public let actionTitle: String
     public let deepLink: String
 
-    public init(id: String, title: String, detail: String, severity: AnalyticsRecommendationSeverity,
-                actionTitle: String, deepLink: String)
-    {
+    public init(
+        id: String,
+        title: String,
+        detail: String,
+        severity: AnalyticsRecommendationSeverity,
+        actionTitle: String,
+        deepLink: String
+    ) {
         self.id = id
         self.title = title
         self.detail = detail
@@ -8320,10 +8669,17 @@ public struct AnalyticsOverviewResponse: Codable, Sendable {
     public let memoryHealth: MemoryHealthDTO
     public let recommendations: [AnalyticsRecommendationDTO]
 
-    public init(scope: AnalyticsScope, vaultId: UUID, range: AnalyticsRange, periodStart: Date,
-                periodEnd: Date, summary: AnalyticsSummaryDTO, daily: [AnalyticsDailyPointDTO],
-                memoryHealth: MemoryHealthDTO, recommendations: [AnalyticsRecommendationDTO])
-    {
+    public init(
+        scope: AnalyticsScope,
+        vaultId: UUID,
+        range: AnalyticsRange,
+        periodStart: Date,
+        periodEnd: Date,
+        summary: AnalyticsSummaryDTO,
+        daily: [AnalyticsDailyPointDTO],
+        memoryHealth: MemoryHealthDTO,
+        recommendations: [AnalyticsRecommendationDTO]
+    ) {
         self.scope = scope
         self.vaultId = vaultId
         self.range = range
@@ -8354,12 +8710,20 @@ public struct ModelEffectivenessDTO: Codable, Sendable, Equatable, Identifiable 
     public let negativeFeedback: Int?
     public let satisfactionRate: Double?
 
-    public init(provider: String, model: String, requests: Int, successRate: Double,
-                fallbackRate: Double, averageLatencyMs: Int, p95LatencyMs: Int,
-                tokens: Int, estimatedCostUsdMicros: Int64,
-                positiveFeedback: Int? = nil, negativeFeedback: Int? = nil,
-                satisfactionRate: Double? = nil)
-    {
+    public init(
+        provider: String,
+        model: String,
+        requests: Int,
+        successRate: Double,
+        fallbackRate: Double,
+        averageLatencyMs: Int,
+        p95LatencyMs: Int,
+        tokens: Int,
+        estimatedCostUsdMicros: Int64,
+        positiveFeedback: Int? = nil,
+        negativeFeedback: Int? = nil,
+        satisfactionRate: Double? = nil
+    ) {
         self.provider = provider
         self.model = model
         self.requests = requests
@@ -8394,9 +8758,12 @@ public struct ModelFeedbackRequest: Codable, Sendable {
     public let rating: ModelFeedbackRating
     public let idempotencyKey: String?
 
-    public init(provider: String, model: String, rating: ModelFeedbackRating,
-                idempotencyKey: String? = nil)
-    {
+    public init(
+        provider: String,
+        model: String,
+        rating: ModelFeedbackRating,
+        idempotencyKey: String? = nil
+    ) {
         self.provider = provider
         self.model = model
         self.rating = rating
@@ -8413,9 +8780,15 @@ public struct TeamMemberAnalyticsDTO: Codable, Sendable, Equatable, Identifiable
     public let tokens: Int
     public let estimatedCostUsdMicros: Int64
 
-    public init(id: UUID, displayName: String, captures: Int, retrievals: Int,
-                aiRequests: Int, tokens: Int, estimatedCostUsdMicros: Int64)
-    {
+    public init(
+        id: UUID,
+        displayName: String,
+        captures: Int,
+        retrievals: Int,
+        aiRequests: Int,
+        tokens: Int,
+        estimatedCostUsdMicros: Int64
+    ) {
         self.id = id
         self.displayName = displayName
         self.captures = captures
@@ -8433,9 +8806,12 @@ public struct TeamAnalyticsResponse: Codable, Sendable {
     /// Present only for team owners/admins; omitted for ordinary members.
     public let members: [TeamMemberAnalyticsDTO]?
 
-    public init(vaultId: UUID, range: AnalyticsRange, summary: AnalyticsSummaryDTO,
-                members: [TeamMemberAnalyticsDTO]? = nil)
-    {
+    public init(
+        vaultId: UUID,
+        range: AnalyticsRange,
+        summary: AnalyticsSummaryDTO,
+        members: [TeamMemberAnalyticsDTO]? = nil
+    ) {
         self.vaultId = vaultId
         self.range = range
         self.summary = summary
@@ -8462,10 +8838,13 @@ public struct AnalyticsEventRequest: Codable, Sendable {
     public let recommendationId: String?
     public let idempotencyKey: String?
 
-    public init(name: AnalyticsClientEventName, source: AnalyticsEventSource,
-                range: AnalyticsRange? = nil, recommendationId: String? = nil,
-                idempotencyKey: String? = nil)
-    {
+    public init(
+        name: AnalyticsClientEventName,
+        source: AnalyticsEventSource,
+        range: AnalyticsRange? = nil,
+        recommendationId: String? = nil,
+        idempotencyKey: String? = nil
+    ) {
         self.name = name
         self.source = source
         self.range = range
@@ -8548,7 +8927,10 @@ public struct DashboardPeriodStats: Codable, Sendable, Equatable {
 }
 
 public struct DashboardSeriesPoint: Codable, Sendable, Equatable, Identifiable {
-    public var id: Date { at }
+    public var id: Date {
+        at
+    }
+
     public let at: Date
     public let value: Int
 
@@ -8752,9 +9134,15 @@ public struct GraphPreviewNodeDTO: Codable, Sendable, Equatable, Identifiable {
     public let activity: Double
     public let kind: Kind
 
-    public init(id: UUID, label: String, x: Double, y: Double, z: Double,
-                activity: Double, kind: Kind = .memory)
-    {
+    public init(
+        id: UUID,
+        label: String,
+        x: Double,
+        y: Double,
+        z: Double,
+        activity: Double,
+        kind: Kind = .memory
+    ) {
         self.id = id; self.label = label
         self.x = x; self.y = y; self.z = z
         self.activity = activity; self.kind = kind
@@ -8779,9 +9167,13 @@ public struct ActivityFeedItemDTO: Codable, Sendable, Equatable, Identifiable {
     public let subtitle: String?
     public let occurredAt: Date
 
-    public init(id: UUID, kind: ActivityFeedItemKind, title: String,
-                subtitle: String? = nil, occurredAt: Date)
-    {
+    public init(
+        id: UUID,
+        kind: ActivityFeedItemKind,
+        title: String,
+        subtitle: String? = nil,
+        occurredAt: Date
+    ) {
         self.id = id; self.kind = kind; self.title = title
         self.subtitle = subtitle; self.occurredAt = occurredAt
     }
@@ -8814,9 +9206,13 @@ public struct RetrievalHealthResponse: Codable, Sendable {
     public let leakCount: Int
     public let trend: Trend
 
-    public init(hitRate: Double? = nil, meanTopDistance: Double? = nil,
-                eventsCount: Int = 0, leakCount: Int = 0, trend: Trend = .steady)
-    {
+    public init(
+        hitRate: Double? = nil,
+        meanTopDistance: Double? = nil,
+        eventsCount: Int = 0,
+        leakCount: Int = 0,
+        trend: Trend = .steady
+    ) {
         self.hitRate = hitRate; self.meanTopDistance = meanTopDistance
         self.eventsCount = eventsCount; self.leakCount = leakCount
         self.trend = trend
@@ -8844,11 +9240,19 @@ public struct CardDTO: Codable, Sendable, Equatable, Identifiable {
     public let createdByUserId: UUID?
     public let updatedByUserId: UUID?
 
-    public init(id: UUID, columnID: UUID, title: String, body: String?,
-                priority: CardPriority?, dueAt: Date?, rank: String, updatedAt: Date?,
-                jobConfig: CardJobConfigDTO? = nil,
-                createdByUserId: UUID? = nil, updatedByUserId: UUID? = nil)
-    {
+    public init(
+        id: UUID,
+        columnID: UUID,
+        title: String,
+        body: String?,
+        priority: CardPriority?,
+        dueAt: Date?,
+        rank: String,
+        updatedAt: Date?,
+        jobConfig: CardJobConfigDTO? = nil,
+        createdByUserId: UUID? = nil,
+        updatedByUserId: UUID? = nil
+    ) {
         self.id = id; self.columnID = columnID; self.title = title; self.body = body
         self.priority = priority; self.dueAt = dueAt; self.rank = rank; self.updatedAt = updatedAt
         self.jobConfig = jobConfig
@@ -8869,10 +9273,16 @@ public struct CardJobConfigDTO: Codable, Sendable, Equatable {
     public let jobSlug: String?
     public let promotedAt: Date?
 
-    public init(source: String = "vault", cron: String? = nil, runAt: Date? = nil,
-                domain: String? = nil, prompt: String? = nil, spaceID: UUID? = nil,
-                jobSlug: String? = nil, promotedAt: Date? = nil)
-    {
+    public init(
+        source: String = "vault",
+        cron: String? = nil,
+        runAt: Date? = nil,
+        domain: String? = nil,
+        prompt: String? = nil,
+        spaceID: UUID? = nil,
+        jobSlug: String? = nil,
+        promotedAt: Date? = nil
+    ) {
         self.source = source; self.cron = cron; self.runAt = runAt
         self.domain = domain; self.prompt = prompt; self.spaceID = spaceID
         self.jobSlug = jobSlug; self.promotedAt = promotedAt
@@ -8890,9 +9300,13 @@ public struct CardPromoteRequest: Codable, Sendable {
     public let prompt: String?
     public let spaceID: UUID?
 
-    public init(cron: String? = nil, runAt: Date? = nil, domain: String? = nil,
-                prompt: String? = nil, spaceID: UUID? = nil)
-    {
+    public init(
+        cron: String? = nil,
+        runAt: Date? = nil,
+        domain: String? = nil,
+        prompt: String? = nil,
+        spaceID: UUID? = nil
+    ) {
         self.cron = cron; self.runAt = runAt; self.domain = domain
         self.prompt = prompt; self.spaceID = spaceID
     }
@@ -8917,7 +9331,14 @@ public struct BoardDTO: Codable, Sendable, Equatable, Identifiable {
     public let createdByUserId: UUID?
     public let updatedByUserId: UUID?
 
-    public init(id: UUID, title: String, version: Int64, columns: [ColumnDTO], createdByUserId: UUID? = nil, updatedByUserId: UUID? = nil) {
+    public init(
+        id: UUID,
+        title: String,
+        version: Int64,
+        columns: [ColumnDTO],
+        createdByUserId: UUID? = nil,
+        updatedByUserId: UUID? = nil
+    ) {
         self.id = id; self.title = title; self.version = version; self.columns = columns
         self.createdByUserId = createdByUserId; self.updatedByUserId = updatedByUserId
     }
@@ -8993,9 +9414,15 @@ public struct VaultSummaryDTO: Codable, Sendable, Identifiable, Equatable {
     public let permissions: VaultPermissionsDTO
     public let archivedAt: Date?
 
-    public init(id: UUID, teamId: UUID? = nil, name: String, isPersonal: Bool,
-                role: VaultRole, permissions: VaultPermissionsDTO, archivedAt: Date? = nil)
-    {
+    public init(
+        id: UUID,
+        teamId: UUID? = nil,
+        name: String,
+        isPersonal: Bool,
+        role: VaultRole,
+        permissions: VaultPermissionsDTO,
+        archivedAt: Date? = nil
+    ) {
         self.id = id
         self.teamId = teamId
         self.name = name
@@ -9014,9 +9441,14 @@ public struct VaultMemberDTO: Codable, Sendable, Identifiable, Equatable {
     public let role: VaultRole
     public let canUseAI: Bool
 
-    public init(id: UUID, userId: UUID, username: String, email: String? = nil,
-                role: VaultRole, canUseAI: Bool)
-    {
+    public init(
+        id: UUID,
+        userId: UUID,
+        username: String,
+        email: String? = nil,
+        role: VaultRole,
+        canUseAI: Bool
+    ) {
         self.id = id
         self.userId = userId
         self.username = username
@@ -9066,9 +9498,14 @@ public struct TeamInvitationDTO: Codable, Sendable, Identifiable, Equatable {
     public let expiresAt: Date
     public let acceptedAt: Date?
 
-    public init(id: UUID, teamId: UUID, teamName: String, email: String,
-                expiresAt: Date, acceptedAt: Date? = nil)
-    {
+    public init(
+        id: UUID,
+        teamId: UUID,
+        teamName: String,
+        email: String,
+        expiresAt: Date,
+        acceptedAt: Date? = nil
+    ) {
         self.id = id
         self.teamId = teamId
         self.teamName = teamName
@@ -9097,10 +9534,16 @@ public struct VaultActivityEventDTO: Codable, Sendable, Identifiable, Equatable 
     public let targetTitle: String?
     public let createdAt: Date
 
-    public init(id: UUID, vaultId: UUID, actor: ActorSummaryDTO, action: String,
-                targetType: String, targetId: UUID? = nil, targetTitle: String? = nil,
-                createdAt: Date)
-    {
+    public init(
+        id: UUID,
+        vaultId: UUID,
+        actor: ActorSummaryDTO,
+        action: String,
+        targetType: String,
+        targetId: UUID? = nil,
+        targetTitle: String? = nil,
+        createdAt: Date
+    ) {
         self.id = id
         self.vaultId = vaultId
         self.actor = actor
@@ -9166,9 +9609,13 @@ public struct CardCreateRequest: Codable, Sendable {
     public let body: String?
     public let priority: CardPriority?
     public let dueAt: Date?
-    public init(columnID: UUID, title: String, body: String? = nil,
-                priority: CardPriority? = nil, dueAt: Date? = nil)
-    {
+    public init(
+        columnID: UUID,
+        title: String,
+        body: String? = nil,
+        priority: CardPriority? = nil,
+        dueAt: Date? = nil
+    ) {
         self.columnID = columnID; self.title = title; self.body = body
         self.priority = priority; self.dueAt = dueAt
     }
@@ -9392,7 +9839,15 @@ public struct IngestionEventDTO: Codable, Sendable, Identifiable {
     public let uploadedBytes: Int64?
     public let createdAt: Date
 
-    public init(id: Int64, batchID: UUID, itemID: UUID? = nil, type: IngestionEventTypeDTO, state: IngestionItemStateDTO? = nil, uploadedBytes: Int64? = nil, createdAt: Date) {
+    public init(
+        id: Int64,
+        batchID: UUID,
+        itemID: UUID? = nil,
+        type: IngestionEventTypeDTO,
+        state: IngestionItemStateDTO? = nil,
+        uploadedBytes: Int64? = nil,
+        createdAt: Date
+    ) {
         self.id = id
         self.batchID = batchID
         self.itemID = itemID
@@ -9837,7 +10292,14 @@ public struct AgentRoomMemberDTO: Codable, Sendable, Equatable, Identifiable {
     public let displayName: String
     public let respondMode: AgentRoomRespondMode
 
-    public init(id: UUID, instanceID: String, profile: String?, handle: String, displayName: String, respondMode: AgentRoomRespondMode) {
+    public init(
+        id: UUID,
+        instanceID: String,
+        profile: String?,
+        handle: String,
+        displayName: String,
+        respondMode: AgentRoomRespondMode
+    ) {
         self.id = id
         self.instanceID = instanceID
         self.profile = profile
@@ -9856,7 +10318,14 @@ public struct AgentRoomMessageDTO: Codable, Sendable, Equatable, Identifiable {
     public let tokens: Int?
     public let createdAt: Date?
 
-    public init(id: UUID, authorKind: AgentRoomAuthorKind, memberID: UUID?, body: String, tokens: Int?, createdAt: Date?) {
+    public init(
+        id: UUID,
+        authorKind: AgentRoomAuthorKind,
+        memberID: UUID?,
+        body: String,
+        tokens: Int?,
+        createdAt: Date?
+    ) {
         self.id = id
         self.authorKind = authorKind
         self.memberID = memberID
@@ -9875,7 +10344,15 @@ public struct AgentRoomDTO: Codable, Sendable, Equatable, Identifiable {
     public let createdAt: Date?
     public let updatedAt: Date?
 
-    public init(id: UUID, title: String, tokenBudget: Int, spentTokens: Int, members: [AgentRoomMemberDTO], createdAt: Date?, updatedAt: Date?) {
+    public init(
+        id: UUID,
+        title: String,
+        tokenBudget: Int,
+        spentTokens: Int,
+        members: [AgentRoomMemberDTO],
+        createdAt: Date?,
+        updatedAt: Date?
+    ) {
         self.id = id
         self.title = title
         self.tokenBudget = tokenBudget
@@ -9932,7 +10409,13 @@ public struct AgentRoomMemberRequest: Codable, Sendable, Equatable {
     public let displayName: String?
     /// Defaults to `.mention`.
     public let respondMode: AgentRoomRespondMode?
-    public init(instanceID: String, profile: String?, handle: String? = nil, displayName: String? = nil, respondMode: AgentRoomRespondMode? = nil) {
+    public init(
+        instanceID: String,
+        profile: String?,
+        handle: String? = nil,
+        displayName: String? = nil,
+        respondMode: AgentRoomRespondMode? = nil
+    ) {
         self.instanceID = instanceID
         self.profile = profile
         self.handle = handle
@@ -9982,7 +10465,12 @@ public struct AgentRoomStreamEvent: Codable, Sendable, Equatable {
     public let memberID: UUID?
     public let reason: AgentRoomChainEnd?
 
-    public init(kind: Kind, message: AgentRoomMessageDTO? = nil, memberID: UUID? = nil, reason: AgentRoomChainEnd? = nil) {
+    public init(
+        kind: Kind,
+        message: AgentRoomMessageDTO? = nil,
+        memberID: UUID? = nil,
+        reason: AgentRoomChainEnd? = nil
+    ) {
         self.kind = kind
         self.message = message
         self.memberID = memberID

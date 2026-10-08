@@ -42,7 +42,16 @@ struct HomeSummaryDTOTests {
             toolsCount: 2,
             tools: ["web_search", "memory"],
             period: .week,
-            periodStats: .init(done: 4, captures: 6, skillRuns: 4, tokens: 1200, previousDone: 2, previousCaptures: 3, previousSkillRuns: 1, previousTokens: 800),
+            periodStats: .init(
+                done: 4,
+                captures: 6,
+                skillRuns: 4,
+                tokens: 1200,
+                previousDone: 2,
+                previousCaptures: 3,
+                previousSkillRuns: 1,
+                previousTokens: 800
+            ),
             periodSeries: [.init(at: now, value: 3)],
             periodMix: .init(captures: 6, jobs: 1, skills: 4, chats: 2)
         )
