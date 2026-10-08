@@ -12,10 +12,15 @@ line_length:
   ignores_comments: true
 
 identifier_name:
+  # Short locals (c, v, p) are idiomatic in Codable init(from:) and closures.
+  min_length: 1
   excluded:
     - id
     - x
     - y
+    # Wire-format names consumers already use; renaming breaks them.
+    - tool_calls
+    - tool_choice
 
 opt_in_rules:
   - empty_count

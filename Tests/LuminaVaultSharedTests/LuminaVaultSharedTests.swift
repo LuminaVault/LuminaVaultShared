@@ -128,7 +128,8 @@ struct AdditiveFieldsTests {
         )
         #expect(decoded.multiModel == nil)
     }
-    @Test func queryResponseFollowUpsIsOptionalAndDefaultsNil() throws {
+
+    @Test func queryResponseFollowUpsIsOptionalAndDefaultsNil() {
         let r = QueryResponse(summary: "s", hits: [])
         #expect(r.followUps == nil)
     }
@@ -156,7 +157,7 @@ struct AdditiveFieldsTests {
         #expect(InsightSection.allCases.contains(.thisMonth))
     }
 
-    // HER-300 — LLM brain mode + onboarding flag back-compat
+    /// HER-300 — LLM brain mode + onboarding flag back-compat
     @Test func llmPreferencesGetResponseDefaultsModeToManagedWhenMissing() throws {
         let legacyJSON = """
         {"primaryProvider":"openai","primaryModel":"gpt-4o","fallbackChain":[]}
@@ -209,7 +210,8 @@ struct LLMBrainModeRoundTripTests {
     }
 
     @Test func legacyPreferencesJSONDefaultsRoutingPolicy() throws {
-        let legacyJSON = Data(#"{"mode":"byok","primaryProvider":"openai","primaryModel":"gpt-4o","fallbackChain":[]}"#.utf8)
+        let legacyJSON = Data(#"{"mode":"byok","primaryProvider":"openai","primaryModel":"gpt-4o","fallbackChain":[]}"#
+            .utf8)
         let decoded = try JSONDecoder().decode(LLMPreferencesGetResponse.self, from: legacyJSON)
         #expect(decoded.routingPolicy == .autoSmart)
     }

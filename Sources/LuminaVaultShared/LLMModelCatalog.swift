@@ -41,16 +41,32 @@ public enum LLMModelCatalog {
     /// Models offered for a provider. Empty → the client should fall back to a
     /// free-text custom-model field (e.g. `ollama`, or any future provider not
     /// yet curated here).
+    // swiftlint:disable:next function_body_length - a data table, one entry per model.
     public static func models(for provider: ProviderID) -> [LLMModelInfo] {
         switch provider {
         case .gemini:
             return [
-                .init(id: "gemini-2.5-flash-lite", displayName: "Gemini 2.5 Flash Lite", contextWindow: 1_000_000, tier: .fast),
+                .init(
+                    id: "gemini-2.5-flash-lite",
+                    displayName: "Gemini 2.5 Flash Lite",
+                    contextWindow: 1_000_000,
+                    tier: .fast
+                ),
                 .init(id: "gemini-2.5-flash", displayName: "Gemini 2.5 Flash", contextWindow: 1_000_000, tier: .fast),
                 .init(id: "gemini-2.0-flash", displayName: "Gemini 2.0 Flash", contextWindow: 1_000_000, tier: .fast),
                 .init(id: "gemini-2.5-pro", displayName: "Gemini 2.5 Pro", contextWindow: 1_000_000, tier: .balanced),
-                .init(id: "gemini-3-flash-preview", displayName: "Gemini 3 Flash (preview)", contextWindow: 1_000_000, tier: .fast),
-                .init(id: "gemini-3-pro-preview", displayName: "Gemini 3 Pro (preview)", contextWindow: 1_000_000, tier: .max),
+                .init(
+                    id: "gemini-3-flash-preview",
+                    displayName: "Gemini 3 Flash (preview)",
+                    contextWindow: 1_000_000,
+                    tier: .fast
+                ),
+                .init(
+                    id: "gemini-3-pro-preview",
+                    displayName: "Gemini 3 Pro (preview)",
+                    contextWindow: 1_000_000,
+                    tier: .max
+                ),
             ]
         case .openai:
             return [
@@ -63,24 +79,74 @@ public enum LLMModelCatalog {
             ]
         case .anthropic:
             return [
-                .init(id: "claude-3-5-haiku-20241022", displayName: "Claude 3.5 Haiku", contextWindow: 200_000, tier: .fast),
-                .init(id: "claude-sonnet-4-5", displayName: "Claude Sonnet 4.5", contextWindow: 200_000, tier: .balanced),
-                .init(id: "claude-3-5-sonnet-20241022", displayName: "Claude 3.5 Sonnet", contextWindow: 200_000, tier: .balanced),
+                .init(
+                    id: "claude-3-5-haiku-20241022",
+                    displayName: "Claude 3.5 Haiku",
+                    contextWindow: 200_000,
+                    tier: .fast
+                ),
+                .init(
+                    id: "claude-sonnet-4-5",
+                    displayName: "Claude Sonnet 4.5",
+                    contextWindow: 200_000,
+                    tier: .balanced
+                ),
+                .init(
+                    id: "claude-3-5-sonnet-20241022",
+                    displayName: "Claude 3.5 Sonnet",
+                    contextWindow: 200_000,
+                    tier: .balanced
+                ),
                 .init(id: "claude-opus-4-1", displayName: "Claude Opus 4.1", contextWindow: 200_000, tier: .max),
             ]
         case .openRouter:
             return [
                 .init(id: "openrouter/auto", displayName: "OpenRouter Auto (provider)", tier: .balanced),
-                .init(id: "deepseek/deepseek-v4-flash", displayName: "DeepSeek V4 Flash", contextWindow: 1_000_000, tier: .fast),
-                .init(id: "deepseek/deepseek-chat", displayName: "DeepSeek Chat", contextWindow: 64_000, tier: .fast),
-                .init(id: "google/gemini-2.5-flash", displayName: "Gemini 2.5 Flash", contextWindow: 1_000_000, tier: .fast),
-                .init(id: "anthropic/claude-sonnet-5", displayName: "Claude Sonnet 5", contextWindow: 200_000, tier: .balanced),
-                .init(id: "qwen/qwen-2.5-72b-instruct", displayName: "Qwen 2.5 72B", contextWindow: 131_072, tier: .balanced),
+                .init(
+                    id: "deepseek/deepseek-v4-flash",
+                    displayName: "DeepSeek V4 Flash",
+                    contextWindow: 1_000_000,
+                    tier: .fast
+                ),
+                .init(id: "deepseek/deepseek-chat", displayName: "DeepSeek Chat", contextWindow: 64000, tier: .fast),
+                .init(
+                    id: "google/gemini-2.5-flash",
+                    displayName: "Gemini 2.5 Flash",
+                    contextWindow: 1_000_000,
+                    tier: .fast
+                ),
+                .init(
+                    id: "anthropic/claude-sonnet-5",
+                    displayName: "Claude Sonnet 5",
+                    contextWindow: 200_000,
+                    tier: .balanced
+                ),
+                .init(
+                    id: "qwen/qwen-2.5-72b-instruct",
+                    displayName: "Qwen 2.5 72B",
+                    contextWindow: 131_072,
+                    tier: .balanced
+                ),
                 .init(id: "openai/gpt-4o", displayName: "GPT-4o", contextWindow: 128_000, tier: .balanced),
-                .init(id: "anthropic/claude-opus-4.8", displayName: "Claude Opus 4.8", contextWindow: 200_000, tier: .balanced),
-                .init(id: "google/gemini-2.5-pro", displayName: "Gemini 2.5 Pro", contextWindow: 1_000_000, tier: .balanced),
+                .init(
+                    id: "anthropic/claude-opus-4.8",
+                    displayName: "Claude Opus 4.8",
+                    contextWindow: 200_000,
+                    tier: .balanced
+                ),
+                .init(
+                    id: "google/gemini-2.5-pro",
+                    displayName: "Gemini 2.5 Pro",
+                    contextWindow: 1_000_000,
+                    tier: .balanced
+                ),
                 .init(id: "anthropic/claude-opus-4", displayName: "Claude Opus 4", contextWindow: 200_000, tier: .max),
-                .init(id: "anthropic/claude-opus-4.1", displayName: "Claude Opus 4.1", contextWindow: 200_000, tier: .max),
+                .init(
+                    id: "anthropic/claude-opus-4.1",
+                    displayName: "Claude Opus 4.1",
+                    contextWindow: 200_000,
+                    tier: .max
+                ),
                 .init(id: "openai/gpt-5", displayName: "GPT-5", contextWindow: 400_000, tier: .max),
                 .init(id: "x-ai/grok-4.5", displayName: "Grok 4.5", contextWindow: 256_000, tier: .max),
                 // Zero-cost slugs. Ids and context windows verified against the
@@ -89,9 +155,24 @@ public enum LLMModelCatalog {
                 // not exist and guessed 128K. `z-ai/glm-5.2:free` added and
                 // re-verified 2026-08-21; it is the free lane's primary slug.
                 .init(id: "z-ai/glm-5.2:free", displayName: "GLM 5.2 (free)", contextWindow: 256_000, tier: .balanced),
-                .init(id: "nvidia/nemotron-3-ultra-550b-a55b:free", displayName: "Nemotron 3 Ultra (free)", contextWindow: 1_000_000, tier: .max),
-                .init(id: "nvidia/nemotron-3-super-120b-a12b:free", displayName: "Nemotron 3 Super (free)", contextWindow: 262_144, tier: .balanced),
-                .init(id: "nvidia/nemotron-3-nano-30b-a3b:free", displayName: "Nemotron 3 Nano (free)", contextWindow: 256_000, tier: .fast),
+                .init(
+                    id: "nvidia/nemotron-3-ultra-550b-a55b:free",
+                    displayName: "Nemotron 3 Ultra (free)",
+                    contextWindow: 1_000_000,
+                    tier: .max
+                ),
+                .init(
+                    id: "nvidia/nemotron-3-super-120b-a12b:free",
+                    displayName: "Nemotron 3 Super (free)",
+                    contextWindow: 262_144,
+                    tier: .balanced
+                ),
+                .init(
+                    id: "nvidia/nemotron-3-nano-30b-a3b:free",
+                    displayName: "Nemotron 3 Nano (free)",
+                    contextWindow: 256_000,
+                    tier: .fast
+                ),
             ]
         case .xai:
             return [
@@ -105,11 +186,36 @@ public enum LLMModelCatalog {
             // directive. Context windows verified against the OpenRouter models
             // API on 2026-08-08; the previous uniform 128K values were guesses.
             return [
-                .init(id: "nvidia/nemotron-3-nano-30b-a3b", displayName: "Nemotron 3 Nano 30B", contextWindow: 262_144, tier: .fast),
-                .init(id: "meta/llama-3.3-70b-instruct", displayName: "Llama 3.3 70B", contextWindow: 128_000, tier: .balanced),
-                .init(id: "nvidia/nemotron-3-super-120b-a12b", displayName: "Nemotron 3 Super 120B", contextWindow: 1_000_000, tier: .balanced),
-                .init(id: "nvidia/nemotron-3-ultra-550b-a55b", displayName: "Nemotron 3 Ultra 550B", contextWindow: 512_288, tier: .max),
-                .init(id: "deepseek-ai/deepseek-r1", displayName: "DeepSeek R1 (reasoning)", contextWindow: 128_000, tier: .max),
+                .init(
+                    id: "nvidia/nemotron-3-nano-30b-a3b",
+                    displayName: "Nemotron 3 Nano 30B",
+                    contextWindow: 262_144,
+                    tier: .fast
+                ),
+                .init(
+                    id: "meta/llama-3.3-70b-instruct",
+                    displayName: "Llama 3.3 70B",
+                    contextWindow: 128_000,
+                    tier: .balanced
+                ),
+                .init(
+                    id: "nvidia/nemotron-3-super-120b-a12b",
+                    displayName: "Nemotron 3 Super 120B",
+                    contextWindow: 1_000_000,
+                    tier: .balanced
+                ),
+                .init(
+                    id: "nvidia/nemotron-3-ultra-550b-a55b",
+                    displayName: "Nemotron 3 Ultra 550B",
+                    contextWindow: 512_288,
+                    tier: .max
+                ),
+                .init(
+                    id: "deepseek-ai/deepseek-r1",
+                    displayName: "DeepSeek R1 (reasoning)",
+                    contextWindow: 128_000,
+                    tier: .max
+                ),
             ]
         case .nous:
             // Nous's portal does not serve NVIDIA slugs; the Nemotron entry that

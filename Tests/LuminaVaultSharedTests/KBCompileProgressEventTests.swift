@@ -29,8 +29,8 @@ struct KBCompileProgressEventTests {
     }
 
     @Test func memorySavedRoundTrip() throws {
-        let memory = MemoryDTO(
-            id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
+        let memory = try MemoryDTO(
+            id: #require(UUID(uuidString: "22222222-2222-2222-2222-222222222222")),
             content: "user prefers dark mode",
             tags: ["preferences"],
             createdAt: nil
@@ -64,8 +64,8 @@ struct KBCompileProgressEventTests {
 
         // Pin the exact `memorySaved` wire discriminator string to guard against
         // accidental raw-value drift (e.g. someone renaming the case to "memory_saved").
-        let memory = MemoryDTO(
-            id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
+        let memory = try MemoryDTO(
+            id: #require(UUID(uuidString: "22222222-2222-2222-2222-222222222222")),
             content: "pin check",
             tags: [],
             createdAt: nil

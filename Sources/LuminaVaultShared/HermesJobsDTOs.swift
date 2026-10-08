@@ -205,7 +205,15 @@ public struct HermesJobCollectResultDTO: Codable, Sendable, Equatable {
     public let truncated: Bool
     /// Newest finished run start time collected so far.
     public let highWaterMark: Date?
-    public init(hermesJobID: String, fetched: Int, inserted: Int, skipped: Int, filesWritten: Int, truncated: Bool, highWaterMark: Date? = nil) {
+    public init(
+        hermesJobID: String,
+        fetched: Int,
+        inserted: Int,
+        skipped: Int,
+        filesWritten: Int,
+        truncated: Bool,
+        highWaterMark: Date? = nil
+    ) {
         self.hermesJobID = hermesJobID
         self.fetched = fetched
         self.inserted = inserted

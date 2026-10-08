@@ -116,7 +116,7 @@ struct ConnectionsContractTests {
                     checkedAt: checkedAt,
                     errorCode: "reauth_required",
                     errorMessage: "Reconnect Google Calendar."
-                )
+                ),
             ],
             checkedAt: checkedAt
         )

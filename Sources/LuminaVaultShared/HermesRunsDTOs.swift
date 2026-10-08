@@ -183,8 +183,8 @@ public struct HermesRunListResponse: Codable, Sendable, Equatable {
 /// (`{"string":{"_0":"x"}}`) and cannot round-trip through that decoder.
 /// Encode plain JSON so `HermesRunEventDTO.payload` (and every other user of
 /// the type) writes what it reads.
-extension AnyJSONValue {
-    public func encode(to encoder: Encoder) throws {
+public extension AnyJSONValue {
+    func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
         case let .string(value): try container.encode(value)

@@ -14,11 +14,11 @@ struct HermesWorkspaceDTOTests {
             repo: HermesWorkspaceRepoDTO(root: "/work/repo", branch: "main"),
             branches: [
                 HermesWorkspaceBranchDTO(name: "main", isCurrent: true),
-                HermesWorkspaceBranchDTO(name: "feat/x")
+                HermesWorkspaceBranchDTO(name: "feat/x"),
             ],
             worktrees: [HermesWorkspaceWorktreeDTO(path: "/work/repo", branch: "main", isPrimary: true)],
             changes: [
-                HermesWorkspaceChangeDTO(path: "a.swift", added: 10, removed: 2, status: "modified")
+                HermesWorkspaceChangeDTO(path: "a.swift", added: 10, removed: 2, status: "modified"),
             ]
         )
         let decoded = try Self.decoder.decode(
@@ -80,7 +80,7 @@ struct HermesWorkspaceDTOTests {
             path: "/work/repo",
             entries: [
                 HermesWorkspaceFileEntryDTO(name: "Sources", path: "/work/repo/Sources", isDirectory: true),
-                HermesWorkspaceFileEntryDTO(name: "README.md", path: "/work/repo/README.md", isDirectory: false)
+                HermesWorkspaceFileEntryDTO(name: "README.md", path: "/work/repo/README.md", isDirectory: false),
             ]
         )
         let decoded = try Self.decoder.decode(
