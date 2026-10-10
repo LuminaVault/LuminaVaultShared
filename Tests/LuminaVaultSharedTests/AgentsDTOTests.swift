@@ -42,6 +42,37 @@ struct AgentsDTOTests {
         #expect(object["allowPersonalData"] == nil)
     }
 
+    @Test("a key from a server that predates access decodes as read-write")
+    func accessDefaultsToReadWriteWhenAbsent() throws {
+        let (_, decoder) = coder()
+        let json = """
+        {"id":"2F1B6D3E-5A4C-4F7E-9E1D-1C2B3A4D5E6F","name":"old","clientKind":"codex",
+         "tokenPrefix":"lv_abcdefgh","createdAt":"2026-09-22T10:00:00Z"}
+        """
+        let dto = try decoder.decode(AgentConnectionDTO.self, from: Data(json.utf8))
+        #expect(dto.access == .readWrite)
+    }
+
+    @Test("access keeps its wire values and round-trips")
+    func accessRoundTrips() throws {
+        #expect(AgentConnectionAccess.read.rawValue == "read")
+        #expect(AgentConnectionAccess.readWrite.rawValue == "read_write")
+        let (encoder, decoder) = coder()
+        let original = AgentConnectionDTO(
+            id: UUID(), name: "ro", clientKind: .claudeCode, tokenPrefix: "lv_12345678",
+            createdAt: Date(timeIntervalSince1970: 1_790_000_000), access: .read
+        )
+        #expect(try decoder.decode(AgentConnectionDTO.self, from: encoder.encode(original)) == original)
+    }
+
+    @Test("an update request sends only the fields it changes")
+    func updateRequestOmitsNilFields() throws {
+        let data = try JSONEncoder().encode(AgentConnectionUpdateRequest(access: .readWrite))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(object["access"] as? String == "read_write")
+        #expect(object["allowPersonalData"] == nil)
+    }
+
     @Test("sessions response round-trips with optional fields absent")
     func sessionsRoundTrip() throws {
         let (encoder, decoder) = coder()

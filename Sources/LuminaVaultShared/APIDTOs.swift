@@ -2872,6 +2872,14 @@ public enum AgentClientKind: String, Codable, Sendable, CaseIterable {
     case other
 }
 
+/// What an agent key may do on `/v1/mcp`. `read` can search and read;
+/// `readWrite` can also call the tools that change something (`index`,
+/// creating calendar events and reminders, saving memories).
+public enum AgentConnectionAccess: String, Codable, Sendable, CaseIterable {
+    case read
+    case readWrite = "read_write"
+}
+
 public struct AgentConnectionDTO: Codable, Sendable, Identifiable, Equatable {
     public let id: UUID
     public let name: String
@@ -2885,6 +2893,9 @@ public struct AgentConnectionDTO: Codable, Sendable, Identifiable, Equatable {
     /// May reach Health, Calendar and Reminders over MCP. Off by default;
     /// decodes as `false` from a server that predates the field.
     public let allowPersonalData: Bool
+    /// Decodes as `readWrite` from a server that predates the field: every
+    /// key could write then, so that is the honest reading.
+    public let access: AgentConnectionAccess
 
     public init(
         id: UUID,
@@ -2893,7 +2904,8 @@ public struct AgentConnectionDTO: Codable, Sendable, Identifiable, Equatable {
         tokenPrefix: String,
         createdAt: Date,
         lastUsedAt: Date? = nil,
-        allowPersonalData: Bool = false
+        allowPersonalData: Bool = false,
+        access: AgentConnectionAccess = .read
     ) {
         self.id = id
         self.name = name
@@ -2902,10 +2914,11 @@ public struct AgentConnectionDTO: Codable, Sendable, Identifiable, Equatable {
         self.createdAt = createdAt
         self.lastUsedAt = lastUsedAt
         self.allowPersonalData = allowPersonalData
+        self.access = access
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, clientKind, tokenPrefix, createdAt, lastUsedAt, allowPersonalData
+        case id, name, clientKind, tokenPrefix, createdAt, lastUsedAt, allowPersonalData, access
     }
 
     public init(from decoder: any Decoder) throws {
@@ -2917,6 +2930,7 @@ public struct AgentConnectionDTO: Codable, Sendable, Identifiable, Equatable {
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         lastUsedAt = try c.decodeIfPresent(Date.self, forKey: .lastUsedAt)
         allowPersonalData = try c.decodeIfPresent(Bool.self, forKey: .allowPersonalData) ?? false
+        access = try c.decodeIfPresent(AgentConnectionAccess.self, forKey: .access) ?? .readWrite
     }
 }
 
@@ -2925,19 +2939,30 @@ public struct AgentConnectionIssueRequest: Codable, Sendable {
     public let clientKind: AgentClientKind
     /// `nil` sends nothing, and the server keeps the safe default: off.
     public let allowPersonalData: Bool?
-    public init(name: String, clientKind: AgentClientKind, allowPersonalData: Bool? = nil) {
+    /// `nil` sends nothing, and the server keeps the safe default: `read`.
+    public let access: AgentConnectionAccess?
+    public init(
+        name: String,
+        clientKind: AgentClientKind,
+        allowPersonalData: Bool? = nil,
+        access: AgentConnectionAccess? = nil
+    ) {
         self.name = name
         self.clientKind = clientKind
         self.allowPersonalData = allowPersonalData
+        self.access = access
     }
 }
 
-/// `PATCH /v1/me/agent-connections/{id}` — turn a key's personal-data
-/// grant on or off.
+/// `PATCH /v1/me/agent-connections/{id}` — change a key's personal-data
+/// grant, its access, or both. A field left `nil` is not sent and stays as
+/// it is.
 public struct AgentConnectionUpdateRequest: Codable, Sendable {
-    public let allowPersonalData: Bool
-    public init(allowPersonalData: Bool) {
+    public let allowPersonalData: Bool?
+    public let access: AgentConnectionAccess?
+    public init(allowPersonalData: Bool? = nil, access: AgentConnectionAccess? = nil) {
         self.allowPersonalData = allowPersonalData
+        self.access = access
     }
 }
 
