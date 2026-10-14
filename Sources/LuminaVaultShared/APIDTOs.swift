@@ -571,6 +571,14 @@ public enum MemorySourceKindDTO: String, Codable, Sendable, CaseIterable {
     case `import`
     case link
     case legacy
+
+    /// An unknown value from a newer server reads as `legacy` instead of
+    /// failing the whole memory list, so the server can add a source kind
+    /// without breaking shipped clients.
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .legacy
+    }
 }
 
 /// Historical model identity. Provider is intentionally a string rather than
@@ -764,19 +772,36 @@ public struct MemoryUpsertRequest: Codable, Sendable {
     public let lng: Double?
     public let accuracyM: Double?
     public let placeName: String?
+    /// `nil` sends nothing and the memory is saved unclassified.
+    public let kind: MemoryKindDTO?
     public init(
         content: String,
         lat: Double? = nil,
         lng: Double? = nil,
         accuracyM: Double? = nil,
-        placeName: String? = nil
+        placeName: String? = nil,
+        kind: MemoryKindDTO? = nil
     ) {
         self.content = content
         self.lat = lat
         self.lng = lng
         self.accuracyM = accuracyM
         self.placeName = placeName
+        self.kind = kind
     }
+}
+
+/// What kind of statement a memory is. Optional everywhere: most memories
+/// predate it, and a capture that is just a note may never get one.
+public enum MemoryKindDTO: String, Codable, Sendable, CaseIterable {
+    /// How the user likes things done ("Prefers Python for scripts").
+    case preference
+    /// Something the user settled ("We ship on Tuesdays").
+    case decision
+    /// A fact about the user, their work, or what they saved.
+    case fact
+    /// Anything else worth keeping.
+    case note
 }
 
 public struct MemoryDTO: Codable, Sendable, Equatable {
@@ -799,6 +824,9 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
     public let provenance: MemoryProvenanceSummaryDTO?
     public let createdByUserId: UUID?
     public let updatedByUserId: UUID?
+    /// `nil` when unclassified, and also when a newer server sends a kind
+    /// this build does not know — an unknown kind must not break a list.
+    public let kind: MemoryKindDTO?
     public init(
         id: UUID,
         content: String,
@@ -811,7 +839,8 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
         reviewState: String = "auto",
         provenance: MemoryProvenanceSummaryDTO? = nil,
         createdByUserId: UUID? = nil,
-        updatedByUserId: UUID? = nil
+        updatedByUserId: UUID? = nil,
+        kind: MemoryKindDTO? = nil
     ) {
         self.id = id
         self.content = content
@@ -825,6 +854,29 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
         self.provenance = provenance
         self.createdByUserId = createdByUserId
         self.updatedByUserId = updatedByUserId
+        self.kind = kind
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, content, tags, createdAt, lat, lng, accuracyM, placeName, reviewState
+        case provenance, createdByUserId, updatedByUserId, kind
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        content = try c.decode(String.self, forKey: .content)
+        tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
+        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
+        lat = try c.decodeIfPresent(Double.self, forKey: .lat)
+        lng = try c.decodeIfPresent(Double.self, forKey: .lng)
+        accuracyM = try c.decodeIfPresent(Double.self, forKey: .accuracyM)
+        placeName = try c.decodeIfPresent(String.self, forKey: .placeName)
+        reviewState = try c.decodeIfPresent(String.self, forKey: .reviewState) ?? MemoryReviewState.auto
+        provenance = try c.decodeIfPresent(MemoryProvenanceSummaryDTO.self, forKey: .provenance)
+        createdByUserId = try c.decodeIfPresent(UUID.self, forKey: .createdByUserId)
+        updatedByUserId = try c.decodeIfPresent(UUID.self, forKey: .updatedByUserId)
+        kind = try c.decodeIfPresent(String.self, forKey: .kind).flatMap(MemoryKindDTO.init(rawValue:))
     }
 }
 
@@ -853,10 +905,18 @@ public struct MemoryPatchRequest: Codable, Sendable {
     /// HER-290 — only `pending → approved` and `pending → rejected` are accepted.
     /// Other transitions return 422 from the server.
     public let reviewState: String?
-    public init(content: String? = nil, tags: [String]? = nil, reviewState: String? = nil) {
+    /// Set or change the kind; `nil` leaves it as it is.
+    public let kind: MemoryKindDTO?
+    public init(
+        content: String? = nil,
+        tags: [String]? = nil,
+        reviewState: String? = nil,
+        kind: MemoryKindDTO? = nil
+    ) {
         self.content = content
         self.tags = tags
         self.reviewState = reviewState
+        self.kind = kind
     }
 }
 
