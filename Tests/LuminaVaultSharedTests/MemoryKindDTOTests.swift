@@ -48,3 +48,38 @@ struct MemoryKindDTOTests {
         #expect(decoded == [.chat, .legacy])
     }
 }
+
+struct MemorySpaceAssignmentTests {
+    private func json(_ request: MemoryPatchRequest) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return try String(decoding: encoder.encode(request), as: UTF8.self)
+    }
+
+    @Test("a move, an unfile and no change are three different bodies")
+    func encodesThreeStates() throws {
+        let id = try #require(UUID(uuidString: "2F1B6D3E-5A4C-4F7E-9E1D-1C2B3A4D5E6F"))
+        #expect(try json(MemoryPatchRequest(spaceId: .space(id))) ==
+            #"{"spaceId":"2F1B6D3E-5A4C-4F7E-9E1D-1C2B3A4D5E6F"}"#)
+        #expect(try json(MemoryPatchRequest(spaceId: .unfiled)) == #"{"spaceId":null}"#)
+        #expect(try json(MemoryPatchRequest(content: "x")) == #"{"content":"x"}"#)
+    }
+
+    @Test("decoding keeps null apart from absent")
+    func decodesThreeStates() throws {
+        let decoder = JSONDecoder()
+        let id = UUID()
+        #expect(try decoder.decode(MemoryPatchRequest.self, from: Data(#"{"spaceId":"\#(id)"}"#.utf8))
+            .spaceId == .space(id))
+        #expect(try decoder.decode(MemoryPatchRequest.self, from: Data(#"{"spaceId":null}"#.utf8)).spaceId == .unfiled)
+        #expect(try decoder.decode(MemoryPatchRequest.self, from: Data(#"{"tags":[]}"#.utf8)).spaceId == nil)
+    }
+
+    @Test("a memory carries its Space")
+    func memoryCarriesSpace() throws {
+        let space = UUID()
+        let original = MemoryDTO(id: UUID(), content: "x", tags: [], spaceId: space)
+        let decoded = try JSONDecoder().decode(MemoryDTO.self, from: JSONEncoder().encode(original))
+        #expect(decoded.spaceId == space)
+    }
+}
