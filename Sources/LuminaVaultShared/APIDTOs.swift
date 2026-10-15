@@ -3967,6 +3967,10 @@ public struct SkillDTO: Codable, Sendable, Identifiable {
     public let dailyRunCap: Int
     public let apnsCategory: APNSCategory?
     public let bodyExcerpt: String
+    /// What created this job: the chat it was proposed in, or the Kanban card
+    /// it was promoted from. Nil for jobs authored any other way, and for every
+    /// job from a server older than 5.25.0.
+    public let origin: JobOriginDTO?
 
     public init(
         id: String,
@@ -3984,7 +3988,8 @@ public struct SkillDTO: Codable, Sendable, Identifiable {
         dailyRunCount: Int = 0,
         dailyRunCap: Int = 0,
         apnsCategory: APNSCategory? = nil,
-        bodyExcerpt: String
+        bodyExcerpt: String,
+        origin: JobOriginDTO? = nil
     ) {
         self.id = id
         self.source = source
@@ -4002,6 +4007,7 @@ public struct SkillDTO: Codable, Sendable, Identifiable {
         self.dailyRunCap = dailyRunCap
         self.apnsCategory = apnsCategory
         self.bodyExcerpt = bodyExcerpt
+        self.origin = origin
     }
 }
 
@@ -4461,10 +4467,43 @@ public struct JobCreateRequest: Codable, Sendable {
     public let domain: String?
     public let spec: String
     public let spaceId: UUID?
+    /// The chat the job was proposed in, so the job can link back to it.
+    public let conversationId: UUID?
 
-    public init(title: String, cron: String, domain: String? = nil, spec: String, spaceId: UUID? = nil) {
+    public init(
+        title: String,
+        cron: String,
+        domain: String? = nil,
+        spec: String,
+        spaceId: UUID? = nil,
+        conversationId: UUID? = nil
+    ) {
         self.title = title; self.cron = cron; self.domain = domain
         self.spec = spec; self.spaceId = spaceId
+        self.conversationId = conversationId
+    }
+}
+
+/// What a job was created from.
+public enum JobOriginKind: String, Codable, Sendable, CaseIterable {
+    case conversation
+    case card
+    /// A kind this build does not know, from a newer server. It decodes here
+    /// rather than failing the whole jobs list.
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+public struct JobOriginDTO: Codable, Sendable, Equatable {
+    public let kind: JobOriginKind
+    public let id: UUID
+    public init(kind: JobOriginKind, id: UUID) {
+        self.kind = kind
+        self.id = id
     }
 }
 
