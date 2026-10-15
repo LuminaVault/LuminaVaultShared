@@ -2386,17 +2386,23 @@ public struct VaultNoteMetadataDTO: Codable, Sendable, Equatable {
     /// has fetched the page, and without this a client cannot tell the two
     /// apart — it can only guess from elapsed time and a changing file size.
     public let enrichmentStatus: String?
+    /// A Space the server thinks an unfiled capture belongs in. Only a
+    /// suggestion: nothing moves until the user files it (`POST
+    /// /v1/vault/files/move`). Meaningless once the file has a `spaceId`.
+    public let suggestedSpaceId: UUID?
     public init(
         title: String? = nil,
         tags: [String]? = nil,
         isTodo: Bool? = nil,
         done: Bool? = nil,
         dueAt: Date? = nil,
-        enrichmentStatus: String? = nil
+        enrichmentStatus: String? = nil,
+        suggestedSpaceId: UUID? = nil
     ) {
         self.title = title; self.tags = tags; self.isTodo = isTodo
         self.done = done; self.dueAt = dueAt
         self.enrichmentStatus = enrichmentStatus
+        self.suggestedSpaceId = suggestedSpaceId
     }
 }
 
