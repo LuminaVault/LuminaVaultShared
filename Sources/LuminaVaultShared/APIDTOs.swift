@@ -827,6 +827,8 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
     /// `nil` when unclassified, and also when a newer server sends a kind
     /// this build does not know — an unknown kind must not break a list.
     public let kind: MemoryKindDTO?
+    /// The Space the memory is filed in; `nil` when unfiled.
+    public let spaceId: UUID?
     public init(
         id: UUID,
         content: String,
@@ -840,7 +842,8 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
         provenance: MemoryProvenanceSummaryDTO? = nil,
         createdByUserId: UUID? = nil,
         updatedByUserId: UUID? = nil,
-        kind: MemoryKindDTO? = nil
+        kind: MemoryKindDTO? = nil,
+        spaceId: UUID? = nil
     ) {
         self.id = id
         self.content = content
@@ -855,11 +858,12 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
         self.createdByUserId = createdByUserId
         self.updatedByUserId = updatedByUserId
         self.kind = kind
+        self.spaceId = spaceId
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, content, tags, createdAt, lat, lng, accuracyM, placeName, reviewState
-        case provenance, createdByUserId, updatedByUserId, kind
+        case provenance, createdByUserId, updatedByUserId, kind, spaceId
     }
 
     public init(from decoder: any Decoder) throws {
@@ -877,6 +881,7 @@ public struct MemoryDTO: Codable, Sendable, Equatable {
         createdByUserId = try c.decodeIfPresent(UUID.self, forKey: .createdByUserId)
         updatedByUserId = try c.decodeIfPresent(UUID.self, forKey: .updatedByUserId)
         kind = try c.decodeIfPresent(String.self, forKey: .kind).flatMap(MemoryKindDTO.init(rawValue:))
+        spaceId = try c.decodeIfPresent(UUID.self, forKey: .spaceId)
     }
 }
 
@@ -907,17 +912,61 @@ public struct MemoryPatchRequest: Codable, Sendable {
     public let reviewState: String?
     /// Set or change the kind; `nil` leaves it as it is.
     public let kind: MemoryKindDTO?
+    /// Move the memory: `.space(id)` files it there, `.unfiled` takes it out
+    /// of every Space, `nil` leaves it where it is. On the wire that is
+    /// `"spaceId": "<uuid>"`, `"spaceId": null`, or no key at all.
+    public let spaceId: MemorySpaceAssignment?
     public init(
         content: String? = nil,
         tags: [String]? = nil,
         reviewState: String? = nil,
-        kind: MemoryKindDTO? = nil
+        kind: MemoryKindDTO? = nil,
+        spaceId: MemorySpaceAssignment? = nil
     ) {
         self.content = content
         self.tags = tags
         self.reviewState = reviewState
         self.kind = kind
+        self.spaceId = spaceId
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case content, tags, reviewState, kind, spaceId
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        content = try c.decodeIfPresent(String.self, forKey: .content)
+        tags = try c.decodeIfPresent([String].self, forKey: .tags)
+        reviewState = try c.decodeIfPresent(String.self, forKey: .reviewState)
+        kind = try c.decodeIfPresent(MemoryKindDTO.self, forKey: .kind)
+        if !c.contains(.spaceId) {
+            spaceId = nil
+        } else if try c.decodeNil(forKey: .spaceId) {
+            spaceId = .unfiled
+        } else {
+            spaceId = try .space(c.decode(UUID.self, forKey: .spaceId))
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(content, forKey: .content)
+        try c.encodeIfPresent(tags, forKey: .tags)
+        try c.encodeIfPresent(reviewState, forKey: .reviewState)
+        try c.encodeIfPresent(kind, forKey: .kind)
+        switch spaceId {
+        case let .space(id): try c.encode(id, forKey: .spaceId)
+        case .unfiled: try c.encodeNil(forKey: .spaceId)
+        case nil: break
+        }
+    }
+}
+
+/// Where a PATCH moves a memory. See `MemoryPatchRequest.spaceId`.
+public enum MemorySpaceAssignment: Sendable, Equatable {
+    case space(UUID)
+    case unfiled
 }
 
 public struct MemoryLineageSourceDTO: Codable, Sendable {
