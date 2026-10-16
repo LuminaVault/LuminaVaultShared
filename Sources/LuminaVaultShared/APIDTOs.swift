@@ -2365,9 +2365,12 @@ public struct VaultUploadResponse: Codable, Sendable {
     public let size: Int
     public let contentType: String
     public let sha256: String
-    public init(path: String, size: Int, contentType: String, sha256: String) {
+    /// The memory a note upload created or updated, so the client can ask
+    /// what it connects to. Nil for plain files and older servers.
+    public let memoryId: UUID?
+    public init(path: String, size: Int, contentType: String, sha256: String, memoryId: UUID? = nil) {
         self.path = path; self.size = size; self.contentType = contentType
-        self.sha256 = sha256
+        self.sha256 = sha256; self.memoryId = memoryId
     }
 }
 
@@ -9060,6 +9063,182 @@ public struct MemoryReviewResponse: Codable, Sendable {
         self.memoryId = memoryId
         self.reviewedAt = reviewedAt
         self.reviewCount = reviewCount
+    }
+}
+
+// ─── Related memories ("connects to N") ───────────────────────────────────
+// `GET /v1/memory/{id}/related` — memories close to this one by meaning,
+// above a strict similarity floor, so a fresh save can say what it connects to.
+
+public struct RelatedMemoryDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let snippet: String
+    public let kind: MemoryKindDTO?
+    public let createdAt: Date
+    public let spaceId: UUID?
+    /// Cosine similarity, 0...1.
+    public let similarity: Double
+    public init(
+        id: UUID,
+        snippet: String,
+        kind: MemoryKindDTO? = nil,
+        createdAt: Date,
+        spaceId: UUID? = nil,
+        similarity: Double
+    ) {
+        self.id = id
+        self.snippet = snippet
+        self.kind = kind
+        self.createdAt = createdAt
+        self.spaceId = spaceId
+        self.similarity = similarity
+    }
+}
+
+public struct MemoryRelatedResponse: Codable, Sendable, Equatable {
+    public let memoryId: UUID
+    public let items: [RelatedMemoryDTO]
+    public init(memoryId: UUID, items: [RelatedMemoryDTO]) {
+        self.memoryId = memoryId
+        self.items = items
+    }
+}
+
+// ─── Recap (last 7 / 30 days) ─────────────────────────────────────────────
+// `GET /v1/me/recap?range=7d|30d`. Days are the user's local calendar days
+// (`yyyy-MM-dd` in `timezone`). Highlights are for the app only; `shareText`
+// carries numbers and never memory content.
+
+public struct RecapTotalsDTO: Codable, Sendable, Equatable {
+    /// Things the user saved (notes, links, files, chat saves).
+    public let captures: Int
+    /// Memories Lumina distilled for them (Sync & Learn, kept replies).
+    public let learned: Int
+    /// Messages the user sent in chat.
+    public let asked: Int
+    /// Memories they revisited.
+    public let reviewed: Int
+    public let activeDays: Int
+    public let streakDays: Int
+    public init(
+        captures: Int = 0,
+        learned: Int = 0,
+        asked: Int = 0,
+        reviewed: Int = 0,
+        activeDays: Int = 0,
+        streakDays: Int = 0
+    ) {
+        self.captures = captures
+        self.learned = learned
+        self.asked = asked
+        self.reviewed = reviewed
+        self.activeDays = activeDays
+        self.streakDays = streakDays
+    }
+}
+
+public struct RecapDayDTO: Codable, Sendable, Equatable, Identifiable {
+    /// Local calendar day, `yyyy-MM-dd`.
+    public let date: String
+    public let captures: Int
+    public let learned: Int
+    public let asked: Int
+    public let reviewed: Int
+    public var id: String {
+        date
+    }
+
+    public init(date: String, captures: Int = 0, learned: Int = 0, asked: Int = 0, reviewed: Int = 0) {
+        self.date = date
+        self.captures = captures
+        self.learned = learned
+        self.asked = asked
+        self.reviewed = reviewed
+    }
+}
+
+/// What the memories learned in the range are, by kind.
+public struct RecapKindsDTO: Codable, Sendable, Equatable {
+    public let preference: Int
+    public let decision: Int
+    public let fact: Int
+    public let note: Int
+    public init(preference: Int = 0, decision: Int = 0, fact: Int = 0, note: Int = 0) {
+        self.preference = preference
+        self.decision = decision
+        self.fact = fact
+        self.note = note
+    }
+}
+
+public enum RecapHighlightKind: String, Codable, Sendable {
+    case decision
+    case preference
+    case achievement
+    case mostRevisited
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+public struct RecapHighlightDTO: Codable, Sendable, Equatable, Identifiable {
+    public let kind: RecapHighlightKind
+    /// A memory id, or an achievement key for `.achievement`.
+    public let refId: String
+    public let title: String
+    public let date: Date
+    public var id: String {
+        "\(kind.rawValue):\(refId)"
+    }
+
+    public init(kind: RecapHighlightKind, refId: String, title: String, date: Date) {
+        self.kind = kind
+        self.refId = refId
+        self.title = title
+        self.date = date
+    }
+}
+
+public struct MeRecapResponse: Codable, Sendable, Equatable {
+    public let range: AnalyticsRange
+    /// First and last local day of the range, `yyyy-MM-dd`.
+    public let start: String
+    public let end: String
+    public let timezone: String
+    public let totals: RecapTotalsDTO
+    /// The same window just before this one, for deltas.
+    public let previousTotals: RecapTotalsDTO
+    /// One entry per local day, oldest first, zero days included.
+    public let daily: [RecapDayDTO]
+    public let kinds: RecapKindsDTO
+    public let highlights: [RecapHighlightDTO]
+    /// Numbers only — safe to share.
+    public let shareText: String
+    public init(
+        range: AnalyticsRange,
+        start: String,
+        end: String,
+        timezone: String,
+        totals: RecapTotalsDTO,
+        previousTotals: RecapTotalsDTO,
+        daily: [RecapDayDTO],
+        kinds: RecapKindsDTO,
+        highlights: [RecapHighlightDTO],
+        shareText: String
+    ) {
+        self.range = range
+        self.start = start
+        self.end = end
+        self.timezone = timezone
+        self.totals = totals
+        self.previousTotals = previousTotals
+        self.daily = daily
+        self.kinds = kinds
+        self.highlights = highlights
+        self.shareText = shareText
     }
 }
 
