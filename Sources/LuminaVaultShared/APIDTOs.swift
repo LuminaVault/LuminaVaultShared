@@ -9335,6 +9335,365 @@ public struct MeRecapResponse: Codable, Sendable, Equatable {
     }
 }
 
+// ─── Period recap (year / month in review) ────────────────────────────────
+// `GET /v1/me/recap/period?period=year|month&year=YYYY[&month=1-12]`. The
+// animated year in review and month in review. Counts follow the same rules
+// as `MeRecapResponse` (captures vs learned by memory origin). Days, weekdays
+// and hours are local to `timezone`.
+//
+// `order` is the deck to play. A client skips kinds it does not know and any
+// kind whose payload is nil. Every list is an array, never a map keyed by
+// user data: the iOS and web decoders rewrite snake_case keys, which would
+// mangle a tag like `side_project` used as a key.
+
+public enum RecapPeriodKind: String, Codable, Sendable, CaseIterable {
+    case year
+    case month
+}
+
+public enum RecapUnavailableReason: String, Codable, Sendable {
+    /// The period has not started yet.
+    case periodInFuture
+    /// The period ended before the account existed.
+    case beforeAccount
+    /// Too little happened for a recap worth playing.
+    case notEnoughActivity
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+public enum RecapCardKind: String, Codable, Sendable {
+    case intro
+    case captures
+    case peak
+    case rhythm
+    case topics
+    case chats
+    case skills
+    case streak
+    case achievements
+    case themes
+    case summary
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+/// When in the day the user shows up, from the hour with the most activity.
+public enum RecapPersona: String, Codable, Sendable {
+    /// 05:00–09:59
+    case earlyBird
+    /// 10:00–16:59
+    case daytime
+    /// 17:00–21:59
+    case evening
+    /// 22:00–04:59
+    case nightOwl
+    /// Too little activity to say.
+    case balanced
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+public enum RecapThemesStatus: String, Codable, Sendable {
+    /// `headline` and `sentence` were written by the model.
+    case ready
+    /// Being written; ask again shortly. `fallbackSentence` is safe to show.
+    case pending
+    /// The model could not write it; show `fallbackSentence`.
+    case fallback
+    /// AI is off for this account; show `fallbackSentence`.
+    case disabled
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+public struct RecapCountDTO: Codable, Sendable, Equatable, Identifiable {
+    public let label: String
+    public let count: Int
+    public var id: String {
+        label
+    }
+
+    public init(label: String, count: Int) {
+        self.label = label
+        self.count = count
+    }
+}
+
+public struct RecapBucketDTO: Codable, Sendable, Equatable, Identifiable {
+    /// `yyyy-MM` in a year recap, `yyyy-MM-dd` in a month recap.
+    public let key: String
+    public let count: Int
+    public var id: String {
+        key
+    }
+
+    public init(key: String, count: Int) {
+        self.key = key
+        self.count = count
+    }
+}
+
+public struct RecapFirstCaptureDTO: Codable, Sendable, Equatable {
+    public let memoryId: UUID
+    /// Local day, `yyyy-MM-dd`.
+    public let date: String
+    /// First line of the memory. For the app only, never for the share card.
+    public let title: String
+    public init(memoryId: UUID, date: String, title: String) {
+        self.memoryId = memoryId
+        self.date = date
+        self.title = title
+    }
+}
+
+public struct RecapCapturesCardDTO: Codable, Sendable, Equatable {
+    public let captures: Int
+    public let learned: Int
+    /// The same-length period just before this one.
+    public let previousCaptures: Int
+    public let previousLearned: Int
+    /// Captures + learned per month (year) or per day (month), zero buckets
+    /// included, oldest first.
+    public let series: [RecapBucketDTO]
+    /// Memory kinds (`preference`, `decision`, `fact`, `note`), largest first.
+    public let byKind: [RecapCountDTO]
+    public let firstCapture: RecapFirstCaptureDTO?
+    public init(
+        captures: Int,
+        learned: Int,
+        previousCaptures: Int,
+        previousLearned: Int,
+        series: [RecapBucketDTO],
+        byKind: [RecapCountDTO] = [],
+        firstCapture: RecapFirstCaptureDTO? = nil
+    ) {
+        self.captures = captures
+        self.learned = learned
+        self.previousCaptures = previousCaptures
+        self.previousLearned = previousLearned
+        self.series = series
+        self.byKind = byKind
+        self.firstCapture = firstCapture
+    }
+}
+
+public struct RecapPeakCardDTO: Codable, Sendable, Equatable {
+    /// The busiest month (year) or day (month).
+    public let busiest: RecapBucketDTO
+    /// Seven counts, Monday first.
+    public let weekdayCounts: [Int]
+    /// 1 = Monday … 7 = Sunday.
+    public let busiestWeekday: Int
+    public init(busiest: RecapBucketDTO, weekdayCounts: [Int], busiestWeekday: Int) {
+        self.busiest = busiest
+        self.weekdayCounts = weekdayCounts
+        self.busiestWeekday = busiestWeekday
+    }
+}
+
+public struct RecapRhythmCardDTO: Codable, Sendable, Equatable {
+    /// Twenty-four counts, local hour 0 first: captures plus messages sent.
+    public let hourCounts: [Int]
+    public let peakHour: Int
+    public let persona: RecapPersona
+    public init(hourCounts: [Int], peakHour: Int, persona: RecapPersona) {
+        self.hourCounts = hourCounts
+        self.peakHour = peakHour
+        self.persona = persona
+    }
+}
+
+public struct RecapTopicsCardDTO: Codable, Sendable, Equatable {
+    /// Up to five tags, lowercased, most used first.
+    public let topTags: [RecapCountDTO]
+    /// The Space that got the most memories; `label` is its name.
+    public let topSpace: RecapCountDTO?
+    public init(topTags: [RecapCountDTO], topSpace: RecapCountDTO? = nil) {
+        self.topTags = topTags
+        self.topSpace = topSpace
+    }
+}
+
+public struct RecapChatsCardDTO: Codable, Sendable, Equatable {
+    /// Conversations started in the period.
+    public let conversations: Int
+    public let messagesSent: Int
+    public let previousMessagesSent: Int
+    public init(conversations: Int, messagesSent: Int, previousMessagesSent: Int) {
+        self.conversations = conversations
+        self.messagesSent = messagesSent
+        self.previousMessagesSent = previousMessagesSent
+    }
+}
+
+public struct RecapSkillsCardDTO: Codable, Sendable, Equatable {
+    public let runs: Int
+    /// `label` is the skill name.
+    public let topSkill: RecapCountDTO?
+    public init(runs: Int, topSkill: RecapCountDTO? = nil) {
+        self.runs = runs
+        self.topSkill = topSkill
+    }
+}
+
+public struct RecapStreakCardDTO: Codable, Sendable, Equatable {
+    /// Longest run of consecutive active local days inside the period.
+    public let longestDays: Int
+    /// `yyyy-MM-dd`; nil when there was no active day.
+    public let longestStart: String?
+    public let longestEnd: String?
+    public let activeDays: Int
+    /// Days in the period so far.
+    public let totalDays: Int
+    public init(longestDays: Int, longestStart: String?, longestEnd: String?, activeDays: Int, totalDays: Int) {
+        self.longestDays = longestDays
+        self.longestStart = longestStart
+        self.longestEnd = longestEnd
+        self.activeDays = activeDays
+        self.totalDays = totalDays
+    }
+}
+
+public struct RecapAchievementDTO: Codable, Sendable, Equatable, Identifiable {
+    public let key: String
+    public let title: String
+    public let unlockedAt: Date
+    public var id: String {
+        key
+    }
+
+    public init(key: String, title: String, unlockedAt: Date) {
+        self.key = key
+        self.title = title
+        self.unlockedAt = unlockedAt
+    }
+}
+
+public struct RecapAchievementsCardDTO: Codable, Sendable, Equatable {
+    public let unlocked: Int
+    /// Up to five, oldest first.
+    public let items: [RecapAchievementDTO]
+    public init(unlocked: Int, items: [RecapAchievementDTO]) {
+        self.unlocked = unlocked
+        self.items = items
+    }
+}
+
+/// The one card written by a model. Everything else in the recap is counted.
+public struct RecapThemesCardDTO: Codable, Sendable, Equatable {
+    public let status: RecapThemesStatus
+    public let headline: String?
+    public let sentence: String?
+    /// Up to three short themes.
+    public let themes: [String]
+    /// Built from counts and tags alone; always present.
+    public let fallbackSentence: String
+    public init(
+        status: RecapThemesStatus,
+        headline: String? = nil,
+        sentence: String? = nil,
+        themes: [String] = [],
+        fallbackSentence: String
+    ) {
+        self.status = status
+        self.headline = headline
+        self.sentence = sentence
+        self.themes = themes
+        self.fallbackSentence = fallbackSentence
+    }
+}
+
+public struct PeriodRecapResponse: Codable, Sendable, Equatable {
+    public let period: RecapPeriodKind
+    public let year: Int
+    /// 1–12 for a month recap, nil for a year.
+    public let month: Int?
+    /// First and last local day covered, `yyyy-MM-dd`. For the current period
+    /// `end` is today.
+    public let start: String
+    public let end: String
+    public let timezone: String
+    /// False while the period is still running ("so far").
+    public let isComplete: Bool
+    public let available: Bool
+    public let unavailableReason: RecapUnavailableReason?
+    public let order: [RecapCardKind]
+    public let captures: RecapCapturesCardDTO?
+    public let peak: RecapPeakCardDTO?
+    public let rhythm: RecapRhythmCardDTO?
+    public let topics: RecapTopicsCardDTO?
+    public let chats: RecapChatsCardDTO?
+    public let skills: RecapSkillsCardDTO?
+    public let streak: RecapStreakCardDTO?
+    public let achievements: RecapAchievementsCardDTO?
+    public let themes: RecapThemesCardDTO?
+    /// Numbers only — safe to share.
+    public let shareText: String
+    public let generatedAt: Date
+    public init(
+        period: RecapPeriodKind,
+        year: Int,
+        month: Int?,
+        start: String,
+        end: String,
+        timezone: String,
+        isComplete: Bool,
+        available: Bool,
+        unavailableReason: RecapUnavailableReason? = nil,
+        order: [RecapCardKind] = [],
+        captures: RecapCapturesCardDTO? = nil,
+        peak: RecapPeakCardDTO? = nil,
+        rhythm: RecapRhythmCardDTO? = nil,
+        topics: RecapTopicsCardDTO? = nil,
+        chats: RecapChatsCardDTO? = nil,
+        skills: RecapSkillsCardDTO? = nil,
+        streak: RecapStreakCardDTO? = nil,
+        achievements: RecapAchievementsCardDTO? = nil,
+        themes: RecapThemesCardDTO? = nil,
+        shareText: String,
+        generatedAt: Date
+    ) {
+        self.period = period
+        self.year = year
+        self.month = month
+        self.start = start
+        self.end = end
+        self.timezone = timezone
+        self.isComplete = isComplete
+        self.available = available
+        self.unavailableReason = unavailableReason
+        self.order = order
+        self.captures = captures
+        self.peak = peak
+        self.rhythm = rhythm
+        self.topics = topics
+        self.chats = chats
+        self.skills = skills
+        self.streak = streak
+        self.achievements = achievements
+        self.themes = themes
+        self.shareText = shareText
+        self.generatedAt = generatedAt
+    }
+}
+
 // ─── Home aggregate (HER-Home / Command Center) ───────────────────────────
 // One-shot payload for the Home Command Center: counts, active model, power
 // progress, skill names, and live active jobs. Avoids N round-trips.
