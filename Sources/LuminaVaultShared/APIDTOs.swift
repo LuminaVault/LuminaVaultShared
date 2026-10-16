@@ -9078,7 +9078,14 @@ public struct RelatedMemoryDTO: Codable, Sendable, Equatable, Identifiable {
     public let spaceId: UUID?
     /// Cosine similarity, 0...1.
     public let similarity: Double
-    public init(id: UUID, snippet: String, kind: MemoryKindDTO? = nil, createdAt: Date, spaceId: UUID? = nil, similarity: Double) {
+    public init(
+        id: UUID,
+        snippet: String,
+        kind: MemoryKindDTO? = nil,
+        createdAt: Date,
+        spaceId: UUID? = nil,
+        similarity: Double
+    ) {
         self.id = id
         self.snippet = snippet
         self.kind = kind
@@ -9113,7 +9120,14 @@ public struct RecapTotalsDTO: Codable, Sendable, Equatable {
     public let reviewed: Int
     public let activeDays: Int
     public let streakDays: Int
-    public init(captures: Int = 0, learned: Int = 0, asked: Int = 0, reviewed: Int = 0, activeDays: Int = 0, streakDays: Int = 0) {
+    public init(
+        captures: Int = 0,
+        learned: Int = 0,
+        asked: Int = 0,
+        reviewed: Int = 0,
+        activeDays: Int = 0,
+        streakDays: Int = 0
+    ) {
         self.captures = captures
         self.learned = learned
         self.asked = asked
@@ -9130,7 +9144,10 @@ public struct RecapDayDTO: Codable, Sendable, Equatable, Identifiable {
     public let learned: Int
     public let asked: Int
     public let reviewed: Int
-    public var id: String { date }
+    public var id: String {
+        date
+    }
+
     public init(date: String, captures: Int = 0, learned: Int = 0, asked: Int = 0, reviewed: Int = 0) {
         self.date = date
         self.captures = captures
@@ -9173,7 +9190,10 @@ public struct RecapHighlightDTO: Codable, Sendable, Equatable, Identifiable {
     public let refId: String
     public let title: String
     public let date: Date
-    public var id: String { "\(kind.rawValue):\(refId)" }
+    public var id: String {
+        "\(kind.rawValue):\(refId)"
+    }
+
     public init(kind: RecapHighlightKind, refId: String, title: String, date: Date) {
         self.kind = kind
         self.refId = refId

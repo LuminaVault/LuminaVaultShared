@@ -28,14 +28,25 @@ struct RecapRelatedDTOTests {
             previousTotals: RecapTotalsDTO(),
             daily: [RecapDayDTO(date: "2026-10-09", captures: 4)],
             kinds: RecapKindsDTO(decision: 1, fact: 1),
-            highlights: [RecapHighlightDTO(kind: .decision, refId: UUID().uuidString, title: "Ship Friday", date: Date(timeIntervalSince1970: 0))],
+            highlights: [RecapHighlightDTO(
+                kind: .decision,
+                refId: UUID().uuidString,
+                title: "Ship Friday",
+                date: Date(timeIntervalSince1970: 0)
+            )],
             shareText: "My last 7 days on LuminaVault: 4 captures, 2 things learned."
         )
         #expect(try JSONDecoder().decode(MeRecapResponse.self, from: JSONEncoder().encode(recap)) == recap)
 
         let related = MemoryRelatedResponse(
             memoryId: UUID(),
-            items: [RelatedMemoryDTO(id: UUID(), snippet: "s", kind: .fact, createdAt: Date(timeIntervalSince1970: 0), similarity: 0.8)]
+            items: [RelatedMemoryDTO(
+                id: UUID(),
+                snippet: "s",
+                kind: .fact,
+                createdAt: Date(timeIntervalSince1970: 0),
+                similarity: 0.8
+            )]
         )
         #expect(try JSONDecoder().decode(MemoryRelatedResponse.self, from: JSONEncoder().encode(related)) == related)
     }
