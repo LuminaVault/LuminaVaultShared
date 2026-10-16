@@ -2470,8 +2470,12 @@ public enum DevicePlatform: String, Codable, Sendable, CaseIterable {
 public struct DeviceRegistrationRequest: Codable, Sendable {
     public let token: String
     public let platform: DevicePlatform
-    public init(token: String, platform: DevicePlatform) {
-        self.token = token; self.platform = platform
+    /// The app's bundle id (`com.lumina.fernando`, `.beta`, …). APNs only
+    /// delivers to the topic a token was issued for, so the server pushes to
+    /// each device with its own app's id. Nil from older clients.
+    public let bundleId: String?
+    public init(token: String, platform: DevicePlatform, bundleId: String? = nil) {
+        self.token = token; self.platform = platform; self.bundleId = bundleId
     }
 }
 
@@ -9055,14 +9059,103 @@ public struct AnalyticsMutationResponse: Codable, Sendable {
     }
 }
 
+// ─── Resurfacing ("to revisit") ───────────────────────────────────────────
+// `POST /v1/memory/{id}/review` takes an optional action that schedules the
+// memory's next appearance; `GET /v1/me/resurface` picks what to show today.
+
+public enum MemoryReviewAction: String, Codable, Sendable, CaseIterable {
+    /// Seen and kept; no new schedule.
+    case kept
+    /// Show it again in a few days.
+    case soon
+    /// Show it again in about a month.
+    case later
+    /// Never resurface it again (the memory itself stays).
+    case never
+}
+
+public struct MemoryReviewRequest: Codable, Sendable, Equatable {
+    public let action: MemoryReviewAction
+    public init(action: MemoryReviewAction) {
+        self.action = action
+    }
+}
+
+public enum ResurfaceReason: String, Codable, Sendable {
+    /// The user asked to see it again and that day has come.
+    case due
+    /// Saved a month, six months or a year ago today.
+    case onThisDay
+    /// A decision or preference nobody has looked at in a while.
+    case fading
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+public struct ResurfaceItemDTO: Codable, Sendable, Equatable, Identifiable {
+    public let memoryId: UUID
+    public let snippet: String
+    /// Raw kind string, so a kind this client does not know yet still shows.
+    public let kind: String?
+    public let createdAt: Date
+    public let spaceId: UUID?
+    public let reason: ResurfaceReason
+    /// One line on why it is here, e.g. "Saved a year ago today".
+    public let why: String
+    public var id: UUID {
+        memoryId
+    }
+
+    public init(
+        memoryId: UUID,
+        snippet: String,
+        kind: String? = nil,
+        createdAt: Date,
+        spaceId: UUID? = nil,
+        reason: ResurfaceReason,
+        why: String
+    ) {
+        self.memoryId = memoryId
+        self.snippet = snippet
+        self.kind = kind
+        self.createdAt = createdAt
+        self.spaceId = spaceId
+        self.reason = reason
+        self.why = why
+    }
+}
+
+public struct ResurfaceResponse: Codable, Sendable, Equatable {
+    public let items: [ResurfaceItemDTO]
+    public init(items: [ResurfaceItemDTO]) {
+        self.items = items
+    }
+}
+
 public struct MemoryReviewResponse: Codable, Sendable {
     public let memoryId: UUID
     public let reviewedAt: Date
     public let reviewCount: Int
-    public init(memoryId: UUID, reviewedAt: Date, reviewCount: Int) {
+    /// When it resurfaces next, if a `soon` / `later` action scheduled it.
+    public let nextReviewAt: Date?
+    /// True once `never` was chosen.
+    public let resurfaceMuted: Bool?
+    public init(
+        memoryId: UUID,
+        reviewedAt: Date,
+        reviewCount: Int,
+        nextReviewAt: Date? = nil,
+        resurfaceMuted: Bool? = nil
+    ) {
         self.memoryId = memoryId
         self.reviewedAt = reviewedAt
         self.reviewCount = reviewCount
+        self.nextReviewAt = nextReviewAt
+        self.resurfaceMuted = resurfaceMuted
     }
 }
 
