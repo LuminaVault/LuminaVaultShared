@@ -9059,6 +9059,59 @@ public struct AnalyticsMutationResponse: Codable, Sendable {
     }
 }
 
+// ─── What I learned this week ─────────────────────────────────────────────
+// `GET /v1/me/learned?since=` — what Lumina picked up about the user that
+// they have not confirmed yet: proposed SOUL.md changes and new preference /
+// decision memories. Keep / edit / forget go through the existing endpoints
+// (`PATCH /v1/memory/{id}`, `POST /v1/me/improvement/changes/{id}/approve|reject`).
+
+public struct LearnedSoulChangeDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let title: String
+    public let summary: String
+    public let createdAt: Date
+    public init(id: UUID, title: String, summary: String, createdAt: Date) {
+        self.id = id
+        self.title = title
+        self.summary = summary
+        self.createdAt = createdAt
+    }
+}
+
+public struct LearnedMemoryDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let snippet: String
+    /// Raw kind (`preference`, `decision`, …) so a new kind never fails the digest.
+    public let kind: String
+    /// Raw review state (`pending`, `auto`, …).
+    public let reviewState: String
+    public let createdAt: Date
+    public init(id: UUID, snippet: String, kind: String, reviewState: String, createdAt: Date) {
+        self.id = id
+        self.snippet = snippet
+        self.kind = kind
+        self.reviewState = reviewState
+        self.createdAt = createdAt
+    }
+}
+
+public struct LearnedDigestResponse: Codable, Sendable, Equatable {
+    public let since: Date
+    public let until: Date
+    public let soulChanges: [LearnedSoulChangeDTO]
+    public let memories: [LearnedMemoryDTO]
+    public var isEmpty: Bool {
+        soulChanges.isEmpty && memories.isEmpty
+    }
+
+    public init(since: Date, until: Date, soulChanges: [LearnedSoulChangeDTO], memories: [LearnedMemoryDTO]) {
+        self.since = since
+        self.until = until
+        self.soulChanges = soulChanges
+        self.memories = memories
+    }
+}
+
 // ─── Resurfacing ("to revisit") ───────────────────────────────────────────
 // `POST /v1/memory/{id}/review` takes an optional action that schedules the
 // memory's next appearance; `GET /v1/me/resurface` picks what to show today.
