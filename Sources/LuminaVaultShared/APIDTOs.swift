@@ -9059,6 +9059,191 @@ public struct AnalyticsMutationResponse: Codable, Sendable {
     }
 }
 
+// ─── Commitments ("open loops") ───────────────────────────────────────────
+// First-person promises ("I'll…", "I need to…", "I promised…") that kb-compile
+// pulls out of notes. `GET /v1/me/commitments?state=open|done|dropped|all`,
+// `PATCH /v1/me/commitments/{id}`. A separate type, not a memory kind, so
+// older clients decoding memory lists never see it.
+
+public enum CommitmentState: String, Codable, Sendable {
+    case open
+    case done
+    case dropped
+    /// A state this client does not know yet. Never sent.
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+public struct CommitmentDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let text: String
+    public let dueAt: Date?
+    public let state: CommitmentState
+    /// How many briefs have shown it. It stops appearing in briefs at 3.
+    public let surfacedCount: Int
+    /// The memory it was extracted from, when there is one.
+    public let memoryId: UUID?
+    /// The vault file it was extracted from, when there is one.
+    public let sourceVaultFileId: UUID?
+    public let createdAt: Date
+    public let doneAt: Date?
+
+    public init(
+        id: UUID,
+        text: String,
+        dueAt: Date? = nil,
+        state: CommitmentState,
+        surfacedCount: Int = 0,
+        memoryId: UUID? = nil,
+        sourceVaultFileId: UUID? = nil,
+        createdAt: Date,
+        doneAt: Date? = nil
+    ) {
+        self.id = id
+        self.text = text
+        self.dueAt = dueAt
+        self.state = state
+        self.surfacedCount = surfacedCount
+        self.memoryId = memoryId
+        self.sourceVaultFileId = sourceVaultFileId
+        self.createdAt = createdAt
+        self.doneAt = doneAt
+    }
+}
+
+public struct CommitmentsResponse: Codable, Sendable, Equatable {
+    public let items: [CommitmentDTO]
+    public init(items: [CommitmentDTO]) {
+        self.items = items
+    }
+}
+
+public struct CommitmentUpdateRequest: Codable, Sendable, Equatable {
+    public let state: CommitmentState
+    public init(state: CommitmentState) {
+        self.state = state
+    }
+}
+
+// ─── Daily brief (cards with an end) ──────────────────────────────────────
+// `GET /v1/me/brief?date=yyyy-MM-dd` returns the day's brief as a short,
+// bounded list of cards, each with a `why`, and an end note.
+// `POST /v1/me/brief/{briefId}/cards/{cardId}/feedback` records 👍 / 👎 / dismiss.
+
+public enum BriefCardKind: String, Codable, Sendable {
+    case today
+    case openLoops
+    case toRevisit
+    case learned
+    case onYourMind
+    case weather
+    case inbox
+    case other
+    /// A kind this client does not know yet. Never sent.
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+public enum BriefCardRefKind: String, Codable, Sendable {
+    case memory
+    case commitment
+    case event
+    case soulChange
+    /// A kind this client does not know yet. Never sent.
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+/// What a card points at, so a client can open it.
+public struct BriefCardRefDTO: Codable, Sendable, Equatable, Hashable {
+    public let kind: BriefCardRefKind
+    /// A UUID for memories, commitments and SOUL changes; the calendar's own id for events.
+    public let id: String
+    public init(kind: BriefCardRefKind, id: String) {
+        self.kind = kind
+        self.id = id
+    }
+}
+
+public struct BriefCardDTO: Codable, Sendable, Equatable, Identifiable {
+    /// Stable within one brief; the feedback endpoint takes it.
+    public let id: String
+    public let kind: BriefCardKind
+    public let title: String
+    /// Plain text or light markdown.
+    public let body: String
+    /// One short human line: why this card is here today.
+    public let why: String?
+    public let refs: [BriefCardRefDTO]
+
+    public init(
+        id: String,
+        kind: BriefCardKind,
+        title: String,
+        body: String,
+        why: String? = nil,
+        refs: [BriefCardRefDTO] = []
+    ) {
+        self.id = id
+        self.kind = kind
+        self.title = title
+        self.body = body
+        self.why = why
+        self.refs = refs
+    }
+}
+
+public struct BriefDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    /// Local day in the user's timezone, `yyyy-MM-dd`.
+    public let date: String
+    public let cards: [BriefCardDTO]
+    /// Always shown after the last card ("That's it for today.").
+    public let endNote: String
+    public let createdAt: Date
+
+    public init(id: UUID, date: String, cards: [BriefCardDTO], endNote: String, createdAt: Date) {
+        self.id = id
+        self.date = date
+        self.cards = cards
+        self.endNote = endNote
+        self.createdAt = createdAt
+    }
+}
+
+public struct MeBriefResponse: Codable, Sendable, Equatable {
+    /// `nil` when there is no brief for that day yet (not a 404).
+    public let brief: BriefDTO?
+    public init(brief: BriefDTO?) {
+        self.brief = brief
+    }
+}
+
+public enum BriefCardFeedbackAction: String, Codable, Sendable, CaseIterable {
+    case up
+    case down
+    case dismiss
+}
+
+public struct BriefCardFeedbackRequest: Codable, Sendable, Equatable {
+    public let action: BriefCardFeedbackAction
+    public init(action: BriefCardFeedbackAction) {
+        self.action = action
+    }
+}
+
 // ─── What I learned this week ─────────────────────────────────────────────
 // `GET /v1/me/learned?since=` — what Lumina picked up about the user that
 // they have not confirmed yet: proposed SOUL.md changes and new preference /
