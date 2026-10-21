@@ -143,7 +143,10 @@ struct AdditiveFieldsTests {
 
     @Test func insightDTODecodesWithoutPeriodKeys() throws {
         let legacyJSON = """
-        {"id":"00000000-0000-0000-0000-000000000000","headline":"h","summary":"s","section":"patterns","createdAt":\(Date().timeIntervalSinceReferenceDate),"sourceMemoryIDs":[],"dismissed":false}
+        {"id":"00000000-0000-0000-0000-000000000000","headline":"h","summary":"s","section":"patterns","createdAt":\(
+            Date()
+                .timeIntervalSinceReferenceDate
+        ),"sourceMemoryIDs":[],"dismissed":false}
         """.data(using: .utf8)!
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .deferredToDate
