@@ -4181,6 +4181,10 @@ public struct AppleCalendarEventInput: Codable, Sendable {
     public let organizer: String?
     /// EventKit `lastModifiedDate`; drives last-writer-wins on upsert.
     public let remoteUpdatedAt: Date?
+    /// EventKit `attendees` (`EKParticipant` name and email). Nil — what a
+    /// client built before this field sends — leaves the stored attendees as
+    /// they were; an empty array clears them.
+    public let attendees: [CalendarAttendeeDTO]?
     public init(
         externalID: String,
         calendarID: String? = nil,
@@ -4192,12 +4196,26 @@ public struct AppleCalendarEventInput: Codable, Sendable {
         allDay: Bool = false,
         status: String? = nil,
         organizer: String? = nil,
-        remoteUpdatedAt: Date? = nil
+        remoteUpdatedAt: Date? = nil,
+        attendees: [CalendarAttendeeDTO]? = nil
     ) {
         self.externalID = externalID; self.calendarID = calendarID; self.title = title
         self.notes = notes; self.location = location; self.startsAt = startsAt
         self.endsAt = endsAt; self.allDay = allDay; self.status = status
         self.organizer = organizer; self.remoteUpdatedAt = remoteUpdatedAt
+        self.attendees = attendees
+    }
+}
+
+/// One person invited to a calendar event. Either field may be missing:
+/// EventKit gives a name without an email for some participants, and Google
+/// an email without a display name.
+public struct CalendarAttendeeDTO: Codable, Sendable, Equatable {
+    public let name: String?
+    public let email: String?
+    public init(name: String? = nil, email: String? = nil) {
+        self.name = name
+        self.email = email
     }
 }
 
@@ -5208,6 +5226,15 @@ public struct APNSCategoryPrefsResponse: Codable, Sendable {
     public let approvalEnabled: Bool
     /// Phase 1 `runCompleted` pushes — the terminal banner for a run.
     public let runCompletedEnabled: Bool
+    /// The pre-meeting brief push. Opt-in: off unless the user turns it on.
+    /// Optional on the wire so a server that predates it still decodes; read
+    /// `isMeetingBriefEnabled`, which treats absent as off.
+    public let meetingBriefEnabled: Bool?
+    /// `meetingBriefEnabled` with absent read as off.
+    public var isMeetingBriefEnabled: Bool {
+        meetingBriefEnabled ?? false
+    }
+
     /// The two Phase 1 flags default to `true` so a client built against an
     /// older Shared keeps compiling and keeps the server's own default.
     public init(
@@ -5215,13 +5242,15 @@ public struct APNSCategoryPrefsResponse: Codable, Sendable {
         nudgeEnabled: Bool,
         digestEnabled: Bool,
         approvalEnabled: Bool = true,
-        runCompletedEnabled: Bool = true
+        runCompletedEnabled: Bool = true,
+        meetingBriefEnabled: Bool? = nil
     ) {
         self.chatEnabled = chatEnabled
         self.nudgeEnabled = nudgeEnabled
         self.digestEnabled = digestEnabled
         self.approvalEnabled = approvalEnabled
         self.runCompletedEnabled = runCompletedEnabled
+        self.meetingBriefEnabled = meetingBriefEnabled
     }
 }
 
@@ -5231,18 +5260,22 @@ public struct APNSCategoryPrefsPutRequest: Codable, Sendable {
     public let digestEnabled: Bool?
     public let approvalEnabled: Bool?
     public let runCompletedEnabled: Bool?
+    /// Turns the opt-in pre-meeting brief push on or off.
+    public let meetingBriefEnabled: Bool?
     public init(
         chatEnabled: Bool? = nil,
         nudgeEnabled: Bool? = nil,
         digestEnabled: Bool? = nil,
         approvalEnabled: Bool? = nil,
-        runCompletedEnabled: Bool? = nil
+        runCompletedEnabled: Bool? = nil,
+        meetingBriefEnabled: Bool? = nil
     ) {
         self.chatEnabled = chatEnabled
         self.nudgeEnabled = nudgeEnabled
         self.digestEnabled = digestEnabled
         self.approvalEnabled = approvalEnabled
         self.runCompletedEnabled = runCompletedEnabled
+        self.meetingBriefEnabled = meetingBriefEnabled
     }
 }
 
@@ -11523,5 +11556,67 @@ public struct AgentRoomStreamEvent: Codable, Sendable, Equatable {
         self.message = message
         self.memberID = memberID
         self.reason = reason
+    }
+}
+
+// ─── Pre-meeting brief (opt-in) ───────────────────────────────────────────
+// `GET /v1/calendar/events/{id}/brief` — the notes that bear on an upcoming
+// meeting, for the sheet the `luminavault://meeting/<eventId>` push opens.
+// Off by default (`APNSCategoryPrefsPutRequest.meetingBriefEnabled`).
+
+/// The event a meeting brief is for.
+public struct MeetingBriefEventDTO: Codable, Sendable, Equatable, Identifiable {
+    /// `calendar_events.id`, the id in the deep link and the path.
+    public let id: UUID
+    public let title: String
+    public let startsAt: Date
+    public let endsAt: Date
+    public let location: String?
+    public let attendees: [CalendarAttendeeDTO]
+    public init(
+        id: UUID,
+        title: String,
+        startsAt: Date,
+        endsAt: Date,
+        location: String? = nil,
+        attendees: [CalendarAttendeeDTO] = []
+    ) {
+        self.id = id
+        self.title = title
+        self.startsAt = startsAt
+        self.endsAt = endsAt
+        self.location = location
+        self.attendees = attendees
+    }
+}
+
+/// One note that matched the meeting closely enough to pass the floor.
+public struct MeetingBriefMemoryDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let snippet: String
+    /// Raw kind string, so a kind this client does not know yet still shows.
+    public let kind: String?
+    public let createdAt: Date
+    /// Cosine similarity, 0...1.
+    public let similarity: Double
+    public init(id: UUID, snippet: String, kind: String? = nil, createdAt: Date, similarity: Double) {
+        self.id = id
+        self.snippet = snippet
+        self.kind = kind
+        self.createdAt = createdAt
+        self.similarity = similarity
+    }
+}
+
+public struct MeetingBriefResponse: Codable, Sendable, Equatable {
+    public let event: MeetingBriefEventDTO
+    /// Nearest first, at most five. Empty when nothing passes the floor.
+    public let memories: [MeetingBriefMemoryDTO]
+    /// One line on why these notes, e.g. "You mentioned Ana in 3 notes".
+    public let why: String
+    public init(event: MeetingBriefEventDTO, memories: [MeetingBriefMemoryDTO], why: String) {
+        self.event = event
+        self.memories = memories
+        self.why = why
     }
 }
