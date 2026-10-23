@@ -2610,6 +2610,108 @@ public struct OnboardingPatchRequest: Codable, Sendable {
     }
 }
 
+// ─── Onboarding seed ("Bring what you already saved") ───────────────────
+
+/// Where a new user's first items come from. Readwise and Raindrop go
+/// through their connectors, bookmarks and pasted links through link import.
+/// `obsidian` uploads through `POST /v1/import/vault-bulk`; the seed call for
+/// it only records that the user started.
+public enum OnboardingSeedSource: String, Codable, Sendable, CaseIterable {
+    case readwise
+    case raindrop
+    case obsidian
+    case bookmarks
+    case links
+}
+
+/// `POST /v1/onboarding/seed`. Exactly one payload field matters per source:
+/// `token` for readwise/raindrop (sealed like any connector config, never
+/// logged), `bookmarksHTML` for a Netscape bookmarks export, `links` for
+/// pasted URLs. `obsidian` takes none.
+public struct OnboardingSeedRequest: Codable, Sendable {
+    public let source: OnboardingSeedSource
+    public let token: String?
+    public let bookmarksHTML: String?
+    public let links: [String]?
+
+    public init(
+        source: OnboardingSeedSource,
+        token: String? = nil,
+        bookmarksHTML: String? = nil,
+        links: [String]? = nil
+    ) {
+        self.source = source
+        self.token = token
+        self.bookmarksHTML = bookmarksHTML
+        self.links = links
+    }
+}
+
+public struct OnboardingSeedResponse: Codable, Sendable, Equatable {
+    /// The import session the links were staged into. Nil for `obsidian`.
+    public let sessionId: UUID?
+    public let staged: Int
+    public let skipped: Int
+
+    public init(sessionId: UUID?, staged: Int, skipped: Int) {
+        self.sessionId = sessionId
+        self.staged = staged
+        self.skipped = skipped
+    }
+}
+
+/// `GET /v1/onboarding/seed`. Tenant-wide, not per job, so it reads the same
+/// for every source. Clients poll it while the import runs.
+public struct OnboardingSeedStatusDTO: Codable, Sendable, Equatable {
+    /// Vault files in the vault.
+    public let imported: Int
+    /// Vault-backed memories, i.e. items chat can already search.
+    public let indexed: Int
+    /// First lines of the newest memories, newest first, for the live list.
+    public let sampleTitles: [String]
+    /// `indexed` at which the client lets the user move on. The server owns
+    /// it so it can be lowered without a client release.
+    public let readyThreshold: Int
+
+    public init(imported: Int, indexed: Int, sampleTitles: [String], readyThreshold: Int) {
+        self.imported = imported
+        self.indexed = indexed
+        self.sampleTitles = sampleTitles
+        self.readyThreshold = readyThreshold
+    }
+
+    public var isReady: Bool {
+        indexed >= readyThreshold
+    }
+}
+
+/// A question written from the user's own items, already checked to have
+/// grounding in their vault.
+public struct SuggestedQuestionDTO: Codable, Sendable, Equatable, Identifiable {
+    public let question: String
+    /// The memories the server's probe found for it, best first.
+    public let memoryIds: [UUID]
+
+    public var id: String {
+        question
+    }
+
+    public init(question: String, memoryIds: [UUID]) {
+        self.question = question
+        self.memoryIds = memoryIds
+    }
+}
+
+/// `GET /v1/onboarding/questions`. Up to three; empty when nothing in the
+/// vault grounds a question yet.
+public struct SuggestedQuestionsResponse: Codable, Sendable, Equatable {
+    public let questions: [SuggestedQuestionDTO]
+
+    public init(questions: [SuggestedQuestionDTO]) {
+        self.questions = questions
+    }
+}
+
 // ─── KB Compile ──────────────────────────────────────────────────────────
 
 /// Triggers a kb-compile run over the caller's vault. Three modes:

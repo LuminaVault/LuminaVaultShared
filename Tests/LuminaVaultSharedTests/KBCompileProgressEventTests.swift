@@ -77,8 +77,8 @@ struct KBCompileProgressEventTests {
         #expect(memorySavedJSON["payload"] is [String: Any])
     }
 
-    @Test func unknownTypeFailsToDecode() {
-        let json = #"{"type":"bogus","payload":{}}"#.data(using: .utf8)!
+    @Test func unknownTypeFailsToDecode() throws {
+        let json = try #require(#"{"type":"bogus","payload":{}}"#.data(using: .utf8))
         #expect(throws: (any Error).self) {
             try JSONDecoder().decode(KBCompileProgressEvent.self, from: json)
         }

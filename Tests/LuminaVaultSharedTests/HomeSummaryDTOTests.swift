@@ -6,7 +6,7 @@ import Testing
 struct HomeSummaryDTOTests {
     @Test("older home payloads decode with cockpit defaults")
     func olderPayloadFillsCockpitDefaults() throws {
-        let json = """
+        let json = try #require("""
         {
           "skillsCount": 2,
           "jobsCount": 4,
@@ -15,7 +15,7 @@ struct HomeSummaryDTOTests {
           "projectsCount": 1,
           "insightsCount": 0
         }
-        """.data(using: .utf8)!
+        """.data(using: .utf8))
 
         let decoded = try JSONDecoder().decode(HomeSummaryResponse.self, from: json)
         #expect(decoded.skillsCount == 2)

@@ -15,10 +15,10 @@ final class KanbanDTOTests: XCTestCase {
     }
 
     func testBoardSnapshotDecodesNestedColumnsAndCards() throws {
-        let json = """
+        let json = try XCTUnwrap("""
         {"id":"\(UUID().uuidString)","title":"My Board","version":3,
          "columns":[{"id":"\(UUID().uuidString)","title":"Todo","rank":"a","cards":[]}]}
-        """.data(using: .utf8)!
+        """.data(using: .utf8))
         let board = try JSONDecoder().decode(BoardDTO.self, from: json)
         XCTAssertEqual(board.title, "My Board")
         XCTAssertEqual(board.version, 3)

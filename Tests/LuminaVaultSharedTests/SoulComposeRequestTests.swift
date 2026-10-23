@@ -3,9 +3,9 @@ import XCTest
 
 final class SoulComposeRequestTests: XCTestCase {
     func testDecodesFromSnakeCaseWire() throws {
-        let json = """
+        let json = try XCTUnwrap("""
         { "agent_name": "Athena", "tone": "warm", "role": "second_brain", "autonomy": "ask_first" }
-        """.data(using: .utf8)!
+        """.data(using: .utf8))
         let req = try JSONDecoder().decode(SoulComposeRequest.self, from: json)
         XCTAssertEqual(req.agentName, "Athena")
         XCTAssertEqual(req.tone, .warm)

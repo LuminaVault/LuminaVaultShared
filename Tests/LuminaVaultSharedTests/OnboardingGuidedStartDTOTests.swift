@@ -37,7 +37,7 @@ struct OnboardingGuidedStartDTOTests {
     /// New client, old server: the key is simply absent from the payload.
     @Test("state decodes with the dismissal key absent")
     func stateDecodesWithKeyAbsent() throws {
-        let json = """
+        let json = try #require("""
         {"signupCompleted":true,"signupCompletedAt":null,
          "emailVerifiedCompleted":false,"emailVerifiedCompletedAt":null,
          "soulConfiguredCompleted":false,"soulConfiguredCompletedAt":null,
@@ -45,7 +45,7 @@ struct OnboardingGuidedStartDTOTests {
          "firstKBCompileCompleted":false,"firstKBCompileCompletedAt":null,
          "firstQueryCompleted":false,"firstQueryCompletedAt":null,
          "brainConfiguredCompleted":true,"brainConfiguredCompletedAt":null}
-        """.data(using: .utf8)!
+        """.data(using: .utf8))
 
         let decoded = try JSONDecoder().decode(OnboardingStateDTO.self, from: json)
         #expect(decoded.guidedStartDismissedAt == nil)
@@ -55,7 +55,7 @@ struct OnboardingGuidedStartDTOTests {
     /// An explicit null is the same thing as the key being missing.
     @Test("an explicit null dismissal decodes as nil")
     func explicitNullDecodesAsNil() throws {
-        let json = """
+        let json = try #require("""
         {"signupCompleted":true,"signupCompletedAt":null,
          "emailVerifiedCompleted":false,"emailVerifiedCompletedAt":null,
          "soulConfiguredCompleted":false,"soulConfiguredCompletedAt":null,
@@ -64,7 +64,7 @@ struct OnboardingGuidedStartDTOTests {
          "firstQueryCompleted":false,"firstQueryCompletedAt":null,
          "brainConfiguredCompleted":true,"brainConfiguredCompletedAt":null,
          "guidedStartDismissedAt":null}
-        """.data(using: .utf8)!
+        """.data(using: .utf8))
 
         #expect(try JSONDecoder().decode(OnboardingStateDTO.self, from: json).guidedStartDismissedAt == nil)
     }
@@ -72,7 +72,7 @@ struct OnboardingGuidedStartDTOTests {
     /// Old client, new server: keys this build has never heard of must be ignored.
     @Test("state decodes with unknown extra keys present")
     func stateDecodesWithUnknownKeys() throws {
-        let json = """
+        let json = try #require("""
         {"signupCompleted":true,"signupCompletedAt":null,
          "emailVerifiedCompleted":false,"emailVerifiedCompletedAt":null,
          "soulConfiguredCompleted":false,"soulConfiguredCompletedAt":null,
@@ -83,7 +83,7 @@ struct OnboardingGuidedStartDTOTests {
          "guidedStartDismissedAt":721692800,
          "somethingTheServerAddedLater":{"nested":[1,2,3]},
          "andAScalar":"hello"}
-        """.data(using: .utf8)!
+        """.data(using: .utf8))
 
         let decoded = try JSONDecoder().decode(OnboardingStateDTO.self, from: json)
         #expect(decoded.guidedStartDismissedAt == Self.stamped)

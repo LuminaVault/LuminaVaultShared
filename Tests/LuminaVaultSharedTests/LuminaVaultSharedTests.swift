@@ -135,19 +135,19 @@ struct AdditiveFieldsTests {
     }
 
     @Test func queryResponseDecodesWithoutFollowUpsKey() throws {
-        let legacyJSON = #"{"summary":"s","hits":[]}"#.data(using: .utf8)!
+        let legacyJSON = try #require(#"{"summary":"s","hits":[]}"#.data(using: .utf8))
         let decoded = try JSONDecoder().decode(QueryResponse.self, from: legacyJSON)
         #expect(decoded.summary == "s")
         #expect(decoded.followUps == nil)
     }
 
     @Test func insightDTODecodesWithoutPeriodKeys() throws {
-        let legacyJSON = """
+        let legacyJSON = try #require("""
         {"id":"00000000-0000-0000-0000-000000000000","headline":"h","summary":"s","section":"patterns","createdAt":\(
             Date()
                 .timeIntervalSinceReferenceDate
         ),"sourceMemoryIDs":[],"dismissed":false}
-        """.data(using: .utf8)!
+        """.data(using: .utf8))
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .deferredToDate
         let insight = try dec.decode(InsightDTO.self, from: legacyJSON)
@@ -162,9 +162,9 @@ struct AdditiveFieldsTests {
 
     /// HER-300 — LLM brain mode + onboarding flag back-compat
     @Test func llmPreferencesGetResponseDefaultsModeToManagedWhenMissing() throws {
-        let legacyJSON = """
+        let legacyJSON = try #require("""
         {"primaryProvider":"openai","primaryModel":"gpt-4o","fallbackChain":[]}
-        """.data(using: .utf8)!
+        """.data(using: .utf8))
         let decoded = try JSONDecoder().decode(LLMPreferencesGetResponse.self, from: legacyJSON)
         #expect(decoded.mode == .managed)
         #expect(decoded.primaryProvider == .openai)
@@ -172,17 +172,17 @@ struct AdditiveFieldsTests {
     }
 
     @Test func llmPreferencesPutRequestDefaultsModeToManagedWhenMissing() throws {
-        let legacyJSON = """
+        let legacyJSON = try #require("""
         {"primaryProvider":"anthropic","primaryModel":"claude-opus-4-7","fallbackChain":[]}
-        """.data(using: .utf8)!
+        """.data(using: .utf8))
         let decoded = try JSONDecoder().decode(LLMPreferencesPutRequest.self, from: legacyJSON)
         #expect(decoded.mode == .managed)
     }
 
     @Test func onboardingStateDTODefaultsBrainConfiguredFalseWhenMissing() throws {
-        let legacyJSON = """
+        let legacyJSON = try #require("""
         {"signupCompleted":true,"signupCompletedAt":null,"emailVerifiedCompleted":false,"emailVerifiedCompletedAt":null,"soulConfiguredCompleted":false,"soulConfiguredCompletedAt":null,"firstCaptureCompleted":false,"firstCaptureCompletedAt":null,"firstKBCompileCompleted":false,"firstKBCompileCompletedAt":null,"firstQueryCompleted":false,"firstQueryCompletedAt":null}
-        """.data(using: .utf8)!
+        """.data(using: .utf8))
         let decoded = try JSONDecoder().decode(OnboardingStateDTO.self, from: legacyJSON)
         #expect(decoded.brainConfiguredCompleted == false)
         #expect(decoded.brainConfiguredCompletedAt == nil)
