@@ -62,4 +62,35 @@ struct QuickAssistantDTOTests {
         )
         #expect(decoded == res)
     }
+
+    @Test func unknownScreenInStreamFrameDecodesToUnknown() throws {
+        let id = UUID()
+        let frame = #"{"type":"assistant_action","payload":{"id":"\#(id.uuidString)","kind":"openScreen","summary":"s","screen":"future"}}"#
+        let event = try JSONDecoder().decode(QueryStreamEvent.self, from: Data(frame.utf8))
+        guard case let .assistantAction(action) = event else {
+            Issue.record("expected assistantAction, got \(event)")
+            return
+        }
+        #expect(action.kind == .openScreen)
+        #expect(action.screen == .unknown)
+    }
+
+    @Test func unknownKindInStreamFrameDecodesToUnknown() throws {
+        let id = UUID()
+        let frame = #"{"type":"assistant_action","payload":{"id":"\#(id.uuidString)","kind":"future","summary":"s"}}"#
+        let event = try JSONDecoder().decode(QueryStreamEvent.self, from: Data(frame.utf8))
+        guard case let .assistantAction(action) = event else {
+            Issue.record("expected assistantAction, got \(event)")
+            return
+        }
+        #expect(action.kind == .unknown)
+    }
+
+    @Test func unknownStatusDecodesToUnknown() throws {
+        let res = try JSONDecoder().decode(
+            AssistantActionResolutionDTO.self,
+            from: Data(#"{"status":"future","message":"m"}"#.utf8)
+        )
+        #expect(res.status == .unknown)
+    }
 }

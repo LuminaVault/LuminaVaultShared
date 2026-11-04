@@ -1600,7 +1600,8 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
     case hermesRun(ChatHermesRunRefDTO)
     /// Quick Assistant: the turn needs the client to act (confirm, grant a
     /// permission, open a screen) or reports that it is done. Wire tag
-    /// `assistant_action`. Older builds decode it as `.unrecognized` and skip it.
+    /// `assistant_action`. The server only sends these frames on turns whose
+    /// request carried `quickAssistant`, so older builds never see them.
     case assistantAction(AssistantActionDTO)
     /// A `type` this build does not know. The server may add event types
     /// ahead of a client release, and a strict decode here would throw —
@@ -2089,6 +2090,13 @@ public enum AssistantActionKindDTO: String, Codable, Sendable, Hashable, CaseIte
 
 public enum AssistantScreenDTO: String, Codable, Sendable, Hashable, CaseIterable {
     case home, spaces, ai, brain, insights, settings, dataAccess, brief, learned, memory
+    /// A screen this build does not know; decoding maps any unrecognised value here.
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
 }
 
 public struct AssistantActionDTO: Codable, Sendable, Hashable {
@@ -2118,6 +2126,13 @@ public struct AssistantActionDTO: Codable, Sendable, Hashable {
 
 public enum AssistantActionStatusDTO: String, Codable, Sendable, Hashable, CaseIterable {
     case confirmed, cancelled, failed, expired, alreadyResolved
+    /// A status this build does not know; decoding maps any unrecognised value here.
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
 }
 
 public struct AssistantActionResolutionDTO: Codable, Sendable, Hashable {
