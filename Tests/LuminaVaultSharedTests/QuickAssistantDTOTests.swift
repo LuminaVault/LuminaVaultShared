@@ -17,6 +17,20 @@ struct QuickAssistantDTOTests {
         #expect(decoded.quickAssistant?.activeSpaceID == space)
     }
 
+    @Test func contextCarriesTheDevicesTimeZone() throws {
+        let ctx = QuickAssistantContextDTO(currentTab: "home", timeZone: "America/Santiago")
+        let data = try JSONEncoder().encode(ctx)
+        let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(json["timeZone"] as? String == "America/Santiago")
+        #expect(try JSONDecoder().decode(QuickAssistantContextDTO.self, from: data) == ctx)
+    }
+
+    @Test func contextFromAnOlderClientHasNoTimeZone() throws {
+        let decoded = try JSONDecoder().decode(QuickAssistantContextDTO.self, from: Data(#"{"currentTab":"home"}"#.utf8))
+        #expect(decoded.timeZone == nil)
+        #expect(QuickAssistantContextDTO(currentTab: "home").timeZone == nil)
+    }
+
     @Test func assistantActionFrameRoundTrips() throws {
         let action = AssistantActionDTO(
             id: UUID(),

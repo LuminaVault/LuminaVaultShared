@@ -2066,10 +2066,15 @@ public struct ChatAttachmentDTO: Codable, Sendable, Equatable {
 public struct QuickAssistantContextDTO: Codable, Sendable, Hashable {
     public let currentTab: String
     public let activeSpaceID: UUID?
+    /// The device's IANA time zone, such as `America/Santiago`. The server
+    /// checks it and falls back to the account's zone when it is absent or
+    /// not a real zone. Absent from older clients.
+    public let timeZone: String?
 
-    public init(currentTab: String, activeSpaceID: UUID? = nil) {
+    public init(currentTab: String, activeSpaceID: UUID? = nil, timeZone: String? = nil) {
         self.currentTab = currentTab
         self.activeSpaceID = activeSpaceID
+        self.timeZone = timeZone
     }
 }
 
