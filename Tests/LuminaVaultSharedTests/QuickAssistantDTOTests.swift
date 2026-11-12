@@ -26,7 +26,10 @@ struct QuickAssistantDTOTests {
     }
 
     @Test func contextFromAnOlderClientHasNoTimeZone() throws {
-        let decoded = try JSONDecoder().decode(QuickAssistantContextDTO.self, from: Data(#"{"currentTab":"home"}"#.utf8))
+        let decoded = try JSONDecoder().decode(
+            QuickAssistantContextDTO.self,
+            from: Data(#"{"currentTab":"home"}"#.utf8)
+        )
         #expect(decoded.timeZone == nil)
         #expect(QuickAssistantContextDTO(currentTab: "home").timeZone == nil)
     }
