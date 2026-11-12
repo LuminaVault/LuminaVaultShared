@@ -1598,6 +1598,11 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
     /// `chat.hermes_run` in `X-LV-Client-Caps`, because builds older than
     /// 5.16.0 abort the whole stream on an event type they do not know.
     case hermesRun(ChatHermesRunRefDTO)
+    /// Quick Assistant: the turn needs the client to act (confirm, grant a
+    /// permission, open a screen) or reports that it is done. Wire tag
+    /// `assistant_action`. The server only sends these frames on turns whose
+    /// request carried `quickAssistant`, so older builds never see them.
+    case assistantAction(AssistantActionDTO)
     /// A `type` this build does not know. The server may add event types
     /// ahead of a client release, and a strict decode here would throw —
     /// which `BaseHTTPClient.executeStream` turns into a dead stream,
@@ -1615,6 +1620,7 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case done, error, fallback, routing, usage, parallel
         case linkSaved = "link_saved"
         case hermesRun = "hermes_run"
+        case assistantAction = "assistant_action"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -1644,6 +1650,7 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case .parallel: self = try .parallel(c.decode(ParallelStreamEventDTO.self, forKey: .payload))
         case .linkSaved: self = try .linkSaved(c.decode(LinkSavedDTO.self, forKey: .payload))
         case .hermesRun: self = try .hermesRun(c.decode(ChatHermesRunRefDTO.self, forKey: .payload))
+        case .assistantAction: self = try .assistantAction(c.decode(AssistantActionDTO.self, forKey: .payload))
         }
     }
 
@@ -1690,6 +1697,9 @@ public enum QueryStreamEvent: Codable, Sendable, Equatable {
         case let .hermesRun(ref):
             try c.encode(EventType.hermesRun, forKey: .type)
             try c.encode(ref, forKey: .payload)
+        case let .assistantAction(action):
+            try c.encode(EventType.assistantAction, forKey: .type)
+            try c.encode(action, forKey: .payload)
         case let .unrecognized(rawType):
             try c.encode(rawType, forKey: .type)
         }
@@ -2052,6 +2062,94 @@ public struct ChatAttachmentDTO: Codable, Sendable, Equatable {
     }
 }
 
+/// Where the user is when they invoke the Quick Assistant card.
+public struct QuickAssistantContextDTO: Codable, Sendable, Hashable {
+    public let currentTab: String
+    public let activeSpaceID: UUID?
+    /// The device's IANA time zone, such as `America/Santiago`. The server
+    /// checks it and falls back to the account's zone when it is absent or
+    /// not a real zone. Absent from older clients.
+    public let timeZone: String?
+
+    public init(currentTab: String, activeSpaceID: UUID? = nil, timeZone: String? = nil) {
+        self.currentTab = currentTab
+        self.activeSpaceID = activeSpaceID
+        self.timeZone = timeZone
+    }
+}
+
+public enum AssistantActionKindDTO: String, Codable, Sendable, Hashable, CaseIterable {
+    case done
+    case needsConfirm
+    case needsPermission
+    case openScreen
+    /// A kind this build does not know. Decoding maps any unrecognised value
+    /// here instead of throwing, so a newer server cannot kill the stream.
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+public enum AssistantScreenDTO: String, Codable, Sendable, Hashable, CaseIterable {
+    case home, spaces, ai, brain, insights, settings, dataAccess, brief, learned, memory
+    /// A screen this build does not know; decoding maps any unrecognised value here.
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+public struct AssistantActionDTO: Codable, Sendable, Hashable {
+    public let id: UUID
+    public let kind: AssistantActionKindDTO
+    public let summary: String
+    public let screen: AssistantScreenDTO?
+    public let memoryID: UUID?
+    public let expiresAt: Date?
+
+    public init(
+        id: UUID,
+        kind: AssistantActionKindDTO,
+        summary: String,
+        screen: AssistantScreenDTO? = nil,
+        memoryID: UUID? = nil,
+        expiresAt: Date? = nil
+    ) {
+        self.id = id
+        self.kind = kind
+        self.summary = summary
+        self.screen = screen
+        self.memoryID = memoryID
+        self.expiresAt = expiresAt
+    }
+}
+
+public enum AssistantActionStatusDTO: String, Codable, Sendable, Hashable, CaseIterable {
+    case confirmed, cancelled, failed, expired, alreadyResolved
+    /// A status this build does not know; decoding maps any unrecognised value here.
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+public struct AssistantActionResolutionDTO: Codable, Sendable, Hashable {
+    public let status: AssistantActionStatusDTO
+    public let message: String
+
+    public init(status: AssistantActionStatusDTO, message: String) {
+        self.status = status
+        self.message = message
+    }
+}
+
 public struct MessageStreamRequest: Codable, Sendable {
     public let content: String
     public let multiModel: ChatMultiModelOptionsDTO?
@@ -2059,17 +2157,21 @@ public struct MessageStreamRequest: Codable, Sendable {
     /// behaviour exactly.
     public let agentMode: ChatAgentModeDTO?
     public let attachments: [ChatAttachmentDTO]?
+    /// Present only for Quick Assistant turns. Absent from older clients.
+    public let quickAssistant: QuickAssistantContextDTO?
 
     public init(
         content: String,
         multiModel: ChatMultiModelOptionsDTO? = nil,
         agentMode: ChatAgentModeDTO? = nil,
-        attachments: [ChatAttachmentDTO]? = nil
+        attachments: [ChatAttachmentDTO]? = nil,
+        quickAssistant: QuickAssistantContextDTO? = nil
     ) {
         self.content = content
         self.multiModel = multiModel
         self.agentMode = agentMode
         self.attachments = attachments
+        self.quickAssistant = quickAssistant
     }
 }
 
