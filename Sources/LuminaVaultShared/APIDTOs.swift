@@ -2095,6 +2095,9 @@ public enum AssistantActionKindDTO: String, Codable, Sendable, Hashable, CaseIte
 
 public enum AssistantScreenDTO: String, Codable, Sendable, Hashable, CaseIterable {
     case home, spaces, ai, brain, insights, settings, dataAccess, brief, learned, memory
+    /// One space, named by `AssistantActionDTO.spaceID`. Sent only to clients
+    /// that declared `chat.app_actions`.
+    case space
     /// A screen this build does not know; decoding maps any unrecognised value here.
     case unknown
 
@@ -2104,13 +2107,57 @@ public enum AssistantScreenDTO: String, Codable, Sendable, Hashable, CaseIterabl
     }
 }
 
+/// The kind of thing an assistant action changes.
+public enum AssistantResourceKindDTO: String, Codable, Sendable, Hashable, CaseIterable {
+    case space, vaultFile, memory
+    /// A kind this build does not know; decoding maps any unrecognised value here.
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+/// What an assistant action does to its resource.
+public enum AssistantChangeDTO: String, Codable, Sendable, Hashable, CaseIterable {
+    case created, updated, deleted, moved
+    /// A change this build does not know; decoding maps any unrecognised value here.
+    case unknown
+
+    public init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+}
+
+/// What an assistant action changes, so the app can reload the screen that
+/// shows it. On a `done` action the change has happened; on `needsConfirm` it
+/// happens when the user confirms.
+public struct AssistantResourceDTO: Codable, Sendable, Hashable {
+    public let kind: AssistantResourceKindDTO
+    /// The space, file or memory, when it has one to name.
+    public let id: UUID?
+    public let change: AssistantChangeDTO
+
+    public init(kind: AssistantResourceKindDTO, id: UUID? = nil, change: AssistantChangeDTO) {
+        self.kind = kind
+        self.id = id
+        self.change = change
+    }
+}
+
 public struct AssistantActionDTO: Codable, Sendable, Hashable {
     public let id: UUID
     public let kind: AssistantActionKindDTO
     public let summary: String
     public let screen: AssistantScreenDTO?
     public let memoryID: UUID?
+    /// The space to open when `screen` is `.space`.
+    public let spaceID: UUID?
     public let expiresAt: Date?
+    /// Absent from servers older than 5.36.0 and on actions that change nothing.
+    public let resource: AssistantResourceDTO?
 
     public init(
         id: UUID,
@@ -2118,14 +2165,18 @@ public struct AssistantActionDTO: Codable, Sendable, Hashable {
         summary: String,
         screen: AssistantScreenDTO? = nil,
         memoryID: UUID? = nil,
-        expiresAt: Date? = nil
+        spaceID: UUID? = nil,
+        expiresAt: Date? = nil,
+        resource: AssistantResourceDTO? = nil
     ) {
         self.id = id
         self.kind = kind
         self.summary = summary
         self.screen = screen
         self.memoryID = memoryID
+        self.spaceID = spaceID
         self.expiresAt = expiresAt
+        self.resource = resource
     }
 }
 

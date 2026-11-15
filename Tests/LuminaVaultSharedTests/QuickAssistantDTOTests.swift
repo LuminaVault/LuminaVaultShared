@@ -61,6 +61,38 @@ struct QuickAssistantDTOTests {
         #expect(got.expiresAt == action.expiresAt)
     }
 
+    @Test func actionCarriesTheResourceItChanges() throws {
+        let space = UUID()
+        let json = #"{"id":"\#(UUID().uuidString)","kind":"done","summary":"Created the space Health","resource":{"kind":"space","id":"\#(space.uuidString)","change":"created"}}"#
+        let action = try JSONDecoder().decode(AssistantActionDTO.self, from: Data(json.utf8))
+        #expect(action.resource == AssistantResourceDTO(kind: .space, id: space, change: .created))
+
+        let data = try JSONEncoder().encode(action)
+        #expect(try JSONDecoder().decode(AssistantActionDTO.self, from: data) == action)
+    }
+
+    @Test func aResourceWithNoIDDecodes() throws {
+        let json = #"{"kind":"vaultFile","change":"moved"}"#
+        let resource = try JSONDecoder().decode(AssistantResourceDTO.self, from: Data(json.utf8))
+        #expect(resource == AssistantResourceDTO(kind: .vaultFile, change: .moved))
+    }
+
+    @Test func unknownResourceValuesDoNotThrow() throws {
+        let json = #"{"id":"\#(UUID().uuidString)","kind":"done","summary":"s","resource":{"kind":"kanbanCard","change":"archived"}}"#
+        let action = try JSONDecoder().decode(AssistantActionDTO.self, from: Data(json.utf8))
+        #expect(action.resource?.kind == .unknown)
+        #expect(action.resource?.change == .unknown)
+    }
+
+    @Test func openingASpaceCarriesItsID() throws {
+        let space = UUID()
+        let json = #"{"id":"\#(UUID().uuidString)","kind":"openScreen","summary":"Opening Health","screen":"space","spaceID":"\#(space.uuidString)"}"#
+        let action = try JSONDecoder().decode(AssistantActionDTO.self, from: Data(json.utf8))
+        #expect(action.screen == .space)
+        #expect(action.spaceID == space)
+        #expect(action.resource == nil)
+    }
+
     @Test func unknownActionKindDoesNotThrow() throws {
         let id = UUID()
         let json = #"{"id":"\#(id.uuidString)","kind":"future","summary":"s"}"#
